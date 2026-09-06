@@ -1,0 +1,60 @@
+name: Pose Studio
+
+on:
+  pull_request:
+    paths:
+      - 'apps/pose-studio/**'
+      - 'scripts/verify-repository-topology.sh'
+      - 'README.md'
+      - '.github/REPOSITORY_POLICY.md'
+      - '.github/workflows/pose-studio.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/pose-studio/**'
+      - 'scripts/verify-repository-topology.sh'
+      - 'README.md'
+      - '.github/REPOSITORY_POLICY.md'
+      - '.github/workflows/pose-studio.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pose-studio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pose-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Verify repository topology
+        run: ./scripts/verify-repository-topology.sh
+      - name: Build and test Pose Studio
+        run: bash apps/pose-studio/scripts/check.sh
+      - name: Verify local-only manifest contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=apps/pose-studio/android/app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.INTERNET' "$manifest"
+          ! grep -q 'android.permission.ACCESS_NETWORK_STATE' "$manifest"
+      - name: Preserve Pose Studio build evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pose-studio-${{ github.sha }}
+          path: |
+            apps/pose-studio/android/app/build/outputs/apk/debug/app-debug.apk
+            apps/pose-studio/android/app/build/reports/tests/
+            apps/pose-studio/android/app/build/reports/lint-results-*.html
+            apps/pose-studio/android/app/build/reports/lint-results-*.txt
+          if-no-files-found: warn
+          retention-days: 14
