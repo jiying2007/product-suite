@@ -110,7 +110,7 @@ done
 
 test ! -f .github/workflows/source-release.yml
 python3 -m py_compile scripts/publish-source-release.py scripts/finalize-draft-release.py
-grep -Fq 'needs: [native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' .github/workflows/ci.yml
+grep -Fq 'needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' .github/workflows/ci.yml
 grep -Fq '"draft": True' scripts/publish-source-release.py
 grep -Fq '"make_latest": "false"' scripts/publish-source-release.py
 grep -Fq 'published release {tag} is missing required immutable assets' scripts/publish-source-release.py
