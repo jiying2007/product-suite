@@ -2,19 +2,12 @@ name: Harmony Device Build
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'platform/text/native/**'
-      - 'apps/jingdu/harmony/**'
-      - 'scripts/check-harmony.sh'
-      - '.github/workflows/harmony-device.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'platform/text/native/**'
-      - 'apps/jingdu/harmony/**'
-      - 'scripts/check-harmony.sh'
-      - '.github/workflows/harmony-device.yml'
+    inputs:
+      source_ref:
+        description: "Exact source tag, branch or commit SHA to build"
+        required: false
+        default: "main"
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +18,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+      - name: Record exact qualified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Harmony source_ref=${{ inputs.source_ref }} sha=$(git rev-parse HEAD)"
       - name: Build HarmonyOS app
         run: ./scripts/check-harmony.sh
       - name: Collect HAP/APP/native artifacts
