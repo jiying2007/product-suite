@@ -259,10 +259,7 @@ jobs:
           test -f "releases/source/${TAG}.md"
           grep -Fxq "version: ${TAG}" "releases/source/${TAG}.md"
           ANDROID_ROOT="apps/jingdu/android"
-          if [[ ! -f "$ANDROID_ROOT/app/build.gradle" ]]; then
-            LEGACY_SEGMENT="android"
-            ANDROID_ROOT="apps/${LEGACY_SEGMENT}"
-          fi
+          test -f "$ANDROID_ROOT/app/build.gradle"
           VERSION_CODE="$(ANDROID_ROOT="$ANDROID_ROOT" python3 - <<'PY'
           import os, re
           from pathlib import Path
