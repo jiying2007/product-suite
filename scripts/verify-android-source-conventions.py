@@ -4,8 +4,8 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-MAIN = ROOT / "apps/android/app/src/main/java"
-ACTIVE = [ROOT / ".github", ROOT / "apps/android", ROOT / "scripts"]
+MAIN = ROOT / "apps/jingdu/android/app/src/main/java"
+ACTIVE = [ROOT / ".github", ROOT / "apps/jingdu/android", ROOT / "scripts"]
 GENERATION_PATTERNS = (
     re.compile(r"(?i)(?:reader[a-z0-9_-]*|jingdu|smart[_ -]?clean)[_ -]?" + "v" + "3" + r"\b"),
     re.compile(r"(?i)smart[_ -]?clean[_ -]?" + "3" + r"\b"),

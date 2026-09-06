@@ -18,6 +18,6 @@ if [[ -z "$TIDY" ]]; then
 fi
 
 "$TIDY" \
-  core/native/src/core_api_cached.cpp core/native/src/index_cache.cpp core/native/src/sha256.cpp \
+  platform/text/native/src/core_api_cached.cpp platform/text/native/src/index_cache.cpp platform/text/native/src/sha256.cpp \
   -p build/native \
   --warnings-as-errors='clang-analyzer-*,bugprone-*,-bugprone-easily-swappable-parameters,-bugprone-implicit-widening-of-multiplication-result,performance-*,portability-*'

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ANDROID_DIR="$ROOT/apps/android"
+ANDROID_DIR="$ROOT/apps/jingdu/android"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 NDK_VERSION="29.0.14206865"
 NDK_DIR="$SDK_ROOT/ndk/$NDK_VERSION"

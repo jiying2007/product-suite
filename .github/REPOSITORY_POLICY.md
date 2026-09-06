@@ -6,7 +6,7 @@ Do not reintroduce:
 
 - compatibility or migration implementations for the removed experimental product line;
 - prototype production roots or a second Java/Kotlin/ArkTS document core;
-- platform-specific search/chapter/repair/identity semantics that belong in `core/native`;
+- platform-specific search/chapter/repair/identity semantics that belong in `platform/text/native`;
 - committed build artifacts, production signing material or extracted third-party application packages.
 
 The repository-stable Android debug keystore under `config/signing/android-debug.keystore` is an intentional exception: it is public/test signing material used for the current GitHub release stage so successive downloadable APKs retain a stable Android debug identity.

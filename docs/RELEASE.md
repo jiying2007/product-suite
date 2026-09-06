@@ -24,7 +24,7 @@ This does **not** mean Google Play production signing or rollout has occurred. P
 ## Android build
 
 ```bash
-cd apps/android
+cd apps/jingdu/android
 ./gradlew --no-daemon --no-configuration-cache --warning-mode all \
   -PjingduApplicationId=com.junchen.jingdu \
   -PjingduVersionCode=<monotonic-code> \

@@ -4,13 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APP_GRADLE="apps/android/app/build.gradle"
+APP_GRADLE="apps/jingdu/android/app/build.gradle"
 CI=".github/workflows/ci.yml"
 PHYSICAL=".github/workflows/android-physical-release-performance.yml"
-MANIFEST="apps/android/app/src/main/AndroidManifest.xml"
+MANIFEST="apps/jingdu/android/app/src/main/AndroidManifest.xml"
 FUNCTIONAL="scripts/run-android-functional-tests-ci.sh"
 NATIVE_COMPAT="scripts/verify-android-16k-page-size.sh"
-READER_FIXTURE="apps/android/app/src/androidTest/java/com/junchen/jingdu/ReaderInstrumentationFixture.kt"
+READER_FIXTURE="apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/ReaderInstrumentationFixture.kt"
 
 # Production-native compatibility and symbolication must not regress silently.
 grep -Fq 'ndkVersion = "29.0.14206865"' "$APP_GRADLE"
@@ -53,11 +53,11 @@ fi
 test -f "$READER_FIXTURE"
 grep -Fq 'BookRepository(appContext)' "$READER_FIXTURE"
 grep -Fq 'repository.importUri' "$READER_FIXTURE"
-grep -Fq 'ReaderInstrumentationFixture.book(context)' apps/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt
-grep -Fq 'ReaderInstrumentationFixture.book(context)' apps/android/app/src/androidTest/java/com/junchen/jingdu/ReaderPagingRegressionTest.kt
-test -f apps/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
-grep -Fq 'NativeCore.fileSha256' apps/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
-grep -Fq 'ReaderController(false)' apps/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
+grep -Fq 'ReaderInstrumentationFixture.book(context)' apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt
+grep -Fq 'ReaderInstrumentationFixture.book(context)' apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/ReaderPagingRegressionTest.kt
+test -f apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
+grep -Fq 'NativeCore.fileSha256' apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
+grep -Fq 'ReaderController(false)' apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/NativePageSizeSmokeTest.kt
 grep -Fq 'android-native-compat:' "$CI"
 grep -Fq 'android-functional, android-native-compat, android-performance' "$CI"
 
@@ -72,18 +72,18 @@ if grep -Fq 'android.permission.INTERNET' "$MANIFEST"; then
   echo "Android Manifest unexpectedly requests INTERNET" >&2
   exit 1
 fi
-test -f apps/android/app/src/main/java/com/junchen/jingdu/ProductErrorLog.kt
-grep -Fq 'never exception messages, paths, URIs, book names/text, search queries or purchase' apps/android/app/src/main/java/com/junchen/jingdu/ProductErrorLog.kt
-grep -Fq 'containsPurchaseTokens' apps/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
+test -f apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ProductErrorLog.kt
+grep -Fq 'never exception messages, paths, URIs, book names/text, search queries or purchase' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ProductErrorLog.kt
+grep -Fq 'containsPurchaseTokens' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
 
 # Commercial behavior and immutable private publication are isolated into testable policies.
-test -f apps/android/app/src/main/java/com/junchen/jingdu/BillingEntitlementPolicy.kt
-test -f apps/android/app/src/test/java/com/junchen/jingdu/BillingEntitlementPolicyTest.kt
-test -f apps/android/app/src/main/java/com/junchen/jingdu/PrivateFilePublisher.kt
-test -f apps/android/app/src/test/java/com/junchen/jingdu/PrivateFilePublisherTest.kt
+test -f apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingEntitlementPolicy.kt
+test -f apps/jingdu/android/app/src/test/java/com/junchen/jingdu/BillingEntitlementPolicyTest.kt
+test -f apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivateFilePublisher.kt
+test -f apps/jingdu/android/app/src/test/java/com/junchen/jingdu/PrivateFilePublisherTest.kt
 
 # Bounded TTS semantic navigation stays host-testable while real engine/routes remain device evidence.
-test -f apps/android/app/src/test/java/com/junchen/jingdu/TtsSemanticNavigatorTest.kt
+test -f apps/jingdu/android/app/src/test/java/com/junchen/jingdu/TtsSemanticNavigatorTest.kt
 
 # Smart Clean held-out evidence must remain production-scale and independent from training rows.
 test -f quality/smartclean/eval-v2-matrix.json

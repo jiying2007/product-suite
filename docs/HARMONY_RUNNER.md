@@ -61,7 +61,7 @@ Then, from a clean checkout, run:
 ./scripts/check-harmony.sh
 ```
 
-The command must exit zero and produce at least one `.hap` under `apps/harmony`.
+The command must exit zero and produce at least one `.hap` under `apps/jingdu/harmony`.
 
 ## CI evidence
 

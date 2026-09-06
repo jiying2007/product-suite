@@ -40,9 +40,9 @@ Android Compose / Kotlin platform shell -- JNI -----+
 HarmonyOS ArkUI / ArkTS platform shell ----- NAPI --+
 ```
 
-- `core/native/` — 唯一跨平台文本/算法实现，包括编码、索引、搜索、目录、Repair、Smart Clean。
-- `apps/android/` — Reader Compose 产品壳、平台生命周期/TTS/Google Play Billing & Review、JNI。
-- `apps/harmony/` — HarmonyOS Stage/ArkUI + Node-API shell（当前 source-complete/pre-release）。
+- `platform/text/native/` — 唯一跨平台文本/算法实现，包括编码、索引、搜索、目录、Repair、Smart Clean。
+- `apps/jingdu/android/` — Reader Compose 产品壳、平台生命周期/TTS/Google Play Billing & Review、JNI。
+- `apps/jingdu/harmony/` — HarmonyOS Stage/ArkUI + Node-API shell（当前 source-complete/pre-release）。
 - `fastlane/metadata/android/` — 四地区默认 Play 商店元数据。
 - `store/play/` — keyword-targeted Custom Listing 规格和多语言截图制作 brief。
 - `docs/` — 产品、商业化、UX、Localization、架构、ABI、性能、测试、发布事实源与 production readiness 证据合同。
@@ -65,7 +65,7 @@ HarmonyOS ArkUI / ArkTS platform shell ----- NAPI --+
 
 ```bash
 ./scripts/check-native.sh
-cd apps/android && ./gradlew --no-daemon --warning-mode all androidCheck
+cd apps/jingdu/android && ./gradlew --no-daemon --warning-mode all androidCheck
 cd ../..
 ./scripts/verify-android-i18n.py
 ./scripts/verify-play-store.sh

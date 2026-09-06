@@ -1,6 +1,6 @@
 # Jingdu Shared Core
 
-`core/native` is the only production business/algorithm core for Android and HarmonyOS.
+`platform/text/native` is the only production business/algorithm core for Android and HarmonyOS.
 
 ABI v2 provides:
 

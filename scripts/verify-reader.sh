@@ -21,81 +21,81 @@ forbid_literal() {
 
 required=(
   docs/PRODUCTION_READINESS.md
-  apps/android/readerproto/src/main/proto/reader_settings.proto
-  apps/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderPresentationPipeline.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderTypographySpec.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderViewportEngine.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderSelectionController.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderSkimController.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderDatabase.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderAnnotationStore.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderQuickPanels.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderPanelSurface.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderSmartChaptersPanel.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderInsightsPanels.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
-  apps/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
-  apps/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
-  apps/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
-  apps/android/app/src/benchmark/AndroidManifest.xml
-  apps/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
-  apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
-  apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
+  apps/jingdu/android/readerproto/src/main/proto/reader_settings.proto
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPresentationPipeline.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTypographySpec.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewportEngine.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSelectionController.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSkimController.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderDatabase.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderAnnotationStore.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderQuickPanels.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPanelSurface.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSmartChaptersPanel.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderInsightsPanels.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
+  apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
+  apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
+  apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
+  apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
-  core/native/src/index_cache.h
-  core/native/src/index_cache.cpp
-  core/native/src/core_api_cached.cpp
-  core/native/tests/core_api_test.cpp
-  core/native/tests/core_performance_gate_test.cpp
+  platform/text/native/src/index_cache.h
+  platform/text/native/src/index_cache.cpp
+  platform/text/native/src/core_api_cached.cpp
+  platform/text/native/tests/core_api_test.cpp
+  platform/text/native/tests/core_performance_gate_test.cpp
 )
 for path in "${required[@]}"; do require_file "$path"; done
 
-prefs=apps/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
-screen=apps/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
-engine=apps/android/app/src/main/java/com/junchen/jingdu/ReaderViewportEngine.kt
-controller=apps/android/app/src/main/java/com/junchen/jingdu/ReaderController.kt
-book_repository=apps/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
-pipeline=apps/android/app/src/main/java/com/junchen/jingdu/ReaderPresentationPipeline.kt
-annotations=apps/android/app/src/main/java/com/junchen/jingdu/ReaderAnnotationStore.kt
-stats=apps/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
-settings=apps/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
-app=apps/android/app/src/main/java/com/junchen/jingdu/JingduApp.kt
-activity=apps/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
-quick_panel=apps/android/app/src/main/java/com/junchen/jingdu/ReaderQuickPanels.kt
-panel_surface=apps/android/app/src/main/java/com/junchen/jingdu/ReaderPanelSurface.kt
-smart_panel=apps/android/app/src/main/java/com/junchen/jingdu/ReaderSmartChaptersPanel.kt
-smart_toc_cache=apps/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
-hot_controls=apps/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
-fast_text=apps/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
-service=apps/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
-player=apps/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
-navigator=apps/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
-proto=apps/android/readerproto/src/main/proto/reader_settings.proto
-foundations=apps/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
-motion=apps/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
-journey=apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
-baseline=apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
-fixture=apps/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
-benchmark_manifest=apps/android/app/src/benchmark/AndroidManifest.xml
-macrobenchmark_gradle=apps/android/macrobenchmark/build.gradle
+prefs=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
+screen=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
+engine=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewportEngine.kt
+controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderController.kt
+book_repository=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
+pipeline=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPresentationPipeline.kt
+annotations=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderAnnotationStore.kt
+stats=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
+settings=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+app=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/JingduApp.kt
+activity=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
+quick_panel=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderQuickPanels.kt
+panel_surface=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPanelSurface.kt
+smart_panel=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSmartChaptersPanel.kt
+smart_toc_cache=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
+hot_controls=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
+fast_text=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
+service=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+player=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
+navigator=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
+proto=apps/jingdu/android/readerproto/src/main/proto/reader_settings.proto
+foundations=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
+motion=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
+journey=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
+baseline=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
+fixture=apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
+benchmark_manifest=apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
+macrobenchmark_gradle=apps/jingdu/android/macrobenchmark/build.gradle
 benchmark_runner=scripts/run-android-macrobenchmark-ci.sh
-smart_toc=apps/android/app/src/main/java/com/junchen/jingdu/SmartToc.kt
-index_cache=core/native/src/index_cache.cpp
-cached_core=core/native/src/core_api_cached.cpp
-core_test=core/native/tests/core_api_test.cpp
+smart_toc=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartToc.kt
+index_cache=platform/text/native/src/index_cache.cpp
+cached_core=platform/text/native/src/core_api_cached.cpp
+core_test=platform/text/native/tests/core_api_test.cpp
 
 require_literal "$prefs" 'DataStore<ReaderSettingsProto>' 'typed settings datastore'
 require_literal "$prefs" 'reader-settings.pb' ' settings store'
@@ -109,8 +109,8 @@ require_literal "$proto" 'double_tap_action' 'double tap proto'
 forbid_literal "$prefs" 'preferencesDataStore' 'legacy preferencesDataStore'
 forbid_literal "$prefs" 'jingdu_reader_v2' 'legacy reader v2 settings'
 
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt 'class TextProjection' 'text projection'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt 'bestCost == Int.MAX_VALUE' 'projection bounded fallback'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt 'class TextProjection' 'text projection'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TextProjection.kt 'bestCost == Int.MAX_VALUE' 'projection bounded fallback'
 require_literal "$engine" 'ReaderPresentationPipeline.present' 'shared presentation pipeline'
 require_literal "$pipeline" 'SourceDisplayMap.compose' 'projection composition'
 require_literal "$engine" 'typographyFingerprint = 31 * spec.fingerprint + settings.emphasizeHeadings.hashCode()' 'heading-aware typography fingerprint'
@@ -129,7 +129,7 @@ require_literal "$book_repository" 'prewarmChapterIndex(updated)' 'redecode chap
 require_literal "$book_repository" 'source.chapters()' 'authoritative Core chapter prewarm'
 require_literal "$smart_toc" 'MIN_CORE_CHAPTERS_FOR_COMPLETE_TOC = 20' 'sparse TOC threshold'
 require_literal "$smart_toc" 'if (merged.size < MIN_CORE_CHAPTERS_FOR_COMPLETE_TOC)' 'sparse-only TOC enrichment'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderTypographySpec.kt 'PARAGRAPH_SPACER' 'paragraph spacing sentinel'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTypographySpec.kt 'PARAGRAPH_SPACER' 'paragraph spacing sentinel'
 
 require_literal "$screen" 'val slideAnimation = settings.pageAnimation == ReaderPageAnimation.SLIDE' 'conditional slide animation'
 require_literal "$screen" 'val pageDirection = state.pageTurnDirection' 'state-owned slide direction'
@@ -151,7 +151,7 @@ forbid_literal "$screen" 'LaunchedEffect(activity, state.panel)' 'stale Reader-l
 forbid_literal "$screen" 'LaunchedEffect(readerContentReady, controlsVisible, state.panel' 'stale Reader-local auto-hide subscription'
 forbid_literal "$screen" '{ controlsVisibility.value = !controlsVisibility.value }' 'legacy direct controls toggle callback'
 forbid_literal "$screen" '{ controlsVisible = !controlsVisible }' 'stale captured controls toggle callback'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/UiModels.kt 'val pageTurnDirection: Int = 0' 'page direction UI state'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UiModels.kt 'val pageTurnDirection: Int = 0' 'page direction UI state'
 require_literal "$screen" 'state.position, state.pageText, settings, state.annotations, state.tts, adaptiveLayout' 'paged route minimal source'
 require_literal "$screen" 'private data class ReaderPreparedPage' 'single prepared page state'
 require_literal "$screen" 'val presented = ReaderPresentationPipeline.present(sourceText, settings)' 'prepared page presentation'
@@ -210,8 +210,8 @@ require_literal "$smart_panel" 'LazyColumn(' 'scrolling chapters list'
 require_literal "$smart_panel" 'rememberLazyListState(' 'chapter list state'
 forbid_literal "$smart_panel" 'CHAPTER_WINDOW_ROWS' 'manual chapter pagination'
 forbid_literal "$smart_panel" 'ReaderCanvasPanel(' 'chapter Canvas hit map'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderGesturePolicy.kt 'allowsPageSwipe' 'selection-aware paging policy'
-require_literal apps/android/app/src/test/java/com/junchen/jingdu/ReaderGesturePolicyTest.kt 'fastHorizontalSwipeCanPassSelectionConsumption' 'gesture arbitration regression test'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderGesturePolicy.kt 'allowsPageSwipe' 'selection-aware paging policy'
+require_literal apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderGesturePolicyTest.kt 'fastHorizontalSwipeCanPassSelectionConsumption' 'gesture arbitration regression test'
 forbid_literal "$app" 'if (state.screen == AppScreen.READER && state.currentBook != null && !state.chaptersLoaded) actions.onEnsureChapters()' 'eager chapter UI-state preload'
 
 require_literal "$activity" 'progressWorkers: ExecutorService' 'progress IO worker'
@@ -230,14 +230,14 @@ require_literal "$app" 'val trackedActions = remember(actions)' 'stable reader a
 require_literal "$app" 'val panelState = rememberUpdatedState(state.panel)' 'stable ordinary panel state object'
 require_literal "$app" 'val hotPanelState: State<ReaderPanel?>' 'stable hot panel state object'
 require_literal "$app" 'readerState, trackedActions, snackbar, panelState,' 'ordinary panel state forwarded to Reader route'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'panelState: State<ReaderPanel?>' 'Reader route ordinary panel state boundary'
-forbid_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'hotPanelState: State<ReaderPanel?>' 'hot panel state forwarded through Reader route'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'panelState: State<ReaderPanel?>' 'Reader route ordinary panel state boundary'
+forbid_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'hotPanelState: State<ReaderPanel?>' 'hot panel state forwarded through Reader route'
 forbid_literal "$screen" 'hotPanelState: State<ReaderPanel?>' 'hot panel state subscribed by Reader root'
 require_literal "$app" 'ReaderHotPanelBackHandler(hotPanelState' 'isolated hot panel BackHandler'
 require_literal "$app" 'PersistentReaderPanelLayer(hotPanelState, ReaderPanel.QUICK_SETTINGS, quickPanelState)' 'cached quick panel visibility'
 require_literal "$app" 'PersistentReaderPanelLayer(hotPanelState, ReaderPanel.CHAPTERS, chaptersPanelState, keepDrawWarm = true)' 'cached chapters panel pre-record visibility'
 forbid_literal "$app" 'PersistentReaderPanelLayer(panel ==' 'composition-owned panel visibility'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt 'val hotPanel: StateFlow<ReaderPanel?>' 'hot panel state flow'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt 'val hotPanel: StateFlow<ReaderPanel?>' 'hot panel state flow'
 require_literal "$activity" 'readerViewModel.openHotPanel(panel)' 'hot panel publication boundary'
 require_literal "$activity" 'hotPanel = readerViewModel.hotPanel' 'hot panel flow injection'
 require_literal "$app" 'ReaderPanel.QUICK_SETTINGS, ReaderPanel.CHAPTERS -> Unit' 'persistent panel route ownership'
@@ -267,7 +267,7 @@ require_literal "$app" 'placeable.place(' 'hot-panel hit-test placement without 
 forbid_literal "$app" 'placeable.placeWithLayer(' 'persistent full-screen hot-panel graphics layer'
 require_literal "$app" 'y = if (visible || warming) 0 else READER_PANEL_HIDDEN_OFFSET_PX' 'offscreen hidden hot-panel hit isolation after bounded pre-record'
 forbid_literal "$app" 'hideFromAccessibility()' 'dynamic hot-panel accessibility subtree rebuild'
-require_literal apps/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt 'hiddenHotPanelsRemainPhysicallyOffscreen' 'hidden hot-panel offscreen UI verification'
+require_literal apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt 'hiddenHotPanelsRemainPhysicallyOffscreen' 'hidden hot-panel offscreen UI verification'
 forbid_literal "$app" 'translationY = if (visible) 0f else READER_PANEL_HIDDEN_OFFSET_PX.toFloat()' 'graphics-only hot-panel hit isolation'
 require_literal "$quick_panel" 'ReaderPanelSurface(onDismiss = actions.onClosePanel)' 'quick panel surface'
 require_literal "$smart_panel" 'ReaderPanelSurface(onDismiss = actions.onClosePanel)' 'chapters panel surface'
@@ -285,7 +285,7 @@ forbid_literal "$smart_panel" 'chapters.map { ReaderTextPresentation.chapterTitl
 require_literal "$smart_panel" 'val displayTitle = ReaderTextPresentation.chapterTitle(chapter.title, state.settings)' 'viewport-only chapter title presentation'
 require_literal "$smart_panel" 'if (editing && quality.isNotBlank())' 'TOC quality metadata edit-only'
 require_literal "$smart_panel" '.then(editSemantics)' 'TOC default navigation skips edit semantics'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderPanelCanvasText.kt 'TextUtils.ellipsize' 'TOC navigation single-line canvas ellipsis'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPanelCanvasText.kt 'TextUtils.ellipsize' 'TOC navigation single-line canvas ellipsis'
 forbid_literal "$smart_panel" 'else MaterialTheme.colorScheme.surface,' 'redundant unselected chapter row surface draw'
 require_literal "$smart_panel" 'CustomAccessibilityAction(hideActionLabel)' 'chapter hide custom accessibility action'
 require_literal "$smart_panel" 'Box(Modifier.clearAndSetSemantics {})' 'deduplicated chapter delete semantics'
@@ -297,7 +297,7 @@ forbid_literal "$smart_panel" 'val listState = rememberLazyListState()' 'post-sh
 require_literal "$baseline" 'visibleBounds(By.desc("Reading settings")) ?: visibleBounds(By.text("Aa"))' 'profile semantic settings selector'
 forbid_literal "$smart_panel" 'SmartToc.analyze(reader)' 'full scan inside panel'
 require_literal "$panel_surface" 'same composition tree' 'single composition panel surface'
-test ! -e apps/android/app/src/main/java/com/junchen/jingdu/ReaderHotPanels.kt || { echo 'Reader superseded hot panels remain' >&2; exit 1; }
+test ! -e apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotPanels.kt || { echo 'Reader superseded hot panels remain' >&2; exit 1; }
 
 require_literal "$index_cache" 'kMagicV1 = "JDX1"' 'JDX1 detector'
 require_literal "$index_cache" 'kMagicV2 = "JDX2"' 'JDX2 detector'
@@ -309,7 +309,7 @@ require_literal "$cached_core" 'save_index_cache_with_chapters' 'chapter cache u
 require_literal "$core_test" 'first chapter scan upgrades cache to JDX2' 'chapter cache upgrade test'
 require_literal "$core_test" 'JDX2 chapters preserve authoritative output' 'chapter cache correctness test'
 
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderDatabase.kt '@Database' 'Room database'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderDatabase.kt '@Database' 'Room database'
 require_literal "$annotations" 'ReaderAnnotationEntity' 'Room annotation entity'
 require_literal "$annotations" 'reanchor(item' 'annotation reanchor'
 require_literal "$stats" 'ReaderSessionEntity' 'Room session entity'
@@ -322,11 +322,11 @@ require_literal "$screen" 'ReaderSelectionController.fromSelectedTexts' 'selecti
 require_literal "$screen" 'extendAcrossBoundary' 'two-stage selection'
 require_literal "$screen" 'ReaderSkimController' 'skim controller'
 require_literal "$screen" 'ReaderSkimPreviewCard' 'skim preview'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt 'MutableStateFlow' 'UDF state flow'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewModel.kt 'MutableStateFlow' 'UDF state flow'
 require_literal "$app" 'ReaderSettingsScreen' 'settings route'
 require_literal "$app" 'ReaderAnnotationsPanel' 'annotations route'
 require_literal "$app" 'ReaderReadingMapPanel' 'reading map route'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'ReaderScreen' 'Reader route'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderRoute.kt 'ReaderScreen' 'Reader route'
 
 require_literal "$settings" 'ReaderPreset.entries' 'preset selector'
 require_literal "$prefs" 'ReaderPreset.LOW_VISION' 'low vision settings'
@@ -356,7 +356,7 @@ require_literal "$navigator" 'previousSentence' 'previous sentence'
 require_literal "$navigator" 'nextSentence' 'next sentence'
 require_literal "$navigator" 'previousParagraph' 'previous paragraph'
 require_literal "$navigator" 'nextParagraph' 'next paragraph'
-require_literal apps/android/app/src/main/AndroidManifest.xml 'androidx.media3.session.MediaSessionService' 'Media3 manifest service'
+require_literal apps/jingdu/android/app/src/main/AndroidManifest.xml 'androidx.media3.session.MediaSessionService' 'Media3 manifest service'
 forbid_literal "$service" 'android.media.session.MediaSession' 'platform MediaSession authority'
 
 require_literal "$foundations" 'localizedDeletionDoesNotScaleUnchangedSuffix' 'localized projection deletion test'
@@ -425,23 +425,23 @@ python3 -m py_compile scripts/check-android-performance-slo.py scripts/test-andr
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 
-require_literal core/native/CMakeLists.txt 'JINGDU_PERF_FIXTURE_MIB=960' 'near-1GiB fixture'
-require_literal core/native/CMakeLists.txt 'jingdu_core_near_1gib_rss_gate_test' 'near-1GiB CTest'
-require_literal core/native/tests/core_performance_gate_test.cpp 'rssMiB < 640L' 'native RSS SLO'
+require_literal platform/text/native/CMakeLists.txt 'JINGDU_PERF_FIXTURE_MIB=960' 'near-1GiB fixture'
+require_literal platform/text/native/CMakeLists.txt 'jingdu_core_near_1gib_rss_gate_test' 'near-1GiB CTest'
+require_literal platform/text/native/tests/core_performance_gate_test.cpp 'rssMiB < 640L' 'native RSS SLO'
 
 for legacy in \
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderV2Panels.kt \
-  apps/android/app/src/main/java/com/junchen/jingdu/ReaderAdvancedSettingsSheet.kt \
-  apps/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.java \
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderV2Panels.kt \
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderAdvancedSettingsSheet.kt \
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.java \
   scripts/verify-reader-v2.sh; do
   test ! -e "$legacy" || { echo "Reader hard cut left legacy asset: $legacy" >&2; exit 1; }
 done
-if find apps/android/app/src/main/res -name 'strings_reader_v2.xml' -print -quit | grep -q .; then
+if find apps/jingdu/android/app/src/main/res -name 'strings_reader_v2.xml' -print -quit | grep -q .; then
   echo 'Reader hard cut left legacy reader_v2 resource container' >&2
   exit 1
 fi
 
-if grep -F -q 'android.permission.INTERNET' apps/android/app/src/main/AndroidManifest.xml; then
+if grep -F -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/AndroidManifest.xml; then
   echo 'Reader forbids INTERNET' >&2
   exit 1
 fi
@@ -467,7 +467,7 @@ require_literal scripts/check-android-performance-slo.py '"chaptersAndSettings10
 require_literal scripts/test-android-performance-slo.py 'test_required_interaction_sample_counts_reject_truncated_evidence' 'performance evidence regression test'
 
 require_literal "$smart_panel" 'ReaderPanelText(' 'native-canvas default TOC row text'
-require_literal apps/android/app/src/main/java/com/junchen/jingdu/ReaderPanelCanvasText.kt 'Canvas(modifier.semantics { contentDescription = text })' 'canvas TOC text accessibility label'
+require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPanelCanvasText.kt 'Canvas(modifier.semantics { contentDescription = text })' 'canvas TOC text accessibility label'
 
 require_literal "$app" 'keepDrawWarm = true' 'Chapters bounded draw pre-record opt-in'
 require_literal "$app" 'var drawWarmReady by remember(recordKey, keepDrawWarm)' 'bounded hot-panel pre-record state'

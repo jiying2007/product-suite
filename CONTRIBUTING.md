@@ -23,9 +23,9 @@ Before merge:
 
 ## Ownership boundaries
 
-- `core/native`: all document algorithms and cross-platform semantic contracts;
-- `apps/android`: Android UI, lifecycle, files, charset adapter, TTS/audio and JNI only;
-- `apps/harmony`: ArkUI/lifecycle/files/charset adapter/Core Speech Kit and Node-API only.
+- `platform/text/native`: all document algorithms and cross-platform semantic contracts;
+- `apps/jingdu/android`: Android UI, lifecycle, files, charset adapter, TTS/audio and JNI only;
+- `apps/jingdu/harmony`: ArkUI/lifecycle/files/charset adapter/Core Speech Kit and Node-API only.
 
 If a behavior can produce different search offsets, chapter offsets, normalized identity, repair output or speech segmentation between platforms, it belongs in the shared core.
 

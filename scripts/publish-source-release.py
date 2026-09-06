@@ -85,8 +85,8 @@ def paged(path: str) -> list[dict]:
 
 
 def declared_version() -> str:
-    app = Path("apps/android/app/build.gradle").read_text(encoding="utf-8")
-    root = Path("apps/android/build.gradle").read_text(encoding="utf-8")
+    app = Path("apps/jingdu/android/app/build.gradle").read_text(encoding="utf-8")
+    root = Path("apps/jingdu/android/build.gradle").read_text(encoding="utf-8")
     app_match = re.search(r'versionNameProperty\.getOrElse\("([^\"]+)"\)', app)
     root_match = re.search(r'jingduVersionName"\)\.getOrElse\("([^\"]+)"\)', root)
     if not app_match or not root_match:

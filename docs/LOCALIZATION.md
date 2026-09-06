@@ -10,7 +10,7 @@ Android ships three first-class UI language families:
 - `zh-Hans` — Simplified Chinese.
 - `zh-Hant` — Traditional Chinese. Regional overrides may be added only when Taiwan or Hong Kong wording materially differs.
 
-`apps/android/app/src/main/res/resources.properties` declares `en-US` as the unqualified locale and AGP generates the platform `LocaleConfig`. The app follows the Android per-app/system language selection; Jingdu does not maintain a second custom language preference.
+`apps/jingdu/android/app/src/main/res/resources.properties` declares `en-US` as the unqualified locale and AGP generates the platform `LocaleConfig`. The app follows the Android per-app/system language selection; Jingdu does not maintain a second custom language preference.
 
 All three `strings.xml` files must contain the same resource-key set. User-facing Compose copy belongs in resources, not Kotlin literals.
 

@@ -8,7 +8,7 @@ Android Compose / Kotlin platform shell -- JNI -----+
 HarmonyOS ArkUI / ArkTS platform shell ----- NAPI --+
 ```
 
-`core/native` is the single source of truth for cross-platform document semantics. Platform shells own only operating-system capabilities: document picker/export, charset decoding into app-private UTF-8, UI/lifecycle, concurrency adapters, TTS/audio, preferences and store signing.
+`platform/text/native` is the single source of truth for cross-platform document semantics. Platform shells own only operating-system capabilities: document picker/export, charset decoding into app-private UTF-8, UI/lifecycle, concurrency adapters, TTS/audio, preferences and store signing.
 
 Android is Compose-first. Its UI state, responsive layout and reading interaction are implemented in Kotlin/Jetpack Compose Material 3; JNI remains a thin adapter to the same native Core. There is no View-based fallback screen or Java business Core.
 
