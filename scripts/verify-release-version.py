@@ -6,8 +6,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-APP = Path("apps/android/app/build.gradle")
-ROOT = Path("apps/android/build.gradle")
+APP = Path("apps/jingdu/android/app/build.gradle")
+ROOT = Path("apps/jingdu/android/build.gradle")
 MANIFEST_ROOT = Path("releases/source")
 
 

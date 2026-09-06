@@ -56,23 +56,23 @@ PY
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
 
-grep -q 'com.android.billingclient:billing:9.1.0' apps/android/app/build.gradle
-grep -q 'com.google.android.play:review:2.0.2' apps/android/app/build.gradle
+grep -q 'com.android.billingclient:billing:9.1.0' apps/jingdu/android/app/build.gradle
+grep -q 'com.google.android.play:review:2.0.2' apps/jingdu/android/app/build.gradle
 
-grep -q 'jingdu_pro_lifetime' apps/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
-grep -q 'enableOneTimeProducts' apps/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
-grep -q 'queryPurchasesAsync' apps/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
-grep -q 'Purchase.PurchaseState.PURCHASED' apps/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
-grep -q 'acknowledgePurchase' apps/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
+grep -q 'jingdu_pro_lifetime' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
+grep -q 'enableOneTimeProducts' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
+grep -q 'queryPurchasesAsync' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
+grep -q 'Purchase.PurchaseState.PURCHASED' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
+grep -q 'acknowledgePurchase' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
 
-grep -q 'R.string.scan_noise_free' apps/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
-grep -q 'R.string.unlock_pro_apply' apps/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
-grep -q 'R.string.offline_voice' apps/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
-grep -q 'R.string.local_asset_backup' apps/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
-grep -q 'OpenMultipleDocuments' apps/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
-grep -q 'ReviewManagerFactory' apps/android/app/src/main/java/com/junchen/jingdu/ReviewPrompter.kt
+grep -q 'R.string.scan_noise_free' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+grep -q 'R.string.offline_voice' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'R.string.local_asset_backup' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'OpenMultipleDocuments' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
+grep -q 'ReviewManagerFactory' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReviewPrompter.kt
 
-if grep -q 'android.permission.INTERNET' apps/android/app/src/main/AndroidManifest.xml; then
+if grep -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/AndroidManifest.xml; then
   echo 'direct INTERNET permission is forbidden by local/private product position' >&2
   exit 1
 fi

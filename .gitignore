@@ -7,5 +7,5 @@ keystore.properties
 *.iml
 .cache/
 .DS_Store
-apps/harmony/oh_modules/
-apps/harmony/.hvigor/
+apps/jingdu/harmony/oh_modules/
+apps/jingdu/harmony/.hvigor/

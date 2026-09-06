@@ -1,10 +1,10 @@
 # Shared Core Contract
 
-`core/native` is the only implementation of document algorithm semantics. Android and HarmonyOS may adapt files, threads, lifecycle, UI, TTS, commerce and OS storage, but must not fork encoding/read/search/chapter/repair/Smart-Clean behavior.
+`platform/text/native` is the only implementation of document algorithm semantics. Android and HarmonyOS may adapt files, threads, lifecycle, UI, TTS, commerce and OS storage, but must not fork encoding/read/search/chapter/repair/Smart-Clean behavior.
 
 ## ABI
 
-Public boundary: `core/native/include/jingdu/core_api.h`. ABI v2 is a stable C ABI used by JNI and Node-API.
+Public boundary: `platform/text/native/include/jingdu/core_api.h`. ABI v2 is a stable C ABI used by JNI and Node-API.
 
 Rules:
 - breaking ABI changes increment `jd_abi_version()` and update bridges/tests/docs together;

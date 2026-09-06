@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-RES = ROOT / "apps/android/app/src/main/res"
+RES = ROOT / "apps/jingdu/android/app/src/main/res"
 LOCALE_DIRS = {
     "en-US": RES / "values",
     "zh-Hans": RES / "values-b+zh+Hans",
@@ -72,16 +72,16 @@ props = (RES / "resources.properties").read_text(encoding="utf-8").strip()
 if props != "unqualifiedResLocale=en-US":
     raise SystemExit("English must remain the unqualified resource fallback")
 
-manifest = (ROOT / "apps/android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+manifest = (ROOT / "apps/jingdu/android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 if 'android:label="@string/app_name"' not in manifest:
     raise SystemExit("manifest label must use @string/app_name")
 
-build = (ROOT / "apps/android/app/build.gradle").read_text(encoding="utf-8")
+build = (ROOT / "apps/jingdu/android/app/build.gradle").read_text(encoding="utf-8")
 if "generateLocaleConfig = true" not in build:
     raise SystemExit("AGP automatic LocaleConfig generation must remain enabled")
 
 cjk = re.compile(r"[\u3400-\u9fff]")
-base = ROOT / "apps/android/app/src/main/java/com/junchen/jingdu"
+base = ROOT / "apps/jingdu/android/app/src/main/java/com/junchen/jingdu"
 presentation_files = [
     "JingduApp.kt",
     "LibraryScreen.kt",

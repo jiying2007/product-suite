@@ -13,5 +13,5 @@ Checks: >-
   readability-misleading-indentation,
   readability-redundant-*
 WarningsAsErrors: ''
-HeaderFilterRegex: 'core/native/.*|apps/android/app/src/main/cpp/.*|apps/harmony/entry/src/main/cpp/.*'
+HeaderFilterRegex: 'platform/text/native/.*|apps/jingdu/android/app/src/main/cpp/.*|apps/jingdu/harmony/entry/src/main/cpp/.*'
 FormatStyle: file

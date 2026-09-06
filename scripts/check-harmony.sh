@@ -12,5 +12,5 @@ else
   exit 2
 fi
 
-cd "$(dirname "$0")/../apps/harmony"
+cd "$(dirname "$0")/../apps/jingdu/harmony"
 "$HVIGORW" --mode project -p product=default -p buildMode=debug assembleApp

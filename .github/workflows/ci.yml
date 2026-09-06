@@ -13,6 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-topology:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Verify product-suite topology
+        run: ./scripts/verify-repository-topology.sh
+
   native-core:
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/android
+        working-directory: apps/jingdu/android
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
@@ -83,8 +90,8 @@ jobs:
         with:
           name: android-functional-${{ github.sha }}
           path: |
-            apps/android/app/build/reports/androidTests/
-            apps/android/app/build/outputs/androidTest-results/
+            apps/jingdu/android/app/build/reports/androidTests/
+            apps/jingdu/android/app/build/outputs/androidTest-results/
             ${{ runner.temp }}/jingdu-functional-emulator.log
             ${{ runner.temp }}/jingdu-functional-font-scale-200.log
           if-no-files-found: warn
@@ -126,7 +133,7 @@ jobs:
         with:
           name: reader-macrobenchmark-${{ github.sha }}
           path: |
-            apps/android/macrobenchmark/build/outputs/
+            apps/jingdu/android/macrobenchmark/build/outputs/
             ${{ runner.temp }}/jingdu-emulator.log
           if-no-files-found: warn
           retention-days: 14
@@ -139,24 +146,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f apps/harmony/build-profile.json5
-          test -f apps/harmony/entry/build-profile.json5
-          test -f apps/harmony/entry/src/main/module.json5
-          test -f apps/harmony/entry/src/main/cpp/napi_init.cpp
-          test -f apps/harmony/entry/src/main/ets/pages/Index.ets
-          test -f apps/harmony/entry/src/main/ets/model/BookStore.ets
-          test -f apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          test -f apps/harmony/entry/src/main/ets/model/ReaderController.ets
-          test -f apps/harmony/entry/src/main/ets/model/TtsController.ets
-          grep -q 'core/native' apps/harmony/entry/src/main/cpp/CMakeLists.txt
-          grep -q 'abiVersion() !== 2' apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q '@Concurrent' apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q 'openDocumentTask' apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q 'document-${normalizedSha256}.txt' apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q 'clean-${revision}.txt' apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q "name.endsWith('.jdx')" apps/harmony/entry/src/main/ets/model/BackgroundTasks.ets
-          grep -q 'await this.reader.open' apps/harmony/entry/src/main/ets/pages/Index.ets
-          grep -q 'DocumentViewPicker' apps/harmony/entry/src/main/ets/pages/Index.ets
+          test -f apps/jingdu/harmony/build-profile.json5
+          test -f apps/jingdu/harmony/entry/build-profile.json5
+          test -f apps/jingdu/harmony/entry/src/main/module.json5
+          test -f apps/jingdu/harmony/entry/src/main/cpp/napi_init.cpp
+          test -f apps/jingdu/harmony/entry/src/main/ets/pages/Index.ets
+          test -f apps/jingdu/harmony/entry/src/main/ets/model/BookStore.ets
+          test -f apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          test -f apps/jingdu/harmony/entry/src/main/ets/model/ReaderController.ets
+          test -f apps/jingdu/harmony/entry/src/main/ets/model/TtsController.ets
+          grep -q 'platform/text/native' apps/jingdu/harmony/entry/src/main/cpp/CMakeLists.txt
+          grep -q 'abiVersion() !== 2' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q '@Concurrent' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q 'openDocumentTask' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q 'document-${normalizedSha256}.txt' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q 'clean-${revision}.txt' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q "name.endsWith('.jdx')" apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
+          grep -q 'await this.reader.open' apps/jingdu/harmony/entry/src/main/ets/pages/Index.ets
+          grep -q 'DocumentViewPicker' apps/jingdu/harmony/entry/src/main/ets/pages/Index.ets
 
   play-store-contract:
     runs-on: ubuntu-latest
@@ -178,7 +185,7 @@ jobs:
 
   publish-source-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]
+    needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -219,7 +226,7 @@ jobs:
           VERSION="$(python3 - <<'PY'
           import re
           from pathlib import Path
-          text = Path('apps/android/app/build.gradle').read_text(encoding='utf-8')
+          text = Path('apps/jingdu/android/app/build.gradle').read_text(encoding='utf-8')
           match = re.search(r'versionNameProperty\.getOrElse\("([^\"]+)"\)', text)
           if not match:
               raise SystemExit('Android versionName default not found')
@@ -251,10 +258,15 @@ jobs:
           git checkout --detach "$TAG_SHA"
           test -f "releases/source/${TAG}.md"
           grep -Fxq "version: ${TAG}" "releases/source/${TAG}.md"
-          VERSION_CODE="$(python3 - <<'PY'
-          import re
+          ANDROID_ROOT="apps/jingdu/android"
+          if [[ ! -f "$ANDROID_ROOT/app/build.gradle" ]]; then
+            LEGACY_SEGMENT="android"
+            ANDROID_ROOT="apps/${LEGACY_SEGMENT}"
+          fi
+          VERSION_CODE="$(ANDROID_ROOT="$ANDROID_ROOT" python3 - <<'PY'
+          import os, re
           from pathlib import Path
-          text = Path('apps/android/app/build.gradle').read_text(encoding='utf-8')
+          text = Path(os.environ['ANDROID_ROOT'], 'app', 'build.gradle').read_text(encoding='utf-8')
           match = re.search(r'versionCodeProperty\.map \{ Integer\.parseInt\(it\) \}\.getOrElse\((\d+)\)', text)
           if not match:
               raise SystemExit('Android versionCode default not found')
@@ -262,14 +274,14 @@ jobs:
           PY
           )"
 
-          cat > apps/android/keystore.properties <<EOF
+          cat > "$ANDROID_ROOT/keystore.properties" <<EOF
           storeFile=$KEYSTORE
           storePassword=android
           keyAlias=androiddebugkey
           keyPassword=android
           EOF
 
-          cd apps/android
+          cd "$ANDROID_ROOT"
           ./gradlew --no-daemon --no-configuration-cache --warning-mode all \
             -PjingduApplicationId=com.junchen.jingdu \
             -PjingduVersionCode="$VERSION_CODE" \

@@ -1,6 +1,6 @@
 * @jiying2007
 
-/core/native/ @jiying2007
-/apps/android/ @jiying2007
-/apps/harmony/ @jiying2007
+/platform/text/native/ @jiying2007
+/apps/jingdu/android/ @jiying2007
+/apps/jingdu/harmony/ @jiying2007
 /.github/workflows/ @jiying2007

@@ -4,21 +4,21 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-generator = (ROOT / "apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt").read_text(encoding="utf-8")
-journey = (ROOT / "apps/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt").read_text(encoding="utf-8")
+generator = (ROOT / "apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt").read_text(encoding="utf-8")
+journey = (ROOT / "apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt").read_text(encoding="utf-8")
 runner = (ROOT / "scripts/run-android-macrobenchmark-ci.sh").read_text(encoding="utf-8")
 physical_runner_path = ROOT / "scripts/run-android-physical-release-performance.sh"
 physical_workflow_path = ROOT / ".github/workflows/android-physical-release-performance.yml"
 hosted_baseline_path = ROOT / "scripts/reader-hosted-emulator-baseline.json"
 checker = (ROOT / "scripts/check-android-performance-slo.py").read_text(encoding="utf-8")
 workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-app_gradle = (ROOT / "apps/android/app/build.gradle").read_text(encoding="utf-8")
-macro_gradle = (ROOT / "apps/android/macrobenchmark/build.gradle").read_text(encoding="utf-8")
-root_gradle = (ROOT / "apps/android/build.gradle").read_text(encoding="utf-8")
-benchmark_provider = (ROOT / "apps/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt").read_text(encoding="utf-8")
-proguard = (ROOT / "apps/android/app/proguard-rules.pro").read_text(encoding="utf-8")
-product_baseline_path = ROOT / "apps/android/app/src/main/baseline-prof.txt"
-product_startup_path = ROOT / "apps/android/app/src/main/startup-prof.txt"
+app_gradle = (ROOT / "apps/jingdu/android/app/build.gradle").read_text(encoding="utf-8")
+macro_gradle = (ROOT / "apps/jingdu/android/macrobenchmark/build.gradle").read_text(encoding="utf-8")
+root_gradle = (ROOT / "apps/jingdu/android/build.gradle").read_text(encoding="utf-8")
+benchmark_provider = (ROOT / "apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt").read_text(encoding="utf-8")
+proguard = (ROOT / "apps/jingdu/android/app/proguard-rules.pro").read_text(encoding="utf-8")
+product_baseline_path = ROOT / "apps/jingdu/android/app/src/main/baseline-prof.txt"
+product_startup_path = ROOT / "apps/jingdu/android/app/src/main/startup-prof.txt"
 provenance_path = ROOT / "docs/READER_PROFILE_PROVENANCE.md"
 
 startup_marker = "@Test fun readerStartup()"

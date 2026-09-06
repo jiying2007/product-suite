@@ -120,7 +120,7 @@ def classify(text: str, weights: list[int]) -> tuple[str, int]:
 
 
 def main() -> int:
-    source = Path("apps/android/app/src/main/java/com/junchen/jingdu/SemanticCandidateClassifier.kt")
+    source = Path("apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SemanticCandidateClassifier.kt")
     weights = source_weights(source)
     if any(weight < -8 or weight > 8 for weight in weights):
         raise SystemExit("runtime weights must be bounded signed-int8-style values")

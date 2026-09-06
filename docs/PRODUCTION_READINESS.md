@@ -37,7 +37,7 @@ Regardless of repository settings, the candidate source tag must resolve to the 
 Use the retained production/upload signing path and explicit monotonically increasing version values:
 
 ```bash
-cd apps/android
+cd apps/jingdu/android
 ./gradlew --no-daemon --no-configuration-cache --warning-mode all \
   -PjingduApplicationId=com.junchen.jingdu \
   -PjingduVersionCode=<production-code> \

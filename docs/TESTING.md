@@ -2,7 +2,7 @@
 
 ## Shared native core
 
-Every `core/native` change passes Release build with `-Wall -Wextra -Wpedantic -Werror`, CTest and clang-tidy analyzer/bugprone/performance/portability gates.
+Every `platform/text/native` change passes Release build with `-Wall -Wextra -Wpedantic -Werror`, CTest and clang-tidy analyzer/bugprone/performance/portability gates.
 
 Required automated coverage:
 - SHA/file hashing;
