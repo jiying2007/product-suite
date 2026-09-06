@@ -22,7 +22,7 @@ Shared Jingdu ABI/data behavior changes must update both platform bridges, autom
 
 The repository-stable Android debug keystore under `config/signing/android-debug.keystore` remains an intentional exception: it is public/test signing material used for the current Jingdu GitHub release stage so successive downloadable APKs retain a stable Android debug identity.
 
-### Current GitHub release stage
+### Current GitHub release governance
 
 The current Jingdu Android release stage is GitHub distribution from an immutable, fully-gated source tag. It does **not** require GitHub branch protection or repository rulesets on `main`.
 
