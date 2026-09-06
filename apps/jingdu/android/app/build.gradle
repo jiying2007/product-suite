@@ -54,7 +54,7 @@ android {
         }
     }
     sourceSets {
-        main { assets.srcDir rootProject.file("../../third_party") }
+        main { assets.srcDir rootProject.file("../../../third_party") }
         // Hosted-only fixture/provider/profileable manifest are shared by both CI target variants and
         // never enter the production release source set. AGP 9 built-in Kotlin has an independent
         // Kotlin source directory; java.srcDir alone does not compile the benchmark .kt provider.
