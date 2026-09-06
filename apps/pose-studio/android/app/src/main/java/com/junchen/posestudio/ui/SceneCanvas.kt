@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -46,16 +47,18 @@ fun PoseScene(
             )
         }
     }
+    val currentProjected by rememberUpdatedState(projected)
+    val currentCamera by rememberUpdatedState(project.camera)
 
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { canvasSize = it }
-            .pointerInput(project.camera, projected) {
+            .pointerInput(canvasSize) {
                 var activeJoint: JointId? = null
                 detectDragGestures(
                     onDragStart = { start ->
-                        activeJoint = projected.entries
+                        activeJoint = currentProjected.entries
                             .map { (joint, point) -> joint to Offset(point.x, point.y) }
                             .minByOrNull { (_, point) -> (point - start).getDistance() }
                             ?.takeIf { (_, point) -> (point - start).getDistance() <= 42f }
@@ -78,7 +81,7 @@ fun PoseScene(
                         onDragJoint(
                             joint,
                             SceneProjection.screenDeltaToWorld(
-                                dragAmount.x, dragAmount.y, project.camera, canvasSize.width.toFloat(),
+                                dragAmount.x, dragAmount.y, currentCamera, canvasSize.width.toFloat(),
                             ),
                         )
                     } else {
