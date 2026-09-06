@@ -32,7 +32,7 @@ product-suite/
 └── .github/
 ```
 
-`./scripts/verify-repository-topology.sh` is the canonical topology gate. CI rejects the retired pre-suite paths and requires every declared product/platform boundary above to exist.
+`./scripts/verify-repository-topology.sh` is the canonical topology gate. CI rejects retired pre-suite paths and migration-layout compatibility markers and requires every declared product/platform boundary above to exist.
 
 ## Products
 
@@ -45,7 +45,9 @@ Jingdu is the mature product currently implemented in this repository: an offlin
 - Product overview: `apps/jingdu/README.md`
 - Detailed product, UX, performance, testing and release contracts: `docs/`
 
-The existing v2.3.x source tags and GitHub releases remain immutable. New source builds use the suite paths; the release workflow retains explicit fallback logic only when checking out historical pre-migration tags.
+The existing v2.x source tags and GitHub releases remain immutable. Current source builds use only suite-era paths; current automation does not retain a retired-directory build fallback.
+
+Jingdu permanently owns the unprefixed `vX.Y.Z` tag namespace and `releases/source/vX.Y.Z.md`. Other products must use product-prefixed tags and product-scoped manifests, for example `audiolab-v1.0.0` plus `releases/audiolab/source/audiolab-v1.0.0.md`.
 
 ### Planned Android product boundaries
 
@@ -56,13 +58,13 @@ The following directories are intentional product scaffolds, not claims of shipp
 - `apps/phone-doctor/android/` — transparent device and hardware diagnostics.
 - `apps/voice-cleaner/android/` — local-first voice/audio cleanup workflows.
 
-Each product becomes release-capable only after it owns product-specific build, test, privacy, quality and release gates.
+Each product becomes release-capable only after it owns product-specific build, test, privacy, quality, signing, store and release gates.
 
 ## Platform boundaries
 
-`platform/` is not a dumping ground for generic helpers. A capability should move into a shared platform module only when stable reuse is demonstrated across products.
+`platform/` is not a dumping ground for generic helpers. A new capability should move into a shared platform module only when stable reuse is demonstrated across products.
 
-- `platform/text/` — active shared text/document engine; currently consumed by Jingdu Android and HarmonyOS.
+- `platform/text/` — the grandfathered Jingdu cross-platform text/document core shared by Android and HarmonyOS. Its location does not claim that another product already consumes it.
 - `platform/audio/` — reserved shared audio/DSP contracts.
 - `platform/network/` — reserved shared networking contracts.
 - `platform/ai/` — optional AI/model runtime boundary; products that do not need AI must not depend on it.
@@ -70,6 +72,19 @@ Each product becomes release-capable only after it owns product-specific build, 
 - `platform/telemetry/` — reserved privacy-preserving observability contracts; its existence does not imply collection is enabled.
 
 Product-specific behavior stays in the product until reuse is real.
+
+## Root support ownership
+
+Some pre-suite Jingdu support assets intentionally remain at stable root paths because existing documentation and immutable release provenance reference them. Their ownership is explicit rather than generic:
+
+- `docs/` — current Jingdu product contracts; new non-Jingdu product docs belong under that product boundary.
+- `releases/source/` — Jingdu unprefixed `v*` source manifests.
+- `store/play/` and `fastlane/metadata/android/` — Jingdu Play/store material.
+- `quality/smartclean/` — Jingdu Smart Clean quality data.
+- `config/signing/` — Jingdu current-stage public debug signing exception.
+- `third_party/` — repository-wide legal/license material.
+
+Future products must use product-scoped support namespaces instead of extending the retained Jingdu root namespaces.
 
 ## Current verification
 
@@ -85,7 +100,7 @@ cd ../../..
 ./scripts/verify-terminal.sh
 ```
 
-Hosted CI also runs Android functional tests, 16 KiB native compatibility, Reader Macrobenchmark/SLO checks, Harmony source contracts and release provenance gates. Real HarmonyOS HAP/device qualification continues to require the configured `self-hosted,harmonyos` runner and does not replace the hosted source contract.
+Hosted CI also runs Android functional tests, 16 KiB native compatibility, Reader Macrobenchmark/SLO checks, Harmony source contracts and release provenance gates. Real HarmonyOS HAP/device qualification requires the configured `self-hosted,harmonyos` runner and is launched explicitly; an offline device runner does not leave ordinary PR/main CI permanently queued.
 
 ## Repository rules
 
@@ -93,5 +108,5 @@ Hosted CI also runs Android functional tests, 16 KiB native compatibility, Reade
 - Historical tags/releases are immutable and are not rewritten for directory migrations.
 - Product code may depend on platform code; platform code must not depend on a product shell.
 - AI is a capability, not the repository identity or a mandatory dependency.
-- New products must not inherit Jingdu product IDs, billing SKUs, permissions, telemetry policy or release assumptions by convenience.
+- New products must not inherit Jingdu product IDs, billing SKUs, permissions, telemetry policy, unprefixed release tags or root Jingdu support namespaces by convenience.
 - APK/AAB/HAP, mapping/symbol packages and production signing material are not committed. The checked-in Android debug keystore remains the documented pre-production GitHub-release exception for Jingdu.

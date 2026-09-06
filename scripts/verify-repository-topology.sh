@@ -14,6 +14,12 @@ required=(
   platform/ai
   platform/billing
   platform/telemetry
+  docs/README.md
+  releases/README.md
+  store/README.md
+  quality/README.md
+  config/README.md
+  fastlane/README.md
 )
 for path in "${required[@]}"; do
   test -e "$path" || { echo "missing required product-suite path: $path" >&2; exit 1; }
@@ -24,11 +30,13 @@ forbidden=(
   "apps/""harmony"
   "core/""native"
   "jiying2007/""llm_apps"
+  "LEGACY_""SEGMENT"
+  "apps/\${LEGACY_""SEGMENT}"
 )
 failed=0
 for needle in "${forbidden[@]}"; do
   if git grep -nF "$needle" -- ':!scripts/verify-repository-topology.sh'; then
-    echo "forbidden legacy topology reference: $needle" >&2
+    echo "forbidden legacy topology/migration reference: $needle" >&2
     failed=1
   fi
 done

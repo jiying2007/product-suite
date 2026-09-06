@@ -2,6 +2,8 @@
 
 The real HarmonyOS build gate runs on a self-hosted GitHub Actions runner labeled `self-hosted,harmonyos`. This is deliberate: the repository only accepts Huawei's official DevEco/Command Line Tools toolchain and does not download SDK/tool binaries from third-party mirrors.
 
+Hosted `harmony-contract` remains the automatic source contract on ordinary pull requests and `main` pushes. The real HAP build is an explicit qualification workflow: it is launched with `workflow_dispatch` only when a matching runner is online. This avoids leaving ordinary source changes permanently queued merely because optional device infrastructure is offline.
+
 ## Supported toolchain
 
 Use a current Huawei HarmonyOS Command Line Tools release that supports this project's SDK/model version. Command Line Tools includes `hvigorw`, `ohpm`, code-linter tooling and the HarmonyOS SDK. Obtain it from the Huawei Developer download center and verify the package checksum published there before installation.
@@ -65,15 +67,9 @@ The command must exit zero and produce at least one `.hap` under `apps/jingdu/ha
 
 ## CI evidence
 
-`.github/workflows/harmony-device.yml` is the canonical HAP source gate. It:
+`.github/workflows/harmony-device.yml` is the canonical real-HAP source qualification workflow. It is manually dispatched with an exact `source_ref`, checks out that ref, records the resolved commit SHA, builds with the configured official self-hosted toolchain, requires a generated HAP and uploads HAP/APP/native `.so` outputs as evidence.
 
-1. checks out the exact PR commit using a pinned action SHA;
-2. runs `scripts/check-harmony.sh`;
-3. requires a generated HAP;
-4. collects HAP/APP/native `.so` outputs;
-5. uploads the artifacts under the commit SHA using a pinned Node-24 artifact action.
-
-A queued workflow means no matching `self-hosted,harmonyos` runner is online. It is not build success and must never be reported as such.
+A dispatched workflow that is queued means no matching `self-hosted,harmonyos` runner is online. It is not build success and must never be reported as such. Ordinary PR/main CI does not dispatch this workflow automatically and therefore remains terminal even when the optional runner is offline.
 
 ## Device evidence
 
