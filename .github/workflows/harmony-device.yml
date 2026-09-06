@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'core/native/**'
-      - 'apps/harmony/**'
+      - 'platform/text/native/**'
+      - 'apps/jingdu/harmony/**'
       - 'scripts/check-harmony.sh'
       - '.github/workflows/harmony-device.yml'
   push:
     branches: [main]
     paths:
-      - 'core/native/**'
-      - 'apps/harmony/**'
+      - 'platform/text/native/**'
+      - 'apps/jingdu/harmony/**'
       - 'scripts/check-harmony.sh'
       - '.github/workflows/harmony-device.yml'
 
@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/harmony-artifacts
-          find apps/harmony -type f \( -name '*.hap' -o -name '*.app' -o -name '*.so' \) \
+          find apps/jingdu/harmony -type f \( -name '*.hap' -o -name '*.app' -o -name '*.so' \) \
             -print -exec cp --parents {} build/harmony-artifacts/ \;
           test -n "$(find build/harmony-artifacts -type f -name '*.hap' -print -quit)"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
