@@ -53,6 +53,52 @@ object PoseMath {
         }
     }
 
+    fun mirrorPose(joints: Map<JointId, Vec3>): Map<JointId, Vec3> {
+        val pivotX = joints.getValue(JointId.PELVIS).x
+        return JointId.entries.associateWith { target ->
+            val source = MIRROR_JOINT[target] ?: target
+            val point = joints.getValue(source)
+            point.copy(x = 2f * pivotX - point.x)
+        }
+    }
+
+    fun copyArm(joints: Map<JointId, Vec3>, fromLeft: Boolean): Map<JointId, Vec3> {
+        val source = if (fromLeft) {
+            listOf(JointId.LEFT_SHOULDER, JointId.LEFT_ELBOW, JointId.LEFT_WRIST)
+        } else {
+            listOf(JointId.RIGHT_SHOULDER, JointId.RIGHT_ELBOW, JointId.RIGHT_WRIST)
+        }
+        val target = if (fromLeft) {
+            listOf(JointId.RIGHT_SHOULDER, JointId.RIGHT_ELBOW, JointId.RIGHT_WRIST)
+        } else {
+            listOf(JointId.LEFT_SHOULDER, JointId.LEFT_ELBOW, JointId.LEFT_WRIST)
+        }
+        return copyMirroredChain(joints, source, target)
+    }
+
+    fun copyLeg(joints: Map<JointId, Vec3>, fromLeft: Boolean): Map<JointId, Vec3> {
+        val source = if (fromLeft) {
+            listOf(JointId.LEFT_HIP, JointId.LEFT_KNEE, JointId.LEFT_ANKLE, JointId.LEFT_FOOT)
+        } else {
+            listOf(JointId.RIGHT_HIP, JointId.RIGHT_KNEE, JointId.RIGHT_ANKLE, JointId.RIGHT_FOOT)
+        }
+        val target = if (fromLeft) {
+            listOf(JointId.RIGHT_HIP, JointId.RIGHT_KNEE, JointId.RIGHT_ANKLE, JointId.RIGHT_FOOT)
+        } else {
+            listOf(JointId.LEFT_HIP, JointId.LEFT_KNEE, JointId.LEFT_ANKLE, JointId.LEFT_FOOT)
+        }
+        return copyMirroredChain(joints, source, target)
+    }
+
+    fun groundFeet(joints: Map<JointId, Vec3>, targetFootY: Float = -1.82f): Map<JointId, Vec3> {
+        val lowest = min(
+            joints.getValue(JointId.LEFT_FOOT).y,
+            joints.getValue(JointId.RIGHT_FOOT).y,
+        )
+        val delta = Vec3(0f, targetFootY - lowest, 0f)
+        return joints.mapValues { (_, value) -> value + delta }
+    }
+
     fun solveTwoBone(root: Vec3, mid: Vec3, end: Vec3, target: Vec3): Pair<Vec3, Vec3> {
         val l1 = distance(root, mid)
         val l2 = distance(mid, end)
@@ -82,6 +128,22 @@ object PoseMath {
     fun allFinite(joints: Map<JointId, Vec3>): Boolean =
         JointId.entries.all { joints[it]?.isFinite() == true }
 
+    private fun copyMirroredChain(
+        joints: Map<JointId, Vec3>,
+        source: List<JointId>,
+        target: List<JointId>,
+    ): Map<JointId, Vec3> {
+        require(source.size == target.size && source.size >= 2)
+        val out = joints.toMutableMap()
+        var targetPoint = out.getValue(target.first())
+        for (index in 1 until source.size) {
+            val sourceDelta = joints.getValue(source[index]) - joints.getValue(source[index - 1])
+            targetPoint += Vec3(-sourceDelta.x, sourceDelta.y, sourceDelta.z)
+            out[target[index]] = targetPoint
+        }
+        return out
+    }
+
     private fun endpointChain(joint: JointId): Triple<JointId, JointId, JointId>? = when (joint) {
         JointId.LEFT_WRIST -> Triple(JointId.LEFT_SHOULDER, JointId.LEFT_ELBOW, JointId.LEFT_WRIST)
         JointId.RIGHT_WRIST -> Triple(JointId.RIGHT_SHOULDER, JointId.RIGHT_ELBOW, JointId.RIGHT_WRIST)
@@ -96,4 +158,21 @@ object PoseMath {
             translateDescendants(map, child, delta)
         }
     }
+
+    private val MIRROR_JOINT = mapOf(
+        JointId.LEFT_SHOULDER to JointId.RIGHT_SHOULDER,
+        JointId.LEFT_ELBOW to JointId.RIGHT_ELBOW,
+        JointId.LEFT_WRIST to JointId.RIGHT_WRIST,
+        JointId.RIGHT_SHOULDER to JointId.LEFT_SHOULDER,
+        JointId.RIGHT_ELBOW to JointId.LEFT_ELBOW,
+        JointId.RIGHT_WRIST to JointId.LEFT_WRIST,
+        JointId.LEFT_HIP to JointId.RIGHT_HIP,
+        JointId.LEFT_KNEE to JointId.RIGHT_KNEE,
+        JointId.LEFT_ANKLE to JointId.RIGHT_ANKLE,
+        JointId.LEFT_FOOT to JointId.RIGHT_FOOT,
+        JointId.RIGHT_HIP to JointId.LEFT_HIP,
+        JointId.RIGHT_KNEE to JointId.LEFT_KNEE,
+        JointId.RIGHT_ANKLE to JointId.LEFT_ANKLE,
+        JointId.RIGHT_FOOT to JointId.LEFT_FOOT,
+    )
 }

@@ -56,10 +56,15 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun applyPreset(preset: PosePreset) {
-        pushUndo()
-        project = project.copy(joints = com.junchen.posestudio.model.Mannequin.preset(preset), modifiedAt = System.currentTimeMillis())
-        dirty = true
+        applyPoseEdit { com.junchen.posestudio.model.Mannequin.preset(preset) }
     }
+
+    fun mirrorPose() = applyPoseEdit(PoseMath::mirrorPose)
+    fun copyLeftArmToRight() = applyPoseEdit { PoseMath.copyArm(it, fromLeft = true) }
+    fun copyRightArmToLeft() = applyPoseEdit { PoseMath.copyArm(it, fromLeft = false) }
+    fun copyLeftLegToRight() = applyPoseEdit { PoseMath.copyLeg(it, fromLeft = true) }
+    fun copyRightLegToLeft() = applyPoseEdit { PoseMath.copyLeg(it, fromLeft = false) }
+    fun groundFeet() = applyPoseEdit(PoseMath::groundFeet)
 
     fun undo() {
         val previous = undo.removeLastOrNull() ?: return
@@ -132,6 +137,16 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun renderPng(width: Int = 1440, height: Int = 1440): Bitmap = PoseBitmapRenderer.render(project, width, height)
 
     private fun refreshSaved() { savedProjects = store.list() }
+
+    private fun applyPoseEdit(transform: (Map<JointId, Vec3>) -> Map<JointId, Vec3>) {
+        val before = project.joints
+        val next = transform(before)
+        if (next == before || !PoseMath.allFinite(next)) return
+        pushUndo()
+        project = project.copy(joints = next, modifiedAt = System.currentTimeMillis())
+        dirty = true
+    }
+
     private fun pushUndo() {
         undo.addLast(project.joints.toMap())
         while (undo.size > 40) undo.removeFirst()
