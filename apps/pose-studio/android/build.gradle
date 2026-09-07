@@ -1,0 +1,15 @@
+plugins {
+    id "com.android.application" version "9.3.1" apply false
+    id "org.jetbrains.kotlin.plugin.compose" version "2.4.10" apply false
+}
+
+tasks.register("poseStudioCheck") {
+    group = "verification"
+    description = "Builds and verifies the offline Pose Studio Android product."
+    dependsOn(
+            ":app:testDebugUnitTest",
+            ":app:lintDebug",
+            ":app:lintRelease",
+            ":app:assembleDebug",
+            ":app:assembleDebugAndroidTest")
+}

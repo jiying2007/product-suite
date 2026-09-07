@@ -4,6 +4,7 @@ set -euo pipefail
 required=(
   apps/jingdu/android
   apps/jingdu/harmony
+  apps/pose-studio/android
   apps/audiolab/android
   apps/network-toolbox/android
   apps/phone-doctor/android

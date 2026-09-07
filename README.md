@@ -12,6 +12,8 @@ product-suite/
 │   ├── jingdu/
 │   │   ├── android/
 │   │   └── harmony/
+│   ├── pose-studio/
+│   │   └── android/
 │   ├── audiolab/
 │   │   └── android/
 │   ├── network-toolbox/
@@ -48,6 +50,16 @@ Jingdu is the mature product currently implemented in this repository: an offlin
 The existing v2.x source tags and GitHub releases remain immutable. Current source builds use only suite-era paths; current automation does not retain a retired-directory build fallback.
 
 Jingdu permanently owns the unprefixed `vX.Y.Z` tag namespace and `releases/source/vX.Y.Z.md`. Other products must use product-prefixed tags and product-scoped manifests, for example `audiolab-v1.0.0` plus `releases/audiolab/source/audiolab-v1.0.0.md`.
+
+### Pose Studio
+
+Pose Studio is an implemented, pre-release Android product for offline 3D artist posing/reference. It owns `apps/pose-studio/`, uses the independent application ID `com.junchen.posestudio`, requests no Internet permission and has its own product/privacy/quality contracts plus hosted build gate.
+
+- Product overview: `apps/pose-studio/README.md`
+- Android: `apps/pose-studio/android/`
+- Product contracts: `apps/pose-studio/docs/`
+
+Pose Studio is **not release-capable yet**. A future release must establish product-scoped signing, store metadata, release manifest/tag namespace and release evidence before any production/distribution claim.
 
 ### Planned Android product boundaries
 
@@ -88,7 +100,7 @@ Future products must use product-scoped support namespaces instead of extending 
 
 ## Current verification
 
-Jingdu remains the release-bearing product while the rest of the suite is scaffolded. Core checks include:
+Jingdu remains the release-bearing product. Pose Studio has an independent hosted source/build gate but no release gate yet. Core checks include:
 
 ```bash
 ./scripts/verify-repository-topology.sh
@@ -98,6 +110,7 @@ cd ../../..
 ./scripts/verify-android-i18n.py
 ./scripts/verify-play-store.sh
 ./scripts/verify-terminal.sh
+bash apps/pose-studio/scripts/check.sh
 ```
 
 Hosted CI also runs Android functional tests, 16 KiB native compatibility, Reader Macrobenchmark/SLO checks, Harmony source contracts and release provenance gates. Real HarmonyOS HAP/device qualification requires the configured `self-hosted,harmonyos` runner and is launched explicitly; an offline device runner does not leave ordinary PR/main CI permanently queued.

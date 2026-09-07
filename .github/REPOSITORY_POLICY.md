@@ -13,7 +13,7 @@
 
 CI enforces the canonical product-suite topology and rejects retired pre-suite paths and migration-layout compatibility markers.
 
-Root support directories with retained Jingdu material have explicit ownership contracts. Existing `docs/`, `releases/source/`, `store/play/`, `fastlane/metadata/android/`, `quality/smartclean/` and `config/signing/` content is Jingdu-owned and retained at stable paths for current contracts and historical provenance. New products must not reuse those unqualified namespaces; they own product-scoped documentation, store, quality, signing and release assets instead.
+Root support directories with retained Jingdu material have explicit ownership contracts. Existing `docs/`, `releases/source/`, `store/play/`, `fastlane/metadata/android/`, `quality/smartclean` and `config/signing/` content is Jingdu-owned and retained at stable paths for current contracts and historical provenance. New products must not reuse those unqualified namespaces; they own product-scoped documentation, store, quality, signing and release assets instead.
 
 Do not introduce committed build artifacts, production signing material, credentials or extracted third-party application packages unless an explicit policy documents a narrowly scoped exception.
 
@@ -48,6 +48,12 @@ CI must not claim Google Play production qualification from hosted source gates,
 ## HarmonyOS device qualification
 
 Hosted `harmony-contract` is the automatic source contract. Real HAP/device qualification requires the configured `self-hosted,harmonyos` environment and is launched explicitly through `workflow_dispatch`; ordinary pull requests and `main` pushes must not leave permanently queued device-build runs when that runner is offline.
+
+## Pose Studio governance
+
+Pose Studio is an implemented pre-release product boundary under `apps/pose-studio/`. It owns the application ID `com.junchen.posestudio`, its local-only privacy contract, quality gate and versioned project file format. It does not inherit Jingdu signing, release tags, store namespaces, telemetry or billing assumptions. Existing project files must not become unreadable because of a future entitlement change.
+
+Pose Studio remains non-release-capable until product-scoped signing, store metadata, release manifest/tag namespace and release evidence are separately established.
 
 ## Future products
 
