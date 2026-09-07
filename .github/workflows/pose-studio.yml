@@ -1,6 +1,7 @@
 name: Pose Studio
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'apps/pose-studio/**'
