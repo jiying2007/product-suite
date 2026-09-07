@@ -150,14 +150,13 @@ private data class ReaderPageRaster(
 
 /**
  * One replacement glyph owns a worker-rendered alpha mask for the current plain/heading-only page.
- * ReaderFastText can keep its existing StaticLayout contract, while the frame path replays one
- * bitmap instead of every glyph. The alpha bitmap is tinted by the current layout Paint, so palette
- * changes do not require a second color-specific raster cache.
+ * The wrapper itself is intentionally 1x1: ReaderFastText still receives a StaticLayout for its
+ * existing fallback contract, but Layout.draw() performs only minimal one-glyph bookkeeping before
+ * the span blits the full pre-rasterized bitmap. The alpha bitmap is tinted by the current Paint, so
+ * palette changes still do not require a color-specific raster cache.
  */
 private class ReaderPageBitmapSpan(
     private val bitmap: Bitmap,
-    private val widthPx: Int,
-    private val heightPx: Int,
 ) : ReplacementSpan() {
     override fun getSize(
         paint: Paint,
@@ -167,12 +166,12 @@ private class ReaderPageBitmapSpan(
         fm: Paint.FontMetricsInt?,
     ): Int {
         fm?.apply {
-            ascent = -heightPx
+            ascent = -1
             descent = 0
-            top = -heightPx
+            top = -1
             bottom = 0
         }
-        return widthPx
+        return 1
     }
 
     override fun draw(
@@ -186,7 +185,7 @@ private class ReaderPageBitmapSpan(
         bottom: Int,
         paint: Paint,
     ) {
-        canvas.drawBitmap(bitmap, x, top.toFloat(), paint)
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
     }
 }
 
@@ -274,7 +273,7 @@ internal object ReaderPageLayoutCache {
 
         val placeholder = SpannableString("\uFFFC")
         placeholder.setSpan(
-            ReaderPageBitmapSpan(bitmap, widthPx, heightPx),
+            ReaderPageBitmapSpan(bitmap),
             0,
             placeholder.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -282,7 +281,9 @@ internal object ReaderPageLayoutCache {
         val rasterPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG or TextPaint.SUBPIXEL_TEXT_FLAG).apply {
             set(source.paint)
         }
-        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, widthPx)
+        // The span draws the full bitmap and ignores line geometry. Keep the wrapper layout to one
+        // pixel so Layout.draw() cannot replay full-page width/height bookkeeping on every frame.
+        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
             .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
