@@ -195,7 +195,12 @@ internal object ReaderPageLayoutCache {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PageLayoutKey, PageLayoutSnapshot>?): Boolean = size > 16
     }
     private var mostRecent: PageLayoutSnapshot? = null
+    // Two raster slots are enough for a page-turn transition: the newly measured page and the page
+    // that may still be drawn for one more frame. Keeping only one allowed the next measurement to
+    // evict the previous raster before Compose consumed it, occasionally falling back to glyph replay
+    // and inflating P99. This stays deliberately bounded and does not mirror the 16-entry layout LRU.
     private var mostRecentRaster: ReaderPageRaster? = null
+    private var previousRaster: ReaderPageRaster? = null
 
     @Synchronized
     fun get(key: PageLayoutKey): PageLayoutSnapshot? = cache[key]?.also { mostRecent = it }
@@ -211,13 +216,15 @@ internal object ReaderPageLayoutCache {
         cache.clear()
         mostRecent = null
         mostRecentRaster = null
+        previousRaster = null
     }
 
     /**
-     * Paged rendering normally receives exactly the visible prefix measured below. For the page that
-     * was just measured, prefer a worker-rasterized alpha-mask layout so the UI/RenderThread path
-     * only blits one bitmap. Historical/back-navigation cache hits still return the exact measured
-     * StaticLayout, and styled pages continue to fall back in ReaderFastText.
+     * Paged rendering normally receives exactly the visible prefix measured below. For the current
+     * page or the page immediately preceding it, prefer a worker-rasterized alpha-mask layout so a
+     * fast page transition cannot fall back to glyph replay merely because the next raster published
+     * first. Older history still returns the exact measured StaticLayout, and styled pages continue
+     * to fall back in ReaderFastText.
      */
     @Synchronized
     fun reusableLayoutFor(visibleText: String, widthPx: Int, heightPx: Int, hasHeadingStyle: Boolean): StaticLayout? {
@@ -234,6 +241,12 @@ internal object ReaderPageLayoutCache {
                 raster.hasHeadingStyle == hasHeadingStyle
 
         mostRecentRaster?.takeIf(::rasterMatches)?.let { return it.layout }
+        previousRaster?.takeIf(::rasterMatches)?.let { previous ->
+            val current = mostRecentRaster
+            mostRecentRaster = previous
+            previousRaster = current
+            return previous.layout
+        }
         // The draw immediately following page measurement overwhelmingly asks for the snapshot that
         // was just inserted. Resolve that case without allocating cache.values.toList() on the UI
         // path; only history/back-navigation falls through to the tiny bounded LRU scan.
@@ -259,6 +272,7 @@ internal object ReaderPageLayoutCache {
         hasHeadingStyle: Boolean,
         layout: StaticLayout,
     ) {
+        previousRaster = mostRecentRaster
         mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
     }
 
