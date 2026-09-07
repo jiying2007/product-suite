@@ -90,6 +90,7 @@ private data class SelectionPayload(val range: ReaderSelectionRange, val clearNa
 private data class ReaderPreparedPage(
     val snapshot: PageLayoutSnapshot,
     val annotated: AnnotatedString,
+    val map: SourceDisplayMap,
 )
 
 internal object ReaderChromeRuntime {
@@ -516,8 +517,9 @@ private fun PagedReaderPage(
         ReaderWideColumns.AUTO -> if (adaptiveLayout.prefersTwoColumns) 2 else 1
     }
 
-    // One worker result owns projection, pagination and selection metadata. The previous two-stage
-    // presented -> snapshot publication forced multiple Reader recompositions for every page turn.
+    // One worker result owns projection, pagination and visual metadata. Source-range annotations
+    // are selection-only work: building one StringAnnotation per code point must not delay a normal
+    // page becoming drawable.
     val prepared by produceState<ReaderPreparedPage?>(
         null,
         sourceStart,
@@ -549,7 +551,8 @@ private fun PagedReaderPage(
             val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, tts, settings)
             ReaderPreparedPage(
                 snapshot = snapshot,
-                annotated = ReaderSelectionController.annotatedForSelection(sourceStart, visual, presented.map),
+                annotated = visual,
+                map = presented.map,
             )
         }
     }
@@ -569,6 +572,15 @@ private fun PagedReaderPage(
         else if (sawFastSelection) { fastSelectionMode = false; sawFastSelection = false }
         onSelection(range?.let { SelectionPayload(it) { selectionState.clear() } })
     }
+    // Long-press selection is the only consumer that needs the per-code-point source annotations.
+    // Materialize the exact map once when SelectionContainer is actually enabled; ordinary page
+    // turns keep the visual AnnotatedString and reusable StaticLayout free of this allocation burst.
+    val selectionAnnotated = remember(fastSelectionMode, sourceStart, preparedValue) {
+        if (!fastSelectionMode) null
+        else preparedValue?.let { ready ->
+            ReaderSelectionController.annotatedForSelection(sourceStart, ready.annotated, ready.map)
+        }
+    }
     val semantics = Modifier.readerAccessibilityActions(
         onPrevious, onNext, onToggleControls, onBookmark,
         stringResource(R.string.reader_surface), stringResource(R.string.reader_access_previous),
@@ -584,7 +596,7 @@ private fun PagedReaderPage(
             contentAlignment = Alignment.TopCenter,
         ) {
         val ready = preparedValue ?: return@Box
-        val annotated = ready.annotated
+        val annotated = selectionAnnotated ?: ready.annotated
         if (columns == 2 && annotated.isNotEmpty()) {
             val firstEnd = ready.snapshot.firstColumnEndUtf16.coerceIn(0, annotated.length)
             Row(
