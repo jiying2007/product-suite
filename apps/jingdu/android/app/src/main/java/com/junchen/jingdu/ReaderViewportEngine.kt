@@ -150,14 +150,13 @@ private data class ReaderPageRaster(
 
 /**
  * One replacement glyph owns a worker-rendered alpha mask for the current plain/heading-only page.
- * ReaderFastText can keep its existing StaticLayout contract, while the frame path replays one
- * bitmap instead of every glyph. The alpha bitmap is tinted by the current layout Paint, so palette
- * changes do not require a second color-specific raster cache.
+ * The wrapper itself is intentionally 1x1: ReaderFastText still receives a StaticLayout for its
+ * existing fallback contract, but Layout.draw() performs only minimal one-glyph bookkeeping before
+ * the span blits the full pre-rasterized bitmap. The alpha bitmap is tinted by the current Paint, so
+ * palette changes still do not require a color-specific raster cache.
  */
 private class ReaderPageBitmapSpan(
     private val bitmap: Bitmap,
-    private val widthPx: Int,
-    private val heightPx: Int,
 ) : ReplacementSpan() {
     override fun getSize(
         paint: Paint,
@@ -167,12 +166,12 @@ private class ReaderPageBitmapSpan(
         fm: Paint.FontMetricsInt?,
     ): Int {
         fm?.apply {
-            ascent = -heightPx
+            ascent = -1
             descent = 0
-            top = -heightPx
+            top = -1
             bottom = 0
         }
-        return widthPx
+        return 1
     }
 
     override fun draw(
@@ -186,7 +185,7 @@ private class ReaderPageBitmapSpan(
         bottom: Int,
         paint: Paint,
     ) {
-        canvas.drawBitmap(bitmap, x, top.toFloat(), paint)
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
     }
 }
 
@@ -196,7 +195,12 @@ internal object ReaderPageLayoutCache {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PageLayoutKey, PageLayoutSnapshot>?): Boolean = size > 16
     }
     private var mostRecent: PageLayoutSnapshot? = null
+    // Two raster slots are enough for a page-turn transition: the newly measured page and the page
+    // that may still be drawn for one more frame. Keeping only one allowed the next measurement to
+    // evict the previous raster before Compose consumed it, occasionally falling back to glyph replay
+    // and inflating P99. This stays deliberately bounded and does not mirror the 16-entry layout LRU.
     private var mostRecentRaster: ReaderPageRaster? = null
+    private var previousRaster: ReaderPageRaster? = null
 
     @Synchronized
     fun get(key: PageLayoutKey): PageLayoutSnapshot? = cache[key]?.also { mostRecent = it }
@@ -212,13 +216,15 @@ internal object ReaderPageLayoutCache {
         cache.clear()
         mostRecent = null
         mostRecentRaster = null
+        previousRaster = null
     }
 
     /**
-     * Paged rendering normally receives exactly the visible prefix measured below. For the page that
-     * was just measured, prefer a worker-rasterized alpha-mask layout so the UI/RenderThread path
-     * only blits one bitmap. Historical/back-navigation cache hits still return the exact measured
-     * StaticLayout, and styled pages continue to fall back in ReaderFastText.
+     * Paged rendering normally receives exactly the visible prefix measured below. For the current
+     * page or the page immediately preceding it, prefer a worker-rasterized alpha-mask layout so a
+     * fast page transition cannot fall back to glyph replay merely because the next raster published
+     * first. Older history still returns the exact measured StaticLayout, and styled pages continue
+     * to fall back in ReaderFastText.
      */
     @Synchronized
     fun reusableLayoutFor(visibleText: String, widthPx: Int, heightPx: Int, hasHeadingStyle: Boolean): StaticLayout? {
@@ -235,6 +241,12 @@ internal object ReaderPageLayoutCache {
                 raster.hasHeadingStyle == hasHeadingStyle
 
         mostRecentRaster?.takeIf(::rasterMatches)?.let { return it.layout }
+        previousRaster?.takeIf(::rasterMatches)?.let { previous ->
+            val current = mostRecentRaster
+            mostRecentRaster = previous
+            previousRaster = current
+            return previous.layout
+        }
         // The draw immediately following page measurement overwhelmingly asks for the snapshot that
         // was just inserted. Resolve that case without allocating cache.values.toList() on the UI
         // path; only history/back-navigation falls through to the tiny bounded LRU scan.
@@ -260,6 +272,7 @@ internal object ReaderPageLayoutCache {
         hasHeadingStyle: Boolean,
         layout: StaticLayout,
     ) {
+        previousRaster = mostRecentRaster
         mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
     }
 
@@ -274,7 +287,7 @@ internal object ReaderPageLayoutCache {
 
         val placeholder = SpannableString("\uFFFC")
         placeholder.setSpan(
-            ReaderPageBitmapSpan(bitmap, widthPx, heightPx),
+            ReaderPageBitmapSpan(bitmap),
             0,
             placeholder.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -282,7 +295,9 @@ internal object ReaderPageLayoutCache {
         val rasterPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG or TextPaint.SUBPIXEL_TEXT_FLAG).apply {
             set(source.paint)
         }
-        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, widthPx)
+        // The span draws the full bitmap and ignores line geometry. Keep the wrapper layout to one
+        // pixel so Layout.draw() cannot replay full-page width/height bookkeeping on every frame.
+        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
             .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
