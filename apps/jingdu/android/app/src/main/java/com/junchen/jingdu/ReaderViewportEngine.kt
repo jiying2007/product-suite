@@ -195,12 +195,13 @@ internal object ReaderPageLayoutCache {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PageLayoutKey, PageLayoutSnapshot>?): Boolean = size > 16
     }
     private var mostRecent: PageLayoutSnapshot? = null
-    // Two raster slots are enough for a page-turn transition: the newly measured page and the page
-    // that may still be drawn for one more frame. Keeping only one allowed the next measurement to
-    // evict the previous raster before Compose consumed it, occasionally falling back to glyph replay
-    // and inflating P99. This stays deliberately bounded and does not mirror the 16-entry layout LRU.
+    // Keep exactly three page rasters: the newly measured page plus the two outgoing pages that can
+    // still overlap during rapid multi-page transitions. Two slots removed the common one-page race,
+    // but hosted tail traces still showed rare third-page fallback frames inflating page-turn P99.
+    // Three stays deliberately tiny and does not mirror the 16-entry measurement LRU.
     private var mostRecentRaster: ReaderPageRaster? = null
     private var previousRaster: ReaderPageRaster? = null
+    private var olderRaster: ReaderPageRaster? = null
 
     @Synchronized
     fun get(key: PageLayoutKey): PageLayoutSnapshot? = cache[key]?.also { mostRecent = it }
@@ -217,14 +218,15 @@ internal object ReaderPageLayoutCache {
         mostRecent = null
         mostRecentRaster = null
         previousRaster = null
+        olderRaster = null
     }
 
     /**
      * Paged rendering normally receives exactly the visible prefix measured below. For the current
-     * page or the page immediately preceding it, prefer a worker-rasterized alpha-mask layout so a
-     * fast page transition cannot fall back to glyph replay merely because the next raster published
-     * first. Older history still returns the exact measured StaticLayout, and styled pages continue
-     * to fall back in ReaderFastText.
+     * page or either of the two immediately preceding pages, prefer a worker-rasterized alpha-mask
+     * layout so a rapid transition sequence cannot fall back to glyph replay merely because newer
+     * rasters published first. Older history still returns the exact measured StaticLayout, and
+     * styled pages continue to fall back in ReaderFastText.
      */
     @Synchronized
     fun reusableLayoutFor(visibleText: String, widthPx: Int, heightPx: Int, hasHeadingStyle: Boolean): StaticLayout? {
@@ -246,6 +248,14 @@ internal object ReaderPageLayoutCache {
             mostRecentRaster = previous
             previousRaster = current
             return previous.layout
+        }
+        olderRaster?.takeIf(::rasterMatches)?.let { older ->
+            val current = mostRecentRaster
+            val previous = previousRaster
+            mostRecentRaster = older
+            previousRaster = current
+            olderRaster = previous
+            return older.layout
         }
         // The draw immediately following page measurement overwhelmingly asks for the snapshot that
         // was just inserted. Resolve that case without allocating cache.values.toList() on the UI
@@ -272,6 +282,7 @@ internal object ReaderPageLayoutCache {
         hasHeadingStyle: Boolean,
         layout: StaticLayout,
     ) {
+        olderRaster = previousRaster
         previousRaster = mostRecentRaster
         mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
     }
