@@ -11,18 +11,12 @@ on:
       - '.github/workflows/pose-studio.yml'
   push:
     branches: [main]
-    paths:
-      - 'apps/pose-studio/**'
-      - 'scripts/verify-repository-topology.sh'
-      - 'README.md'
-      - '.github/REPOSITORY_POLICY.md'
-      - '.github/workflows/pose-studio.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: pose-studio-${{ github.workflow }}-${{ github.ref }}
+  group: pose-studio-${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
