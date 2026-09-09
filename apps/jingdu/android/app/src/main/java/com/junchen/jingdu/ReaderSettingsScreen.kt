@@ -1,6 +1,8 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.junchen.jingdu
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -349,12 +351,21 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
 
 @Composable
 private fun DataSettings(state: AppUiState, actions: JingduActions) = SettingsList {
+    val context = LocalContext.current
+    val privacyPolicyUrl = stringResource(R.string.privacy_policy_url)
     Section(stringResource(R.string.local_asset_backup)) {
         Text(stringResource(R.string.local_asset_backup_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.proUnlocked) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(actions.onExportBackup, Modifier.weight(1f)) { Icon(Icons.Outlined.FileUpload, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.export_backup)) }
             OutlinedButton(actions.onImportBackup, Modifier.weight(1f)) { Icon(Icons.Outlined.FileDownload, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.restore_backup)) }
         } else OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text("Pro") }
+    }
+    Section(stringResource(R.string.privacy_policy)) {
+        Text(stringResource(R.string.privacy_policy_summary), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedButton(
+            onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl))) } },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.privacy_policy_open)) }
     }
     TextButton(actions.onRestorePro, Modifier.fillMaxWidth()) { Text(stringResource(if (state.proUnlocked) R.string.pro_unlocked_recheck else R.string.restore_jingdu_pro)) }
 }
