@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="privacy_policy">隱私權政策</string>
+    <string name="privacy_policy_summary">了解淨讀如何處理本機 TXT、朗讀、外部文字操作與 Google Play 服務。</string>
+    <string name="privacy_policy_open">開啟隱私權政策</string>
+    <string name="privacy_policy_url">https://github.com/jiying2007/product-suite/blob/main/docs/PRIVACY_POLICY.zh-Hant.md</string>
+</resources>
