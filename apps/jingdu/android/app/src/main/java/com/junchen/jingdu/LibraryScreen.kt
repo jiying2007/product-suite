@@ -226,8 +226,9 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
     val continueBook = remember(state.books) {
         state.books.filter { it.status == LibraryBookStatus.READING }.maxByOrNull(BookCardModel::touchedAt)
     }
-    val showContinue = continueBook != null && libraryQuery.isBlank() && filterName == "ALL" && sortName == LibrarySort.RECENT.name
-    val gridBooks = if (showContinue && continueBook != null) filteredBooks.filterNot { it.id == continueBook.id } else filteredBooks
+    val continueBookId = continueBook?.id
+    val showContinue = continueBookId != null && libraryQuery.isBlank() && filterName == "ALL" && sortName == LibrarySort.RECENT.name
+    val gridBooks = if (showContinue) filteredBooks.filterNot { it.id == continueBookId } else filteredBooks
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),

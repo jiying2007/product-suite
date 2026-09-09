@@ -48,9 +48,36 @@ for path in (
     root / 'store/play/SCREENSHOT_BRIEF.zh-CN.md',
     root / 'docs/GROWTH_MONETIZATION.md',
     root / 'docs/PLAY_CONSOLE_SETUP.md',
+    root / 'docs/PRIVACY_POLICY.md',
+    root / 'docs/PRIVACY_POLICY.zh-CN.md',
+    root / 'docs/PRIVACY_POLICY.zh-Hant.md',
+    root / 'store/play/DATA_SAFETY.md',
+    root / 'store/play/PRIVACY_POLICY_URL.txt',
 ):
     if not path.is_file() or not path.read_text(encoding='utf-8').strip():
-        raise SystemExit(f'missing growth/store SSOT: {path}')
+        raise SystemExit(f'missing growth/store/privacy SSOT: {path}')
+
+privacy = (root / 'docs/PRIVACY_POLICY.md').read_text(encoding='utf-8')
+for required in (
+    'Jingdu Privacy Policy',
+    'jiying2007',
+    'Text-to-Speech',
+    'PROCESS_TEXT',
+    'Google Play Billing',
+    'Retention and deletion',
+    'com.junchen.jingdu',
+):
+    if required not in privacy:
+        raise SystemExit(f'privacy policy missing required disclosure: {required}')
+
+privacy_url = (root / 'store/play/PRIVACY_POLICY_URL.txt').read_text(encoding='utf-8').strip()
+if not privacy_url.startswith('https://') or 'docs/PRIVACY_POLICY.md' not in privacy_url:
+    raise SystemExit(f'invalid Play privacy policy URL: {privacy_url!r}')
+
+data_safety = (root / 'store/play/DATA_SAFETY.md').read_text(encoding='utf-8')
+for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'production AAB'):
+    if required not in data_safety:
+        raise SystemExit(f'Data safety SSOT missing required boundary: {required}')
 PY
 
 python3 ./scripts/verify-android-i18n.py
@@ -69,6 +96,8 @@ grep -q 'R.string.scan_noise_free' apps/jingdu/android/app/src/main/java/com/jun
 grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
 grep -q 'R.string.offline_voice' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'R.string.local_asset_backup' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'R.string.privacy_policy' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'Intent.ACTION_VIEW' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'OpenMultipleDocuments' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
 grep -q 'ReviewManagerFactory' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReviewPrompter.kt
 
@@ -77,4 +106,4 @@ if grep -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/Androi
   exit 1
 fi
 
-echo 'Play store/growth/monetization contract OK'
+echo 'Play store/growth/monetization/privacy contract OK'
