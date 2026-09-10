@@ -4,4 +4,6 @@
     <string name="delete_project_body">永久删除“%1$s”吗？</string>
     <string name="privacy_policy">隐私政策</string>
     <string name="privacy_open_failed">无法打开隐私政策。</string>
+    <string name="export_transparent_png">导出透明 PNG</string>
+    <string name="transparent_png_exported">透明 PNG 已导出</string>
 </resources>
