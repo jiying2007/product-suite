@@ -1,7 +1,6 @@
 package com.junchen.posestudio
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -28,7 +27,7 @@ class PoseStudioUiTest {
         rule.onNodeWithText("Light").performClick()
         rule.onNodeWithText("Directional light").assertIsDisplayed()
         rule.onNodeWithText("Project").performClick()
-        rule.onNodeWithText("Transparent PNG").assertExists()
+        rule.onNodeWithText("Transparent PNG").fetchSemanticsNode()
     }
 
     @Test
