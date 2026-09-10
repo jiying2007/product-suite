@@ -53,6 +53,7 @@ import com.junchen.posestudio.R
 import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.Vec3
+import com.junchen.posestudio.render.PoseBitmapRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,28 +118,42 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             .onFailure { message = resources.getString(R.string.privacy_open_failed) }
     }
 
-    val exportPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
-        if (uri != null) {
-            val snapshot = viewModel.project
-            scope.launch {
-                val result = runCatching {
-                    val bitmap = withContext(Dispatchers.Default) { viewModel.renderPng(snapshot) }
-                    try {
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.openOutputStream(uri)?.use { stream ->
-                                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
-                            } ?: error("Could not open export destination")
-                        }
-                    } finally {
-                        bitmap.recycle()
-                    }
+    fun writePng(uri: Uri, transparentBackground: Boolean) {
+        val snapshot = viewModel.project
+        scope.launch {
+            val result = runCatching {
+                val bitmap = withContext(Dispatchers.Default) {
+                    PoseBitmapRenderer.render(snapshot, transparentBackground = transparentBackground)
                 }
-                if (result.isSuccess) {
-                    message = resources.getString(R.string.png_exported)
-                    viewModel.recordExportSuccess()
-                } else message = resources.getString(R.string.png_export_failed, result.exceptionOrNull()?.message ?: "unknown")
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { stream ->
+                            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
+                        } ?: error("Could not open export destination")
+                    }
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+            if (result.isSuccess) {
+                message = resources.getString(
+                    if (transparentBackground) R.string.transparent_png_exported else R.string.png_exported,
+                )
+                viewModel.recordExportSuccess()
+            } else {
+                message = resources.getString(
+                    R.string.png_export_failed,
+                    result.exceptionOrNull()?.message ?: "unknown",
+                )
             }
         }
+    }
+
+    val exportPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri != null) writePng(uri, transparentBackground = false)
+    }
+    val exportTransparentPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri != null) writePng(uri, transparentBackground = true)
     }
     val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
@@ -204,8 +219,11 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                         onSave = { saveWithFeedback() },
                         onOpen = { showOpen = true },
                         onNew = { request(PendingProjectAction(PendingType.NEW)) },
-                        onExportPng = { exportPng.launch(fileName(viewModel.project.name, "png")) },
-                        onExportProject = { exportJson.launch(fileName(viewModel.project.name, "pose.json")) },
+                        onExportPng = { exportPng.launch(exportFileName(viewModel.project.name, "png")) },
+                        onExportTransparentPng = {
+                            exportTransparentPng.launch(exportFileName(viewModel.project.name + "-transparent", "png"))
+                        },
+                        onExportProject = { exportJson.launch(exportFileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
                         onPrivacy = ::openPrivacyPolicy,
                         modifier = Modifier.width(360.dp).fillMaxHeight(),
@@ -219,8 +237,11 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                         onSave = { saveWithFeedback() },
                         onOpen = { showOpen = true },
                         onNew = { request(PendingProjectAction(PendingType.NEW)) },
-                        onExportPng = { exportPng.launch(fileName(viewModel.project.name, "png")) },
-                        onExportProject = { exportJson.launch(fileName(viewModel.project.name, "pose.json")) },
+                        onExportPng = { exportPng.launch(exportFileName(viewModel.project.name, "png")) },
+                        onExportTransparentPng = {
+                            exportTransparentPng.launch(exportFileName(viewModel.project.name + "-transparent", "png"))
+                        },
+                        onExportProject = { exportJson.launch(exportFileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
                         onPrivacy = ::openPrivacyPolicy,
                         modifier = Modifier.fillMaxWidth().height(inspectorHeight),
@@ -367,6 +388,7 @@ private fun ControlArea(
     onOpen: () -> Unit,
     onNew: () -> Unit,
     onExportPng: () -> Unit,
+    onExportTransparentPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
     onPrivacy: () -> Unit,
@@ -397,6 +419,7 @@ private fun ControlArea(
                     onOpen,
                     onNew,
                     onExportPng,
+                    onExportTransparentPng,
                     onExportProject,
                     onImportProject,
                     onPrivacy,
@@ -466,6 +489,7 @@ private fun ProjectControls(
     onOpen: () -> Unit,
     onNew: () -> Unit,
     onExportPng: () -> Unit,
+    onExportTransparentPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
     onPrivacy: () -> Unit,
@@ -490,6 +514,7 @@ private fun ProjectControls(
         OutlinedButton(onClick = onExportProject) { Text(stringResource(R.string.export_json)) }
         OutlinedButton(onClick = onImportProject) { Text(stringResource(R.string.import_json)) }
         OutlinedButton(onClick = onExportPng) { Text(stringResource(R.string.export_png)) }
+        OutlinedButton(onClick = onExportTransparentPng) { Text(stringResource(R.string.export_transparent_png)) }
     }
     HorizontalDivider()
     OutlinedButton(onClick = onPrivacy) { Text(stringResource(R.string.privacy_policy)) }
@@ -555,9 +580,16 @@ private fun readLimited(reader: Reader, maxChars: Int = 2_000_000): String {
     return out.toString()
 }
 
-private fun fileName(name: String, extension: String): String {
-    val safe = name.trim().ifBlank { "pose" }.replace(Regex("[^A-Za-z0-9._-]+"), "-").take(48)
-    return "$safe.$extension"
+internal fun exportFileName(name: String, extension: String): String {
+    val cleaned = name.trim()
+        .ifBlank { "pose" }
+        .replace(Regex("[\\p{Cc}/\\\\:*?\"<>|]+"), "-")
+        .replace(Regex("\\s+"), " ")
+        .trim(' ', '.')
+        .ifBlank { "pose" }
+    val codePoints = cleaned.codePoints().limit(48).toArray()
+    val stem = String(codePoints, 0, codePoints.size).ifBlank { "pose" }
+    return "$stem.$extension"
 }
 
 private const val PRIVACY_POLICY_URL =
