@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,7 @@ import kotlinx.coroutines.withContext
 import java.io.Reader
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
 private enum class Panel { POSE, CAMERA, LIGHT, PROJECT }
 private enum class PendingType { NEW, OPEN }
@@ -64,6 +66,7 @@ private data class PendingProjectAction(val type: PendingType, val id: String? =
 @Composable
 fun PoseStudioApp(viewModel: PoseStudioViewModel) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var panel by remember { mutableStateOf(Panel.POSE) }
     var showOpen by remember { mutableStateOf(false) }
@@ -83,9 +86,9 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     }
                 }
                 if (result.isSuccess) {
-                    message = context.getString(R.string.png_exported)
+                    message = resources.getString(R.string.png_exported)
                     viewModel.recordExportSuccess()
-                } else message = context.getString(R.string.png_export_failed, result.exceptionOrNull()?.message ?: "unknown")
+                } else message = resources.getString(R.string.png_export_failed, result.exceptionOrNull()?.message ?: "unknown")
             }
         }
     }
@@ -100,9 +103,9 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     }
                 }
                 if (result.isSuccess) {
-                    message = context.getString(R.string.project_exported)
+                    message = resources.getString(R.string.project_exported)
                     viewModel.recordExportSuccess()
-                } else message = context.getString(R.string.project_export_failed, result.exceptionOrNull()?.message ?: "unknown")
+                } else message = resources.getString(R.string.project_export_failed, result.exceptionOrNull()?.message ?: "unknown")
             }
         }
     }
@@ -116,8 +119,8 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     }
                     viewModel.importJson(text)
                 }
-                message = if (result.isSuccess) context.getString(R.string.project_imported)
-                else context.getString(R.string.import_failed, result.exceptionOrNull()?.message ?: "invalid project")
+                message = if (result.isSuccess) resources.getString(R.string.project_imported)
+                else resources.getString(R.string.import_failed, result.exceptionOrNull()?.message ?: "invalid project")
             }
         }
     }
@@ -148,8 +151,8 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                 actions = {
                     TextButton(onClick = {
                         runCatching(viewModel::save)
-                            .onSuccess { message = context.getString(R.string.saved_locally) }
-                            .onFailure { message = context.getString(R.string.save_failed, it.message ?: "unknown") }
+                            .onSuccess { message = resources.getString(R.string.saved_locally) }
+                            .onFailure { message = resources.getString(R.string.save_failed, it.message ?: "unknown") }
                     }) { Text(stringResource(R.string.save)) }
                     TextButton(onClick = { showOpen = true }) { Text(stringResource(R.string.open)) }
                 },
@@ -215,7 +218,7 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     runCatching(viewModel::save).onSuccess {
                         pendingAction = null
                         execute(action)
-                    }.onFailure { message = context.getString(R.string.save_failed, it.message ?: "unknown") }
+                    }.onFailure { message = resources.getString(R.string.save_failed, it.message ?: "unknown") }
                 }) { Text(stringResource(R.string.save_continue)) }
             },
             dismissButton = {
@@ -429,7 +432,7 @@ private fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPoin
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label)
-            Text(String.format("%.1f", value), style = MaterialTheme.typography.labelMedium)
+            Text(String.format(Locale.getDefault(), "%.1f", value), style = MaterialTheme.typography.labelMedium)
         }
         Slider(value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range)
     }
