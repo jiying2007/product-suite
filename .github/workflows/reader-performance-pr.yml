@@ -8,8 +8,6 @@ on:
       - 'native/**'
       - 'scripts/run-android-macrobenchmark-ci.sh'
       - 'scripts/check-android-performance-slo.py'
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/reader-performance-pr.yml'
 
 permissions:
   contents: read
