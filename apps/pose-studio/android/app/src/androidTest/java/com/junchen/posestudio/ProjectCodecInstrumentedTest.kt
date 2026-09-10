@@ -1,5 +1,6 @@
 package com.junchen.posestudio
 
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.junchen.posestudio.data.ProjectCodec
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PoseProject
@@ -8,8 +9,10 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
 
-class ProjectCodecTest {
+@RunWith(AndroidJUnit4::class)
+class ProjectCodecInstrumentedTest {
     @Test
     fun schemaOneProjectMigratesToCurrentSchema() {
         val v1 = JSONObject()
