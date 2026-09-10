@@ -26,10 +26,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -56,7 +57,6 @@ import kotlinx.coroutines.withContext
 import java.io.Reader
 import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 private enum class Panel { POSE, CAMERA, LIGHT, PROJECT }
 private enum class PendingType { NEW, OPEN }
@@ -310,7 +310,7 @@ private fun ControlArea(
 ) {
     val labels = listOf(R.string.pose, R.string.camera, R.string.light, R.string.project)
     Column(modifier) {
-        TabRow(selectedTabIndex = panel.ordinal) {
+        PrimaryTabRow(selectedTabIndex = panel.ordinal) {
             Panel.entries.forEach { item ->
                 Tab(
                     selected = item == panel,
@@ -429,10 +429,11 @@ private fun ProjectControls(
 
 @Composable
 private fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label)
-            Text(String.format(Locale.getDefault(), "%.1f", value), style = MaterialTheme.typography.labelMedium)
+            Text(String.format(locale, "%.1f", value), style = MaterialTheme.typography.labelMedium)
         }
         Slider(value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range)
     }
