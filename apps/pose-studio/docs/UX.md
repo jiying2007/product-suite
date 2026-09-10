@@ -34,7 +34,7 @@ Next accelerators require benchmark/user evidence: local pose library, pose blen
 
 Schema-v2 roll state remains stored for forward compatibility, but roll controls are intentionally not exposed until the renderer can provide visible hand/foot/twist feedback. A control that changes invisible state is not considered usable functionality.
 
-## Project safety
+## Project safety and export
 
 - Save/Open never requires sign-in.
 - Dirty work cannot be silently replaced by New, Open or JSON Import.
@@ -43,10 +43,14 @@ Schema-v2 roll state remains stored for forward compatibility, but roll controls
 - Deleting a saved project requires explicit confirmation and cleans atomic backup state.
 - Corrupt saved files remain preserved and visible rather than silently disappearing.
 - JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
+- Export filenames preserve Unicode project names while removing path/control characters and truncate by Unicode code point rather than splitting surrogate pairs.
+- Standard PNG keeps the workspace background/grid. Transparent PNG exports only the mannequin against alpha so artists can composite it directly in drawing software.
 
 ## Responsive design
 
 Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll instead of shrinking touch targets.
+
+Light and dark modes keep Compose surfaces and Android status/navigation bars visually aligned rather than leaving bright system chrome around a dark workspace.
 
 ## Accessibility
 
