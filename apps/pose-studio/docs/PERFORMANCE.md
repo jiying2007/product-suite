@@ -4,7 +4,15 @@ Pose Studio optimizes time-to-reference-pose, so responsiveness is a product con
 
 ## CI regression gate
 
-Every Pose Studio PR/main SHA runs API 36 instrumentation on a clean emulator after the build/lint/unit gate. The suite covers product journeys plus broad regression budgets for project encode/decode, render-model construction and bitmap rendering. Emulator timings are regression evidence only.
+Every Pose Studio PR/main SHA runs API 36 instrumentation on a clean emulator after the build/lint/unit gate. Emulator timings are regression sentinels only; they are not substitutes for release-device measurements.
+
+The emulator suite separates work by product path instead of combining unrelated work into one wall-clock assertion:
+
+- steady-state render-model construction warms up first, then measures seven batches of 100 builds; median batch mean must remain below 8 ms/op and P90 batch mean below 16 ms/op;
+- project JSON encode/decode is explicitly non-interactive work, warms up independently, then measures seven batches of 20 round-trips; median batch mean must remain below 50 ms/round-trip and P90 below 100 ms/round-trip;
+- 720 px bitmap rendering warms up independently and samples five renders; median must remain below 1 s and P90 below 2 s.
+
+Batch statistics deliberately reduce sensitivity to host scheduling and JIT/image changes while preserving hard regression budgets. Serialization/file IO must never be moved onto pointer paths merely because the codec has its own budget.
 
 ## Physical release gate
 
