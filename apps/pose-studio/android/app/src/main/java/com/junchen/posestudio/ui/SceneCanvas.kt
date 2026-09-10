@@ -44,6 +44,7 @@ fun PoseScene(
     onPoseEnd: () -> Unit,
     onDragJoint: (JointId, Vec3) -> Unit,
     onOrbit: (Float, Float) -> Unit,
+    onPan: (Float, Float) -> Unit,
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -99,7 +100,7 @@ fun PoseScene(
                             val zoom = event.calculateZoom()
                             val pan = event.calculatePan()
                             if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
-                            if (pan.getDistance() > 0.01f) onOrbit(pan.x, pan.y)
+                            if (pan.getDistance() > 0.01f) onPan(pan.x, pan.y)
                             event.changes.forEach { it.consume() }
                         } else {
                             val change = pressed.first()
