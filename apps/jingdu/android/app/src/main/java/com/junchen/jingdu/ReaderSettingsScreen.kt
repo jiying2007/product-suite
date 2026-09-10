@@ -109,7 +109,7 @@ private fun SettingsHubCard(title: String, subtitle: String?, onClick: () -> Uni
 }
 
 @Composable
-private fun SettingsList(content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsList(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 36.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -295,28 +295,6 @@ private fun DisplaySettings(state: AppUiState, actions: JingduActions) = Setting
 }
 
 @Composable
-private fun AutoReadSettings(state: AppUiState, actions: JingduActions) = SettingsList {
-    val s = state.settings
-    Section(stringResource(R.string.reader_page_animation)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderPageAnimation.entries) { value -> FilterChip(s.pageAnimation == value, { actions.onSettingsChanged(s.copy(pageAnimation = value)) }, label = { Text(stringResource(if (value == ReaderPageAnimation.NONE) R.string.reader_animation_none else R.string.reader_animation_slide)) }) } } }
-    Section(stringResource(R.string.auto_page)) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderAutoPageMode.entries) { value -> FilterChip(s.autoPageMode == value, { actions.onSettingsChanged(s.copy(autoPageMode = value)) }, label = { Text(stringResource(if (value == ReaderAutoPageMode.ADAPTIVE) R.string.reader_auto_page_adaptive else R.string.reader_auto_page_fixed)) }) } }
-        if (s.autoPageMode == ReaderAutoPageMode.ADAPTIVE) SettingSlider(stringResource(R.string.reader_auto_page_pace), s.autoPagePaceMultiplier, 0.5f..2f, "%.1f×".format(s.autoPagePaceMultiplier)) { actions.onSettingsChanged(s.copy(autoPagePaceMultiplier = it)) }
-        else SettingSlider(stringResource(R.string.interval), s.autoPageDelayMs.toFloat(), 2_000f..120_000f, "%.1fs".format(s.autoPageDelayMs / 1000f)) { actions.onSettingsChanged(s.copy(autoPageDelayMs = it.toLong())) }
-    }
-    SettingSlider(stringResource(R.string.reader_scroll_speed), s.autoScrollSpeedDpPerSecond, 12f..320f, "${s.autoScrollSpeedDpPerSecond.roundToInt()} dp/s") { actions.onSettingsChanged(s.copy(autoScrollSpeedDpPerSecond = it)) }
-    Section(stringResource(R.string.sleep_timer)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(listOf(0, 15, 30, 60)) { minutes -> FilterChip(state.sleepMinutes == minutes, { actions.onSleepTimer(minutes) }, label = { Text(if (minutes == 0) stringResource(R.string.off) else stringResource(R.string.minutes_value, minutes)) }) } } }
-}
-
-@Composable
-private fun LanguageSettings(state: AppUiState, actions: JingduActions) = SettingsList {
-    val s = state.settings
-    var overrides by rememberSaveable(s.chineseOverrides) { mutableStateOf(s.chineseOverrides) }
-    Section(stringResource(R.string.chinese_conversion)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ChineseDisplayMode.entries) { value -> FilterChip(s.chineseMode == value, { actions.onSettingsChanged(s.copy(chineseMode = value)) }, label = { Text(chineseModeLabel(value)) }) } } }
-    OutlinedTextField(overrides, { overrides = it.take(16 * 1024) }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.chinese_overrides)) }, minLines = 4, maxLines = 10)
-    Button({ actions.onSettingsChanged(s.copy(chineseOverrides = overrides)) }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.save_dictionary)) }
-}
-
-@Composable
 private fun SpeechSettings(state: AppUiState, actions: JingduActions) = SettingsList {
     val s = state.settings
     val context = LocalContext.current
@@ -370,9 +348,9 @@ private fun DataSettings(state: AppUiState, actions: JingduActions) = SettingsLi
     TextButton(actions.onRestorePro, Modifier.fillMaxWidth()) { Text(stringResource(if (state.proUnlocked) R.string.pro_unlocked_recheck else R.string.restore_jingdu_pro)) }
 }
 
-@Composable private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); content() } }
-@Composable private fun SettingSwitch(label: String, checked: Boolean, enabled: Boolean = true, onChecked: (Boolean) -> Unit) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f), color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)); Switch(checked, onChecked, enabled = enabled) } }
-@Composable private fun SettingSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, valueText: String, onChange: (Float) -> Unit) { Column { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(label); Text(valueText, style = MaterialTheme.typography.labelMedium) }; Slider(value, onChange, valueRange = range) } }
+@Composable internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); content() } }
+@Composable internal fun SettingSwitch(label: String, checked: Boolean, enabled: Boolean = true, onChecked: (Boolean) -> Unit) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f), color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)); Switch(checked, onChecked, enabled = enabled) } }
+@Composable internal fun SettingSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, valueText: String, onChange: (Float) -> Unit) { Column { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(label); Text(valueText, style = MaterialTheme.typography.labelMedium) }; Slider(value, onChange, valueRange = range) } }
 
 @Composable private fun readerSettingsPageTitle(page: ReaderSettingsPage): String = stringResource(when (page) {
     ReaderSettingsPage.HOME -> R.string.reader_settings
