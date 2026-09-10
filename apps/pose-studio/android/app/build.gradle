@@ -40,6 +40,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             if (releaseSigningPropertiesFile.exists()) signingConfig = signingConfigs.release
         }
+        benchmark {
+            initWith release
+            debuggable = false
+            signingConfig = signingConfigs.debug
+            matchingFallbacks = ["release"]
+        }
     }
 
     buildFeatures { compose = true }
@@ -79,6 +85,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime-compose:2.11.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0"
+    implementation "androidx.profileinstaller:profileinstaller:1.4.1"
 
     debugImplementation "androidx.compose.ui:ui-tooling"
     testImplementation "junit:junit:4.13.2"

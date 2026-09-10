@@ -14,17 +14,38 @@ The emulator suite separates work by product path instead of combining unrelated
 
 Batch statistics deliberately reduce sensitivity to host scheduling and JIT/image changes while preserving hard regression budgets. Serialization/file IO must never be moved onto pointer paths merely because the codec has its own budget.
 
+Normal `poseStudioCheck` also compiles the app's `benchmark` variant and the separate `:macrobenchmark` test APK. It deliberately does not execute Macrobenchmark on a hosted emulator because emulator performance is not release evidence.
+
+## Release-like benchmark variant
+
+The app has a `benchmark` build type that inherits `release`: R8/minification and resource shrinking remain enabled and the app is non-debuggable. The only intentional difference is local debug signing so a qualification runner can install the exact code under test. A benchmark-only manifest makes that variant profileable by shell; the production `release` manifest remains unaffected.
+
+The separate `:macrobenchmark` module uses AndroidX Macrobenchmark and UI Automator to measure:
+
+- ten cold starts with `StartupTimingMetric`;
+- repeated direct wrist manipulation with `FrameTimingMetric`, producing raw frame distributions and one Perfetto trace per measured iteration.
+
+Macrobenchmark JSON and trace files are immutable release evidence, not substitutes for the production AAB/signing provenance built in the same qualification run.
+
 ## Physical release gate
 
-A commercial release candidate must run `.github/workflows/pose-studio-physical-release.yml` on a real device runner. The workflow rejects emulators, records source SHA, manufacturer/model/API/build fingerprint and preserves evidence.
+A commercial release candidate must run `.github/workflows/pose-studio-physical-release.yml` on a real device runner. The workflow rejects emulators, verifies that the requested immutable ref resolves to the checked-out SHA, records manufacturer/model/API/build fingerprint, and preserves evidence.
 
-Minimum release targets:
+The physical script is fail-closed for product-specific release signing: it runs `validatePoseReleaseSigning`, builds the signed release APK/AAB, records SHA-256 checksums and the release signing certificate, then runs the release-like Macrobenchmark variant.
 
-- cold start P95 < 1.0 s;
-- direct manipulation targets 60 Hz with no serialization/file IO on pointer paths;
+Current automated physical thresholds are:
+
+- cold start `timeToInitialDisplayMs` P95 < 1.0 s;
+- direct-manipulation `frameDurationCpuMs` P95 < 16.7 ms;
+- direct-manipulation `frameDurationCpuMs` P99 < 33.4 ms.
+
+These thresholds express the 60 Hz interaction target while still making tail-frame regressions visible. AndroidX `FrameTimingMetric` also preserves `frameOverrunMs` where the platform supports it; inspect the trace rather than hiding a passing percentile behind severe isolated jank.
+
+Additional v1 release targets remain mandatory and need representative physical journey evidence before the corresponding issue rows can close:
+
 - gesture-to-visible response should remain within one rendered frame under steady state;
 - local save/open P95 < 100 ms for the procedural project schema;
 - 1440 px PNG render+write P95 < 1.0 s on a representative mid-range device;
 - no OOM/ANR during repeated edit/save/export journeys.
 
-Before v1.0, expand physical evidence to at least one API 26 device, one API 36 device and two OEM families. Record frame P95/P99 using Perfetto/FrameTimeline rather than substituting emulator results.
+Before v1.0, qualification must cover at least one API 26 device, one API 36 device and two OEM families. Do not replace that matrix with hosted-emulator results or a single flagship phone.
