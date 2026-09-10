@@ -10,21 +10,31 @@ import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PoseProject
 
 object PoseBitmapRenderer {
-    fun render(project: PoseProject, width: Int = 1440, height: Int = 1440): Bitmap {
+    fun render(
+        project: PoseProject,
+        width: Int = 1440,
+        height: Int = 1440,
+        transparentBackground: Boolean = false,
+    ): Bitmap {
+        require(width > 0 && height > 0) { "PNG dimensions must be positive" }
         val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(Color.rgb(247, 247, 245))
+        if (!transparentBackground) canvas.drawColor(Color.rgb(247, 247, 245))
         val model = PoseRenderBuilder.build(project, width.toFloat(), height.toFloat())
 
-        val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(218, 218, 214)
-            strokeWidth = 2f
+        if (!transparentBackground) {
+            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(218, 218, 214)
+                strokeWidth = 2f
+            }
+            model.grid.forEach { line -> canvas.drawLine(line.x1, line.y1, line.x2, line.y2, gridPaint) }
         }
-        model.grid.forEach { line -> canvas.drawLine(line.x1, line.y1, line.x2, line.y2, gridPaint) }
 
         model.volumes.forEach { volume ->
             val shade = shade(volume.luminance)
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(shade, shade, (shade + 7).coerceAtMost(255)) }
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(shade, shade, (shade + 7).coerceAtMost(255))
+            }
             canvas.drawOval(
                 RectF(
                     volume.centerX - volume.radiusX,
