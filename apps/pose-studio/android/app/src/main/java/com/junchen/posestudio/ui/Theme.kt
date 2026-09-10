@@ -13,7 +13,12 @@ private val Light = lightColorScheme(
     background = Color(0xFFF7F7F5),
     surface = Color(0xFFFFFFFF),
 )
-private val Dark = darkColorScheme(primary = Color(0xFF9DB4FF))
+private val Dark = darkColorScheme(
+    primary = Color(0xFF9DB4FF),
+    secondary = Color(0xFFBAC6E1),
+    background = Color(0xFF111318),
+    surface = Color(0xFF191B20),
+)
 
 @Composable
 fun PoseStudioTheme(content: @Composable () -> Unit) {
