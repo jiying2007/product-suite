@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import com.junchen.posestudio.engine.SceneProjection
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.Mannequin
@@ -38,6 +40,7 @@ fun PoseScene(
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    val hitRadiusPx = with(LocalDensity.current) { 48.dp.toPx() }
     val projected = remember(project.joints, project.camera, canvasSize) {
         if (canvasSize.width == 0) emptyMap() else JointId.entries.associateWith { id ->
             SceneProjection.project(
@@ -53,15 +56,17 @@ fun PoseScene(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { canvasSize = it }
-            .pointerInput(canvasSize) {
+            .pointerInput(canvasSize, hitRadiusPx) {
                 var activeJoint: JointId? = null
+                var activeDepth = 0f
                 detectDragGestures(
                     onDragStart = { start ->
                         activeJoint = currentProjected.entries
                             .map { (joint, point) -> joint to Offset(point.x, point.y) }
                             .minByOrNull { (_, point) -> (point - start).getDistance() }
-                            ?.takeIf { (_, point) -> (point - start).getDistance() <= 42f }
+                            ?.takeIf { (_, point) -> (point - start).getDistance() <= hitRadiusPx }
                             ?.first
+                        activeDepth = activeJoint?.let { currentProjected[it]?.depth } ?: currentCamera.distance
                         onSelect(activeJoint)
                         if (activeJoint != null) onPoseStart()
                     },
@@ -77,10 +82,15 @@ fun PoseScene(
                     change.consume()
                     val joint = activeJoint
                     if (joint != null) {
+                        activeDepth = currentProjected[joint]?.depth ?: activeDepth
                         onDragJoint(
                             joint,
                             SceneProjection.screenDeltaToWorld(
-                                dragAmount.x, dragAmount.y, currentCamera, canvasSize.width.toFloat(),
+                                dragAmount.x,
+                                dragAmount.y,
+                                currentCamera,
+                                canvasSize.width.toFloat(),
+                                activeDepth,
                             ),
                         )
                     } else {
@@ -123,7 +133,8 @@ fun PoseScene(
         JointId.entries.sortedByDescending { projected.getValue(it).depth }.forEach { id ->
             val p = projected.getValue(id)
             val chosen = id == selectedJoint
-            val radius = (if (id == JointId.HEAD) 22f else if (chosen) 9f else 5.5f) * (p.scale / 160f).coerceIn(0.75f, 1.7f)
+            val radius = (if (id == JointId.HEAD) 22f else if (chosen) 9f else 5.5f) *
+                (p.scale / 160f).coerceIn(0.75f, 1.7f)
             if (chosen) drawCircle(Color(0x443F6FFF), radius * 1.9f, Offset(p.x, p.y))
             drawCircle(if (chosen) Color(0xFF315BDB) else Color(0xFF303034), radius, Offset(p.x, p.y))
         }

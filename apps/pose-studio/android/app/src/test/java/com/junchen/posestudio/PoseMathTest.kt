@@ -1,8 +1,8 @@
 package com.junchen.posestudio
 
+import com.junchen.posestudio.engine.PoseMath
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.Mannequin
-import com.junchen.posestudio.model.PoseMath
 import com.junchen.posestudio.model.Vec3
 import com.junchen.posestudio.model.distance
 import org.junit.Assert.assertEquals
@@ -76,7 +76,11 @@ class PoseMathTest {
 
     @Test
     fun groundFeetMovesWholePoseWithoutChangingBoneLengths() {
-        val before = PoseMath.dragJoint(Mannequin.preset(com.junchen.posestudio.model.PosePreset.RUN), JointId.PELVIS, Vec3(0f, 0.6f, 0f))
+        val before = PoseMath.dragJoint(
+            Mannequin.preset(com.junchen.posestudio.model.PosePreset.RUN),
+            JointId.PELVIS,
+            Vec3(0f, 0.6f, 0f),
+        )
         val after = PoseMath.groundFeet(before)
         val lowest = minOf(after.getValue(JointId.LEFT_FOOT).y, after.getValue(JointId.RIGHT_FOOT).y)
 

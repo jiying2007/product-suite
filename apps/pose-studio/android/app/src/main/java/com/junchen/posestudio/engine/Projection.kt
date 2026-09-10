@@ -20,7 +20,7 @@ object SceneProjection {
         val z2 = sin(pitch) * point.y + cos(pitch) * z1
 
         val depth = (camera.distance + z2).coerceAtLeast(0.25f)
-        val focal = (width.coerceAtLeast(1f) / 2f) / tan(radians(camera.fovDegrees.coerceIn(20f, 75f)) / 2f)
+        val focal = focalLength(width, camera)
         val scale = focal / depth
         return ProjectedPoint(
             x = width / 2f + x1 * scale,
@@ -30,13 +30,23 @@ object SceneProjection {
         )
     }
 
-    fun screenDeltaToWorld(dx: Float, dy: Float, camera: CameraState, width: Float): Vec3 {
+    fun screenDeltaToWorld(
+        dx: Float,
+        dy: Float,
+        camera: CameraState,
+        width: Float,
+        depth: Float = camera.distance,
+    ): Vec3 {
         val yaw = radians(camera.yawDegrees)
-        val unitsPerPixel = camera.distance / width.coerceAtLeast(1f) * 1.45f
+        val pitch = radians(camera.pitchDegrees)
         val right = Vec3(cos(yaw), 0f, -sin(yaw))
-        val up = Vec3.Y
+        val up = Vec3(-sin(pitch) * sin(yaw), cos(pitch), -sin(pitch) * cos(yaw))
+        val unitsPerPixel = depth.coerceAtLeast(0.25f) / focalLength(width, camera)
         return right * (dx * unitsPerPixel) + up * (-dy * unitsPerPixel)
     }
+
+    private fun focalLength(width: Float, camera: CameraState): Float =
+        (width.coerceAtLeast(1f) / 2f) / tan(radians(camera.fovDegrees.coerceIn(20f, 75f)) / 2f)
 
     private fun radians(degrees: Float): Float = degrees * PI.toFloat() / 180f
 }

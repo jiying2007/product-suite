@@ -40,14 +40,19 @@ data class LightState(
 )
 
 data class PoseProject(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val id: String = UUID.randomUUID().toString(),
     val name: String = "Untitled Pose",
     val modifiedAt: Long = System.currentTimeMillis(),
     val joints: Map<JointId, Vec3> = Mannequin.neutral(),
+    val jointRollDegrees: Map<JointId, Float> = JointId.entries.associateWith { 0f },
     val camera: CameraState = CameraState(),
     val light: LightState = LightState(),
-)
+) {
+    companion object {
+        const val CURRENT_SCHEMA_VERSION = 2
+    }
+}
 
 enum class PosePreset(val label: String) {
     NEUTRAL("Neutral"),
@@ -143,6 +148,6 @@ object Mannequin {
                 p[JointId.RIGHT_FOOT] = Vec3(0.48f, -1.32f, -1.12f)
             }
         }
-        return PoseMath.enforceBoneLengths(p)
+        return com.junchen.posestudio.engine.PoseMath.enforceBoneLengths(p)
     }
 }

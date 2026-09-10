@@ -1,5 +1,9 @@
-package com.junchen.posestudio.model
+package com.junchen.posestudio.engine
 
+import com.junchen.posestudio.model.JointId
+import com.junchen.posestudio.model.Mannequin
+import com.junchen.posestudio.model.Vec3
+import com.junchen.posestudio.model.distance
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -13,7 +17,8 @@ object PoseMath {
             val parent = out.getValue(bone.parent)
             val child = out.getValue(bone.child)
             val expected = distance(reference.getValue(bone.parent), reference.getValue(bone.child))
-            out[bone.child] = parent + (child - parent).normalized(reference.getValue(bone.child) - reference.getValue(bone.parent)) * expected
+            out[bone.child] = parent + (child - parent)
+                .normalized(reference.getValue(bone.child) - reference.getValue(bone.parent)) * expected
         }
         return out
     }
