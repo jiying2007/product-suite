@@ -112,10 +112,12 @@ jobs:
         run: bash ./scripts/verify-android-16k-page-size.sh
 
   android-performance:
+    if: github.event_name == 'push'
     needs: android
-    # Pin the hosted regression environment to Ubuntu 22.04 + Android 35. Emulator timing is
-    # guarded by the checked-in baseline + 15% budget and 160/220 anti-drift ceilings; 40/80 is
-    # exclusively the physical-device Release SLO.
+    # Exact-main remains the mandatory hosted Reader regression gate. Pull requests run the same
+    # job from reader-performance-pr.yml only when Jingdu/shared performance paths change.
+    # Emulator timing is guarded by the checked-in baseline + 15% budget and 160/220 anti-drift
+    # ceilings; 40/80 is exclusively the physical-device Release SLO.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
