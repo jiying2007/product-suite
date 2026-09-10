@@ -2,34 +2,37 @@
 
 ## Build gate
 
-`poseStudioCheck` must run unit tests, debug/release lint, assemble the debug APK and compile Android instrumentation tests.
+`poseStudioCheck` must run JVM unit tests, debug/release lint, assemble debug and release APKs, build the release AAB and compile instrumentation tests.
 
-## Domain invariants
+Dedicated Pose Studio CI additionally boots API 36, runs the full instrumentation suite, then reruns primary-action accessibility reachability at 200% font scale. Build and instrumentation artifacts are preserved per exact SHA.
 
-- Pose transforms must not produce NaN/Infinity coordinates.
-- Endpoint IK preserves the two configured bone lengths within floating-point tolerance.
-- Non-root joint dragging preserves its parent bone length.
-- Undo/redo operates on complete joint snapshots.
-- Project schema is explicitly versioned.
-- Unknown/missing joints on import fall back safely instead of making the entire project unreadable.
+## Domain/data invariants
+
+- Pose transforms never produce NaN/Infinity.
+- Endpoint IK preserves configured bone lengths within tolerance.
+- Non-root direct manipulation preserves parent bone length.
+- Mirror/copy/ground operations preserve expected geometry.
+- One gesture is one undo snapshot.
+- Project schema is explicit and v1 migrates deterministically to v2.
+- Missing/invalid joints fall back safely; future unsupported schemas fail explicitly.
+- Project import is bounded in size and rejects/sanitizes pathological numeric input.
+- Explicit save is atomic; unsaved changes are recoverable through a debounced local journal.
 
 ## Privacy gate
 
-The main manifest must not request `android.permission.INTERNET`.
+The main manifest must not request `android.permission.INTERNET` or `ACCESS_NETWORK_STATE`. No account/ads/analytics SDK may become required for the core loop.
 
 ## UX acceptance
 
-- A joint can be selected directly on the mannequin.
-- Dragging a wrist/ankle moves the limb through two-bone IK.
-- Dragging empty scene space orbits the camera.
-- A useful preset is reachable in one tap.
-- Save/open/export are available without account setup.
+- Direct joint selection/drag and empty-space orbit work without mode switching.
+- Pinch zoom is available.
+- Mirror/copy/ground and presets are one-step accelerators.
+- Unsaved New/Open cannot silently destroy work.
+- Save/open/import/export remain account-free.
+- phone/landscape/tablet layout keeps the scene dominant.
+- primary actions remain reachable at 200% font scale.
+- alternate precise joint controls exist for users unable to operate the canvas directly.
 
-## Performance targets for v0.1
+## Performance
 
-These are engineering targets, not yet release gates:
-
-- interactive scene manipulation target: 60 Hz on a representative mid-range device;
-- no allocation-heavy project serialization inside pointer move events;
-- project save/import should be effectively instantaneous for the procedural skeleton schema;
-- 1440 px PNG export should complete without network or background service.
+API-36 instrumentation owns broad regression budgets for render-model, project codec and bitmap rendering. These do not replace physical release qualification. Physical release SLOs and evidence requirements are defined in `PERFORMANCE.md`.

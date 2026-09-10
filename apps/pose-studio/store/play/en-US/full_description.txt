@@ -1,0 +1,9 @@
+Pose Studio is a focused 3D pose and drawing-reference workspace built for illustrators, comic artists and storyboard creators.
+
+Pose faster: start from useful presets, drag joints directly with inverse kinematics, mirror a pose, copy limbs and ground the figure without navigating a general-purpose 3D editor.
+
+Frame the reference with orbit, pinch zoom, camera presets and field-of-view controls. Adjust a simple directional light to make form easier to read, then export a clean PNG reference.
+
+Your work stays yours. Core creation works offline without an account. Projects are saved locally in a versioned format and can be exported as human-readable JSON. Project parsing is not tied to a subscription or entitlement state.
+
+Pose Studio intentionally focuses on fast pose reference rather than mesh editing, animation timelines, social feeds or generative AI.

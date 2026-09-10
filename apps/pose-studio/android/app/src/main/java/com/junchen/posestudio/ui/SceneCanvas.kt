@@ -1,8 +1,12 @@
 package com.junchen.posestudio.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,127 +15,147 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import com.junchen.posestudio.engine.SceneProjection
 import com.junchen.posestudio.model.JointId
-import com.junchen.posestudio.model.Mannequin
 import com.junchen.posestudio.model.PoseProject
 import com.junchen.posestudio.model.Vec3
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.sin
+import com.junchen.posestudio.render.PoseRenderBuilder
+import kotlin.math.abs
 
 @Composable
 fun PoseScene(
     project: PoseProject,
     selectedJoint: JointId?,
+    selectedJointLabel: String?,
+    sceneDescription: String,
     onSelect: (JointId?) -> Unit,
     onPoseStart: () -> Unit,
     onPoseEnd: () -> Unit,
     onDragJoint: (JointId, Vec3) -> Unit,
     onOrbit: (Float, Float) -> Unit,
+    onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    val projected = remember(project.joints, project.camera, canvasSize) {
-        if (canvasSize.width == 0) emptyMap() else JointId.entries.associateWith { id ->
-            SceneProjection.project(
-                project.joints.getValue(id), project.camera,
-                canvasSize.width.toFloat(), canvasSize.height.toFloat(),
-            )
-        }
+    val hitRadiusPx = with(LocalDensity.current) { 48.dp.toPx() }
+    val model = remember(project.joints, project.camera, project.light, canvasSize) {
+        if (canvasSize.width == 0) null else PoseRenderBuilder.build(
+            project,
+            canvasSize.width.toFloat(),
+            canvasSize.height.toFloat(),
+        )
     }
-    val currentProjected by rememberUpdatedState(projected)
+    val currentModel by rememberUpdatedState(model)
     val currentCamera by rememberUpdatedState(project.camera)
+    val background = MaterialTheme.colorScheme.background
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val bodyColor = MaterialTheme.colorScheme.onSurface
+    val selectionColor = MaterialTheme.colorScheme.primary
 
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { canvasSize = it }
-            .pointerInput(canvasSize) {
-                var activeJoint: JointId? = null
-                detectDragGestures(
-                    onDragStart = { start ->
-                        activeJoint = currentProjected.entries
-                            .map { (joint, point) -> joint to Offset(point.x, point.y) }
-                            .minByOrNull { (_, point) -> (point - start).getDistance() }
-                            ?.takeIf { (_, point) -> (point - start).getDistance() <= 42f }
-                            ?.first
-                        onSelect(activeJoint)
-                        if (activeJoint != null) onPoseStart()
-                    },
-                    onDragEnd = {
-                        if (activeJoint != null) onPoseEnd()
-                        activeJoint = null
-                    },
-                    onDragCancel = {
-                        if (activeJoint != null) onPoseEnd()
-                        activeJoint = null
-                    },
-                ) { change, dragAmount ->
-                    change.consume()
-                    val joint = activeJoint
-                    if (joint != null) {
-                        onDragJoint(
-                            joint,
-                            SceneProjection.screenDeltaToWorld(
-                                dragAmount.x, dragAmount.y, currentCamera, canvasSize.width.toFloat(),
-                            ),
-                        )
-                    } else {
-                        onOrbit(dragAmount.x, dragAmount.y)
+            .semantics {
+                contentDescription = sceneDescription
+                selectedJointLabel?.let { stateDescription = it }
+            }
+            .pointerInput(canvasSize, hitRadiusPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startModel = currentModel
+                    var activeJoint = startModel?.projected?.entries
+                        ?.map { (joint, point) -> joint to Offset(point.x, point.y) }
+                        ?.minByOrNull { (_, point) -> (point - down.position).getDistance() }
+                        ?.takeIf { (_, point) -> (point - down.position).getDistance() <= hitRadiusPx }
+                        ?.first
+                    var activeDepth = activeJoint?.let { startModel?.projected?.get(it)?.depth } ?: currentCamera.distance
+                    var poseStarted = activeJoint != null
+                    onSelect(activeJoint)
+                    if (poseStarted) onPoseStart()
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) break
+                        if (pressed.size >= 2) {
+                            if (poseStarted) {
+                                onPoseEnd()
+                                poseStarted = false
+                            }
+                            activeJoint = null
+                            onSelect(null)
+                            val zoom = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
+                            if (pan.getDistance() > 0.01f) onOrbit(pan.x, pan.y)
+                            event.changes.forEach { it.consume() }
+                        } else {
+                            val change = pressed.first()
+                            val delta = change.positionChange()
+                            if (delta.getDistance() > 0f) {
+                                val joint = activeJoint
+                                if (joint != null) {
+                                    activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
+                                    onDragJoint(
+                                        joint,
+                                        SceneProjection.screenDeltaToWorld(
+                                            delta.x,
+                                            delta.y,
+                                            currentCamera,
+                                            canvasSize.width.toFloat(),
+                                            activeDepth,
+                                        ),
+                                    )
+                                } else {
+                                    onOrbit(delta.x, delta.y)
+                                }
+                                change.consume()
+                            }
+                        }
                     }
+                    if (poseStarted) onPoseEnd()
                 }
             },
     ) {
-        drawRect(Color(0xFFF7F7F5))
-
-        for (i in -5..5) {
-            val a = SceneProjection.project(Vec3(i.toFloat(), -1.84f, -4f), project.camera, size.width, size.height)
-            val b = SceneProjection.project(Vec3(i.toFloat(), -1.84f, 4f), project.camera, size.width, size.height)
-            drawLine(Color(0xFFD8D8D4), Offset(a.x, a.y), Offset(b.x, b.y), strokeWidth = 1.2f)
-            val c = SceneProjection.project(Vec3(-4f, -1.84f, i.toFloat()), project.camera, size.width, size.height)
-            val d = SceneProjection.project(Vec3(4f, -1.84f, i.toFloat()), project.camera, size.width, size.height)
-            drawLine(Color(0xFFD8D8D4), Offset(c.x, c.y), Offset(d.x, d.y), strokeWidth = 1.2f)
+        drawRect(background)
+        val renderModel = model ?: return@Canvas
+        renderModel.grid.forEach { line ->
+            drawLine(gridColor, Offset(line.x1, line.y1), Offset(line.x2, line.y2), strokeWidth = line.width)
         }
-
-        val light = lightDirection(project)
-        Mannequin.bones.sortedByDescending { bone ->
-            (projected.getValue(bone.parent).depth + projected.getValue(bone.child).depth) / 2f
-        }.forEach { bone ->
-            val a = projected.getValue(bone.parent)
-            val b = projected.getValue(bone.child)
-            val direction = (project.joints.getValue(bone.child) - project.joints.getValue(bone.parent)).normalized()
-            val facing = max(0f, direction.dot(light))
-            val luminance = (0.28f + project.light.intensity * 0.32f + facing * 0.22f).coerceIn(0.25f, 0.82f)
-            val color = Color(luminance, luminance, (luminance + 0.035f).coerceAtMost(1f))
-            val depthScale = ((a.scale + b.scale) / 2f / 160f).coerceIn(0.7f, 2.2f)
+        renderModel.volumes.forEach { volume ->
+            drawOval(
+                color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
+                topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
+                size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
+            )
+        }
+        renderModel.bones.forEach { line ->
             drawLine(
-                color = color,
-                start = Offset(a.x, a.y),
-                end = Offset(b.x, b.y),
-                strokeWidth = bone.width * depthScale,
+                color = bodyColor.copy(alpha = (0.32f + line.luminance * 0.68f).coerceAtMost(0.98f)),
+                start = Offset(line.x1, line.y1),
+                end = Offset(line.x2, line.y2),
+                strokeWidth = line.width,
                 cap = StrokeCap.Round,
             )
         }
-
-        JointId.entries.sortedByDescending { projected.getValue(it).depth }.forEach { id ->
-            val p = projected.getValue(id)
+        JointId.entries.sortedByDescending { renderModel.projected.getValue(it).depth }.forEach { id ->
+            val p = renderModel.projected.getValue(id)
             val chosen = id == selectedJoint
-            val radius = (if (id == JointId.HEAD) 22f else if (chosen) 9f else 5.5f) * (p.scale / 160f).coerceIn(0.75f, 1.7f)
-            if (chosen) drawCircle(Color(0x443F6FFF), radius * 1.9f, Offset(p.x, p.y))
-            drawCircle(if (chosen) Color(0xFF315BDB) else Color(0xFF303034), radius, Offset(p.x, p.y))
+            val radius = (if (chosen) 9f else 5.5f) * (p.scale / 160f).coerceIn(0.75f, 1.7f)
+            if (chosen) drawCircle(selectionColor.copy(alpha = 0.24f), radius * 2f, Offset(p.x, p.y))
+            drawCircle(if (chosen) selectionColor else bodyColor, radius, Offset(p.x, p.y))
         }
     }
-}
-
-private fun lightDirection(project: PoseProject): Vec3 {
-    val az = project.light.azimuthDegrees * PI.toFloat() / 180f
-    val el = project.light.elevationDegrees * PI.toFloat() / 180f
-    return Vec3(cos(el) * cos(az), sin(el), cos(el) * sin(az)).normalized()
 }

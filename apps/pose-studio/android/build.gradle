@@ -11,5 +11,7 @@ tasks.register("poseStudioCheck") {
             ":app:lintDebug",
             ":app:lintRelease",
             ":app:assembleDebug",
+            ":app:assembleRelease",
+            ":app:bundleRelease",
             ":app:assembleDebugAndroidTest")
 }

@@ -45,11 +45,54 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pose-studio-${{ github.sha }}
+          name: pose-studio-build-${{ github.sha }}
           path: |
             apps/pose-studio/android/app/build/outputs/apk/debug/app-debug.apk
+            apps/pose-studio/android/app/build/outputs/apk/release/
+            apps/pose-studio/android/app/build/outputs/bundle/release/
             apps/pose-studio/android/app/build/reports/tests/
             apps/pose-studio/android/app/build/reports/lint-results-*.html
             apps/pose-studio/android/app/build/reports/lint-results-*.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  pose-studio-instrumentation:
+    needs: pose-studio
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run API 36 product journeys and performance regression tests
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2, 2026-07-05
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            apps/pose-studio/android/gradlew -p apps/pose-studio/android --no-daemon connectedDebugAndroidTest
+            adb shell settings put system font_scale 2.0
+            adb shell am force-stop com.junchen.posestudio
+            apps/pose-studio/android/gradlew -p apps/pose-studio/android --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.junchen.posestudio.PoseStudioLargeFontTest
+      - name: Preserve instrumentation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pose-studio-instrumentation-${{ github.sha }}
+          path: |
+            apps/pose-studio/android/app/build/outputs/androidTest-results/
+            apps/pose-studio/android/app/build/reports/androidTests/
           if-no-files-found: warn
           retention-days: 14
