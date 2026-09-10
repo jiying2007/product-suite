@@ -22,7 +22,7 @@ Project name and unsaved state remain visible in the top bar.
 - Other joints preserve their parent bone length and move descendants coherently.
 - Pelvis translates the full mannequin.
 - Empty-scene drag orbits the camera.
-- Two-finger gestures pan/orbit and pinch zoom.
+- Two-finger gestures pan the persistent camera target and pinch zoom without moving the mannequin itself.
 - Screen-to-world drag respects camera pitch/FOV and selected-joint depth.
 - One continuous pose gesture creates one undo snapshot.
 
@@ -32,11 +32,15 @@ Current: four starting presets, full mirror, left/right arm copy, left/right leg
 
 Next accelerators require benchmark/user evidence: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and balance assistance.
 
+Schema-v2 roll state remains stored for forward compatibility, but roll controls are intentionally not exposed until the renderer can provide visible hand/foot/twist feedback. A control that changes invisible state is not considered usable functionality.
+
 ## Project safety
 
 - Save/Open never requires sign-in.
-- Dirty work cannot be silently replaced by New/Open.
+- Dirty work cannot be silently replaced by New, Open or JSON Import.
 - Unsaved edits are locally journaled and offered for recovery after process death.
+- Explicit project and recovery writes use Android `AtomicFile`; reads participate in backup recovery rather than bypassing it.
+- Deleting a saved project requires explicit confirmation and cleans atomic backup state.
 - Corrupt saved files remain preserved and visible rather than silently disappearing.
 - JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
 
@@ -48,7 +52,7 @@ Phone uses the remaining scene height above a bounded responsive inspector. Land
 
 - Non-canvas controls use Material controls with minimum touch targets and visible labels.
 - Scene exposes descriptive and selected-joint state semantics.
-- The Pose inspector provides explicit left/right/up/down/forward/back and roll controls as an alternative to gesture-only manipulation.
+- The Pose inspector provides explicit left/right/up/down/forward/back controls as an alternative to gesture-only manipulation.
 - CI reruns primary-action reachability at 200% font scale.
 - Before v1, manual TalkBack/switch/keyboard audits on the final release build remain mandatory.
 
