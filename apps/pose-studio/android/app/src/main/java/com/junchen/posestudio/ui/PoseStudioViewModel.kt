@@ -251,8 +251,12 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun exportJson(): String = ProjectCodec.encode(project)
-    fun renderPng(snapshot: PoseProject = project, width: Int = 1440, height: Int = 1440): Bitmap =
-        PoseBitmapRenderer.render(snapshot, width, height)
+    fun renderPng(
+        snapshot: PoseProject = project,
+        width: Int = 1440,
+        height: Int = 1440,
+        transparentBackground: Boolean = false,
+    ): Bitmap = PoseBitmapRenderer.render(snapshot, width, height, transparentBackground)
 
     private fun completeOnboarding() {
         onboardingStep = -1
