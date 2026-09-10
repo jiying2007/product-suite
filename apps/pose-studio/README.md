@@ -1,25 +1,29 @@
 # Pose Studio
 
-Pose Studio is an offline-first Android 3D pose and reference workspace for illustrators, comic artists, storyboard artists and other visual creators.
+Pose Studio is an offline-first Android pose and drawing-reference workspace for illustrators, comic artists, storyboard artists and other visual creators.
 
 The product goal is not to become a general-purpose 3D modeller. It optimizes one task: **reach a useful drawing reference pose quickly, then keep that project usable forever**.
+
+## Current product state
+
+The current development line is `0.2.0`. It is a commercial-beta candidate, not a v1 production claim.
+
+Implemented product foundations include direct joint manipulation with IK, symmetry/copy/ground speed tools, depth-aware camera-plane dragging, two-finger camera zoom/pan, responsive phone/tablet layout, autosave recovery, versioned schema migration, portable JSON/PNG export, localized UI resources and executable Android instrumentation gates.
 
 ## Product promises
 
 - Core creation works with no account and no network connection.
-- The Android manifest does not request `INTERNET`.
+- The Android manifest does not request `INTERNET` or `ACCESS_NETWORK_STATE`.
 - Saved projects remain readable regardless of future commercial packaging.
 - Project JSON and rendered PNG can be exported through Android's Storage Access Framework.
-- The first renderer is procedural and asset-free: a 3D articulated mannequin, camera, light and floor grid.
+- The renderer remains procedural and asset-free while the time-to-pose hypothesis is being validated.
 - The primary UX metric is time-to-pose, not model/asset count.
 
 ## Android
-
-The standalone Android project lives under `android/` and uses its own application ID: `com.junchen.posestudio`.
 
 ```bash
 cd apps/pose-studio/android
 ./gradlew --no-daemon --warning-mode all poseStudioCheck
 ```
 
-See `docs/PRODUCT.md`, `docs/PRIVACY.md` and `docs/QUALITY.md` for the product contract.
+See `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/UX.md`, `docs/QUALITY.md`, `docs/PERFORMANCE.md`, `docs/COMMERCIAL_READINESS.md`, `docs/PRIVACY_POLICY.md` and `docs/RELEASE.md` for product and release contracts.
