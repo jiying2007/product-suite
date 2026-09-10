@@ -25,6 +25,7 @@ import java.util.UUID
 
 class PoseStudioViewModel(application: Application) : AndroidViewModel(application) {
     private val store = ProjectStore(application)
+    private val prefs = application.getSharedPreferences("pose-studio", 0)
     private val undo = ArrayDeque<Map<JointId, Vec3>>()
     private val redo = ArrayDeque<Map<JointId, Vec3>>()
     private var gestureSnapshot: Map<JointId, Vec3>? = null
@@ -41,6 +42,8 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     var corruptProjects by mutableStateOf(store.listCorrupt())
         private set
     var recoveryCandidate by mutableStateOf(store.latestRecovery())
+        private set
+    var onboardingStep by mutableStateOf(if (prefs.getBoolean("onboarding_complete", false)) -1 else 0)
         private set
 
     fun selectJoint(joint: JointId?) { selectedJoint = joint }
@@ -62,11 +65,13 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
             undo.addLast(before)
             while (undo.size > 40) undo.removeFirst()
             redo.clear()
+            if (onboardingStep == 0 && selectedJoint in setOf(JointId.LEFT_WRIST, JointId.RIGHT_WRIST)) onboardingStep = 1
         }
     }
 
     fun applyPreset(preset: PosePreset) {
         applyPoseEdit { com.junchen.posestudio.model.Mannequin.preset(preset) }
+        if (onboardingStep == 2) onboardingStep = 3
     }
 
     fun mirrorPose() = applyPoseEdit(PoseMath::mirrorPose)
@@ -75,6 +80,11 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun copyLeftLegToRight() = applyPoseEdit { PoseMath.copyLeg(it, fromLeft = true) }
     fun copyRightLegToLeft() = applyPoseEdit { PoseMath.copyLeg(it, fromLeft = false) }
     fun groundFeet() = applyPoseEdit(PoseMath::groundFeet)
+
+    fun nudgeSelected(delta: Vec3) {
+        val joint = selectedJoint ?: return
+        applyPoseEdit { PoseMath.dragJoint(it, joint, delta) }
+    }
 
     fun updateSelectedRoll(deltaDegrees: Float) {
         val joint = selectedJoint ?: return
@@ -107,6 +117,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
                 pitchDegrees = (camera.pitchDegrees + dy * 0.25f).coerceIn(-65f, 65f),
             )
         }
+        if (onboardingStep == 1 && kotlin.math.abs(dx) + kotlin.math.abs(dy) > 2f) onboardingStep = 2
     }
 
     fun zoom(factor: Float) {
@@ -121,6 +132,12 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun rename(name: String) {
         updateProject(project.copy(name = name.take(80), modifiedAt = System.currentTimeMillis()))
     }
+
+    fun recordExportSuccess() {
+        if (onboardingStep == 3) completeOnboarding()
+    }
+
+    fun skipOnboarding() = completeOnboarding()
 
     fun discardUnsavedRecovery() {
         recoveryJob?.cancel()
@@ -189,7 +206,13 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun exportJson(): String = ProjectCodec.encode(project)
-    fun renderPng(width: Int = 1440, height: Int = 1440): Bitmap = PoseBitmapRenderer.render(project, width, height)
+    fun renderPng(snapshot: PoseProject = project, width: Int = 1440, height: Int = 1440): Bitmap =
+        PoseBitmapRenderer.render(snapshot, width, height)
+
+    private fun completeOnboarding() {
+        onboardingStep = -1
+        prefs.edit().putBoolean("onboarding_complete", true).apply()
+    }
 
     private fun refreshSaved() {
         savedProjects = store.list()
