@@ -12,7 +12,7 @@ android {
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["androidx.benchmark.enabledRules"] = "Macrobenchmark"
-        testInstrumentationRunnerArguments["listener"] = "androidx.benchmark.junit4.SideEffectRunListener"
+        testInstrumentationRunnerArguments["listener"] = "androidx.benchmark.macro.junit4.SideEffectRunListener"
     }
 
     buildTypes {
