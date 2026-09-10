@@ -1,109 +1,52 @@
 # Pose Studio roadmap
 
-This roadmap is gated by evidence. It is not a promise that every item ships.
+This roadmap is evidence-gated and describes remaining work, not a promise to ship every item.
 
-## v0.1 — interactive offline MVP (current PR)
+## 0.1 — offline interaction MVP — complete
 
-Goal: prove the product boundary and direct-manipulation loop.
+Established independent Android identity/CI, 19-joint procedural mannequin, fixed bone lengths, wrist/ankle IK, direct manipulation, four presets, camera/light, local save/open, undo/redo, versioned JSON and PNG export.
 
-Implemented:
+## 0.2 — commercial-beta foundation — implemented in current development line
 
-- independent Android application and CI gate;
-- offline/no-account privacy contract;
-- 19-joint procedural 3D mannequin;
-- fixed bone-length behavior;
-- two-bone IK for wrists and ankles;
-- direct joint drag and camera orbit;
-- four pose presets;
-- camera and directional-light controls;
-- local save/open;
-- pose undo/redo;
-- versioned JSON import/export;
-- PNG export;
-- JVM math tests and instrumentation-test compilation.
+- mirror/copy/ground speed tools;
+- depth-aware camera-plane joint dragging;
+- pinch zoom/two-finger scene navigation;
+- shared render model with stronger procedural volume cues;
+- schema-v2 roll semantics plus v1 migration fixtures;
+- atomic save plus debounced autosave recovery;
+- dirty-work confirmation, duplicate/delete and corruption visibility;
+- bounded/defensive project import;
+- responsive phone/landscape/tablet inspector;
+- interactive first-run guide and accessible precise joint controls;
+- en-US/zh-CN/zh-TW/zh-HK resources and product launcher icon;
+- release APK/AAB compilation, executable API-36 instrumentation, 200% font check and physical qualification workflow;
+- product-specific release/signing/privacy/Data Safety/store-source contracts.
 
-Not a release claim: visual anatomy, hand/face controls, product benchmarking and release/store evidence are not yet mature.
+This is still not a v1 production claim until external evidence is complete.
 
-## v0.2 — posing speed prototype
+## 0.3 — artist workflow depth — evidence-gated
 
-Gate: v0.1 CI green and real-artist usability sessions identify manipulation speed as the main opportunity.
+Only after real artist sessions validate direct manipulation:
+- capsule/skinned mannequin with stronger silhouette/anatomical landmarks while preserving released project semantics;
+- configurable artistic body proportions without medical claims;
+- hand-shape presets and visible hand/foot orientation using schema-v2 roll state;
+- local pose library and pose blending;
+- local reference-image overlay;
+- multiple mannequins and basic props only if they materially reduce artist workflow time;
+- transparent/high-resolution and optional silhouette/line-art export modes.
 
-Candidate scope:
+## v1.0 — production qualification
 
-- capsule/mesh mannequin that preserves v1 project semantics;
-- configurable body proportions without medical/anatomical claims;
-- mirror/copy limb;
-- local pose library;
-- hand presets plus finger refinement;
-- head/eye/face direction controls;
-- foot grounding;
-- pinch zoom/two-finger camera gestures;
-- reference-image overlay imported locally;
-- renderer performance instrumentation.
-
-Evidence:
-
-- frozen ten-pose benchmark protocol;
-- compare median/p95 completion time with at least two established Android pose tools;
-- test on phone and tablet form factors;
-- preserve/import v1 project fixtures.
-
-Kill condition: if direct manipulation does not produce a material speed/clarity advantage, do not compensate by adding hundreds of models/assets.
-
-## v0.3 — artist workflow depth
-
-Only after posing speed is validated:
-
-- multiple mannequins in one scene;
-- basic props/primitives;
-- camera/reference presets;
-- local scene templates;
-- silhouette and line-art render modes;
-- higher-resolution/transparent export;
-- local project duplication/search/tagging;
-- richer project migration fixtures.
-
-Still non-goals unless separately justified: social feed, cloud collaboration and generative AI.
-
-## v1.0 — release readiness
-
-Required before a release claim:
-
-- product-specific application signing and documented key ownership;
-- product-scoped store listing/privacy disclosure;
-- product-prefixed release namespace, e.g. `pose-studio-v1.0.0`;
-- product-scoped source manifest/release evidence;
-- compatibility test matrix for supported Android versions;
-- measured interaction/startup/export performance baseline;
-- project schema migration tests;
-- accessibility review;
-- crash/ANR review without introducing mandatory telemetry;
-- asset/license audit for any mannequin/prop assets added after v0.1;
-- user testing confirming time-to-pose advantage.
+Required:
+- exact-candidate product-specific signing/AAB provenance;
+- API 26 + API 36 physical compatibility and at least two OEM families;
+- physical frame/startup/save/export performance evidence;
+- released-schema migration fixtures;
+- manual TalkBack/switch/keyboard accessibility audit;
+- stable public privacy policy plus Play Data Safety/policy/store assets;
+- closed-track install and staged rollout/crash/ANR review;
+- frozen ten-pose study with real illustrators showing a material speed/clarity advantage against at least two established Android pose tools.
 
 ## Commercial hypothesis
 
-Commercialization must not precede product validation. Current hypothesis:
-
-- free core creation sufficient to evaluate posing quality;
-- optional lifetime Pro unlock for advanced local features;
-- optional one-time asset packs only if artist demand is demonstrated;
-- no requirement for a recurring subscription to open or export existing user projects.
-
-Entitlement checks, if later added, guard creation/use of premium capabilities; they do not become a prerequisite for parsing a project file.
-
-## Metrics without mandatory server telemetry
-
-The MVP intentionally has no telemetry. Product tests can gather metrics in controlled studies or through explicit local benchmark/export tooling.
-
-Useful measures:
-
-- median/p95 `time_to_reference_pose`;
-- correction operations per pose;
-- undo count;
-- mis-selection rate;
-- export completion time;
-- project corruption/recovery failures;
-- 60 Hz frame-budget adherence during manipulation.
-
-If opt-in telemetry is later proposed, it requires a separate privacy review and cannot be necessary for core operation.
+Core creation must remain sufficient to evaluate posing quality. A future lifetime Pro unlock may guard advanced local creation features, but losing entitlement never becomes a prerequisite for parsing/opening/exporting an existing user project. Recurring subscription is not required merely to regain access to user-owned files.

@@ -2,132 +2,60 @@
 
 ## North-star interaction
 
-The app should feel like picking up a digital drawing mannequin. The artist should spend time **posing**, not navigating property panels.
-
-Primary metric: `time_to_reference_pose`.
+The app should feel like picking up a digital drawing mannequin. The artist should spend time **posing**, not navigating property panels. Primary metric: `time_to_reference_pose`.
 
 ## Workspace hierarchy
 
-1. **Scene** — largest visual area, always the primary surface.
-2. **Pose** — presets, undo/redo and direct-manipulation guidance.
-3. **Camera** — framing controls.
-4. **Light** — form-clarity controls.
-5. **Project** — durable storage and export.
+1. Scene — dominant visual surface.
+2. Integrated Speed tools — mirror/copy/ground without leaving the scene.
+3. Pose — presets, undo/redo and precise accessible adjustments.
+4. Camera — composition controls.
+5. Light — form-clarity controls.
+6. Project — storage, recovery and export.
 
-The project name and unsaved state remain visible in the top bar.
+Project name and unsaved state remain visible in the top bar.
 
 ## Direct manipulation
 
-### Select
-
-A pointer down near a visible joint selects the nearest joint within the hit radius. Selected joints receive a visible halo. Hit targets are intentionally larger than rendered joint markers.
-
-### Drag endpoints
-
-Wrists and ankles use two-bone inverse kinematics. The endpoint follows the pointer in the camera plane while shoulder/elbow or hip/knee geometry resolves automatically.
-
-### Drag other joints
-
-The selected branch rotates/repositions around the parent while keeping parent-child bone length fixed. Descendants move with the joint so limb topology does not tear.
-
-### Drag pelvis
-
-Moves the full mannequin.
-
-### Drag empty scene
-
-Orbits the camera rather than creating a selection mode.
-
-### Gesture lifecycle
-
-A continuous pointer gesture is one undo operation. Pose changes must not restart the detector mid-drag.
+- Pointer down near a visible joint selects the nearest joint within a density-independent 48 dp hit radius.
+- Wrists/ankles use two-bone IK.
+- Other joints preserve their parent bone length and move descendants coherently.
+- Pelvis translates the full mannequin.
+- Empty-scene drag orbits the camera.
+- Two-finger gestures pan/orbit and pinch zoom.
+- Screen-to-world drag respects camera pitch/FOV and selected-joint depth.
+- One continuous pose gesture creates one undo snapshot.
 
 ## Pose accelerators
 
-Presets are starting points, never destructive asset dependencies. v0.1 includes Neutral, Contrapposto, Reach and Run.
+Current: four starting presets, full mirror, left/right arm copy, left/right leg copy and ground. These are evaluated by whether they lower time-to-pose; asset count is not a success metric.
 
-Roadmap accelerators, in priority order:
+Next accelerators require benchmark/user evidence: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and balance assistance.
 
-1. mirror left/right limb;
-2. copy/paste limb pose;
-3. saved local pose presets;
-4. pose blending;
-5. hand-shape presets;
-6. foot grounding/balance assistance.
+## Project safety
 
-Each accelerator must be evaluated by whether it reduces time-to-pose.
+- Save/Open never requires sign-in.
+- Dirty work cannot be silently replaced by New/Open.
+- Unsaved edits are locally journaled and offered for recovery after process death.
+- Corrupt saved files remain preserved and visible rather than silently disappearing.
+- JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
 
-## Camera
+## Responsive design
 
-Artists need composition, not cinematography menus. Camera provides:
-
-- front / three-quarter / side one-tap views;
-- orbit;
-- pitch/yaw;
-- distance;
-- field of view.
-
-Future focal-length labels may be offered as artist-friendly presets, but the stored semantic value remains FOV.
-
-## Light
-
-v0.1 deliberately exposes a single directional light with azimuth, elevation and intensity. The objective is to clarify form and shadow direction, not simulate a complete renderer.
-
-A future three-light setup should use named presets (Key / Fill / Rim) before exposing low-level light objects.
-
-## Project ownership
-
-Save/Open must never require sign-in. Exported JSON is human-inspectable and versioned. PNG export uses a user-selected document URI.
-
-Commercial packaging must obey:
-
-- losing Pro status cannot make an existing project unreadable;
-- a project that used a paid bundled model remains openable after entitlement changes;
-- no subscription is required merely to regain access to the user's own local project data.
-
-## Phone and tablet
-
-Phone:
-
-- scene uses remaining height above a compact lower inspector;
-- horizontal controls may scroll rather than shrink targets below comfortable size.
-
-Large screen/tablet:
-
-- scene and inspector coexist;
-- right-side inspector target width is roughly 360 dp;
-- the scene remains the dominant area.
+Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll instead of shrinking touch targets.
 
 ## Accessibility
 
-Before release:
-
-- every non-canvas control has a clear content description/label;
-- selected joint must have non-color feedback in accessibility semantics;
-- controls support large font sizes without hiding Save/Open/Export;
-- minimum touch targets are maintained for chips/buttons;
-- motion-only feedback is not required to understand state.
-
-Direct canvas posing is a specialized visual interaction. Keyboard/switch alternatives should at minimum allow selecting a joint and adjusting it through inspector controls before claiming broad accessibility support.
+- Non-canvas controls use Material controls with minimum touch targets and visible labels.
+- Scene exposes descriptive and selected-joint state semantics.
+- The Pose inspector provides explicit left/right/up/down/forward/back and roll controls as an alternative to gesture-only manipulation.
+- CI reruns primary-action reachability at 200% font scale.
+- Before v1, manual TalkBack/switch/keyboard audits on the final release build remain mandatory.
 
 ## Onboarding
 
-The ideal first-run tutorial is interactive and under one minute:
+First run is a four-step live workflow: drag the highlighted wrist, orbit empty space, apply a preset, then export. It may be skipped and never front-loads account/store concepts.
 
-1. drag a highlighted wrist;
-2. drag empty space to orbit;
-3. tap a preset;
-4. export reference.
+## Kill test
 
-Do not front-load account, asset-store or renderer concepts.
-
-## Kill tests
-
-The product should not advance to a large asset/model investment unless user testing demonstrates:
-
-- materially faster pose recreation than leading Android alternatives;
-- artists understand the direct manipulation model without a long tutorial;
-- project save/export is trusted;
-- the procedural mannequin is sufficient to validate posing UX.
-
-A rough target is 40–50% lower median time across a fixed ten-pose test set. The exact benchmark protocol must be frozen before results are used for a go/no-go decision.
+Major model/asset investment is blocked until the frozen ten-pose benchmark shows a material median time advantage versus at least two established Android alternatives and artists understand direct manipulation without a long tutorial.

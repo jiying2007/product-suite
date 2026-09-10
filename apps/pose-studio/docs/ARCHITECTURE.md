@@ -2,135 +2,55 @@
 
 ## Purpose
 
-Pose Studio is intentionally a focused artist-reference application, not a generic 3D editor. Architecture is optimized for three properties:
-
-1. low-latency direct manipulation;
-2. durable user-owned project files;
-3. ability to replace the prototype renderer/model representation later without invalidating pose projects.
+Pose Studio is a focused artist-reference application optimized for low-latency direct manipulation, durable user-owned files and replaceable rendering without invalidating projects.
 
 ## Product boundary
 
-All product-specific code remains in `apps/pose-studio/`. v0.1 does not depend on a shared `platform/` module. Reuse may be extracted only after another product demonstrates the same stable need.
-
-The Android application owns:
-
-- application ID `com.junchen.posestudio`;
-- privacy contract and permissions;
-- project schema;
-- renderer/UI behavior;
-- quality gate;
-- future signing/store/release namespaces.
-
-It does not inherit Jingdu release identity, billing, telemetry, signing or unprefixed tag names.
+All product-specific code remains under `apps/pose-studio/`. The Android application owns `com.junchen.posestudio`, permissions/privacy, project schema, renderer/UI, quality gates and future signing/store/release namespaces. It does not inherit Jingdu identity, billing, telemetry or signing.
 
 ## Layers
 
 ### Domain
 
-`model/` contains renderer-independent concepts:
+`model/` contains renderer-independent state: `Vec3`, `JointId`, `Bone`, `CameraState`, `LightState`, `PoseProject` and mannequin topology/presets.
 
-- `Vec3`;
-- `JointId`;
-- `Bone`;
-- `CameraState`;
-- `LightState`;
-- `PoseProject`;
-- mannequin topology and presets.
-
-The durable file format stores semantic joint positions, camera and light state. It deliberately does **not** store GPU buffers, mesh indices, Android view state or commercial entitlement state.
+Schema v2 stores semantic joint positions plus per-joint roll state, camera and light. It deliberately excludes GPU buffers, mesh indices, Android view state and entitlement state. Schema-v1 files migrate deterministically by assigning zero roll to joints.
 
 ### Pose engine
 
-`engine/` owns deterministic math:
+`engine/` owns deterministic fixed-length chains, two-bone endpoint IK, branch manipulation and screen/world projection. Direct manipulation uses camera pitch/yaw, FOV and selected-joint depth so a pixel drag maps to a camera-plane world delta at the manipulated joint rather than a global fixed scale.
 
-- fixed-length articulated chains;
-- two-bone endpoint IK;
-- branch manipulation;
-- world/screen projection.
+### Persistence and recovery
 
-The engine is deterministic and does not require Android framework state. Math behavior is protected by JVM unit tests.
-
-### Persistence
-
-`data/ProjectStore.kt` owns app-private project persistence and `ProjectCodec`.
+`data/ProjectStore.kt` owns explicit atomic saves, local recovery snapshots, duplicate/delete, corruption discovery and `ProjectCodec`.
 
 Rules:
-
-- every file has an explicit integer `schemaVersion`;
-- decoding is defensive: missing joints fall back to known defaults;
-- entitlement state is never required to decode a project;
-- writes use a temporary file and replace step so a process death is less likely to leave a partially written project;
-- portable JSON import creates a new local project identity rather than overwriting an existing one accidentally.
+- every portable file has an explicit schema version;
+- released schemas are migrated or rejected explicitly, never guessed;
+- missing/invalid joint coordinates fall back to known safe defaults;
+- extreme/non-finite values and oversized project text are rejected/sanitized;
+- explicit saves use a temporary file and replace step;
+- unsaved edits are journaled with debounce off the pointer path;
+- entitlement state is never required to decode a project.
 
 ### Rendering
 
-v0.1 uses two render targets built from the same domain state:
+`render/PoseRenderModel.kt` is the shared render-description seam. Both interactive Compose Canvas and deterministic Android Bitmap export consume the same projected scene geometry, volume cues, depth order and lighting values. Platform-specific drawing APIs remain thin adapters.
 
-- Compose Canvas for interactive editing;
-- Android `Bitmap`/`Canvas` for deterministic PNG export.
-
-Both render a procedural articulated mannequin and floor grid. This avoids shipping third-party mesh assets while the time-to-pose hypothesis is still being tested.
+The current renderer stays procedural and asset-free while time-to-pose is tested. A future skinned/capsule renderer must consume the same released semantic state and preserve old fixtures.
 
 ### UI
 
-Compose UI is split into:
+Compose UI is split into scene surface, integrated speed toolbar and Pose/Camera/Light/Project inspectors. Phone inspector height is responsive; landscape/tablet uses a persistent side inspector. Primary strings are Android resources for en-US/zh-CN/zh-TW/zh-HK.
 
-- scene surface: direct joint manipulation and camera orbit;
-- Pose controls: presets and history;
-- Camera controls;
-- Light controls;
-- Project controls.
-
-Phone layout prioritizes the scene vertically with a compact control panel; large screens use a persistent right-side inspector.
-
-## Renderer replacement seam
-
-A future capsule/mesh renderer must consume the same `PoseProject`/joint graph. The migration path is:
-
-1. keep joint IDs and project-space units stable;
-2. add renderer-specific skinning/mesh data as bundled application assets, not project requirements;
-3. derive rig transforms from stored joint positions;
-4. preserve procedural rendering as a compatibility/fallback path until older project fixtures pass migration tests;
-5. only add new schema fields when the user-authored semantic state changes.
-
-A renderer upgrade must never require rewriting a project merely because mesh assets changed.
-
-## Project schema policy
-
-Schema v1 contains:
-
-- `schemaVersion`;
-- project `id`, `name`, `modifiedAt`;
-- camera yaw/pitch/distance/FOV;
-- light azimuth/elevation/intensity;
-- named joint XYZ positions.
-
-Future migration requirements:
-
-- loaders support all released schema versions or provide an explicit deterministic migration;
-- unknown additive fields are ignored;
-- missing optional fields use defaults;
-- a schema migration is covered by fixture tests before release;
-- no release may intentionally make an existing locally saved project unreadable because the user is no longer entitled to a model/asset.
+The scene exposes accessibility semantics; non-visual/keyboard/switch users can select a joint and apply explicit directional/roll adjustments from the Pose inspector rather than relying exclusively on canvas gestures.
 
 ## Offline architecture
 
-The manifest has no `INTERNET` or `ACCESS_NETWORK_STATE` permission. Import/export use the Storage Access Framework. Local project save uses app-private files. The application contains no advertising, analytics or account SDK in v0.1.
+The manifest has no `INTERNET` or `ACCESS_NETWORK_STATE`. Import/export use Storage Access Framework. Local projects/recovery use app-private files. There is no advertising, analytics or account SDK.
 
-If an online feature is ever proposed it must be additive and optional. The offline create/edit/save/export loop remains independently functional.
+Future online features must be additive and optional; offline create/edit/save/export remains independently functional.
 
 ## Performance model
 
-Pointer moves must update only in-memory pose/camera state. File serialization, bitmap export and other allocation-heavy work stay outside pointer move paths.
-
-The scene gesture coroutine uses current state through `rememberUpdatedState`; pose updates therefore do not restart the active drag detector on every frame.
-
-Before release, performance instrumentation should measure:
-
-- frame duration during joint drag/orbit;
-- gesture-to-visual latency;
-- PNG export latency/memory;
-- project open/save latency;
-- cold-start-to-interactive latency.
-
-The target is 60 Hz interaction on a representative mid-range device. This is a product target until a reproducible device/benchmark baseline is checked in.
+Pointer movement updates only in-memory pose/camera state. Recovery is debounced onto `Dispatchers.IO`; JSON import/export IO and bitmap render/compression are outside the UI pointer path. CI executes broad API-36 device-emulator regression budgets, while commercial release qualification requires the physical workflow and recorded device/source provenance in `PERFORMANCE.md`.
