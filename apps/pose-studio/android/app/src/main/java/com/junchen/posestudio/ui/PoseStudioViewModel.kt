@@ -25,12 +25,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+private data class PoseSnapshot(
+    val joints: Map<JointId, Vec3>,
+    val jointRollDegrees: Map<JointId, Float>,
+)
+
 class PoseStudioViewModel(application: Application) : AndroidViewModel(application) {
     private val store = ProjectStore(application)
     private val prefs = application.getSharedPreferences("pose-studio", 0)
-    private val undo = ArrayDeque<Map<JointId, Vec3>>()
-    private val redo = ArrayDeque<Map<JointId, Vec3>>()
-    private var gestureSnapshot: Map<JointId, Vec3>? = null
+    private val undo = ArrayDeque<PoseSnapshot>()
+    private val redo = ArrayDeque<PoseSnapshot>()
+    private var gestureSnapshot: PoseSnapshot? = null
     private var recoveryJob: Job? = null
 
     var project by mutableStateOf(PoseProject())
@@ -51,7 +56,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun selectJoint(joint: JointId?) { selectedJoint = joint }
 
     fun beginPoseGesture() {
-        if (gestureSnapshot == null) gestureSnapshot = project.joints.toMap()
+        if (gestureSnapshot == null) gestureSnapshot = snapshot()
     }
 
     fun dragJoint(joint: JointId, delta: Vec3) {
@@ -63,9 +68,9 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun endPoseGesture() {
         val before = gestureSnapshot ?: return
         gestureSnapshot = null
-        if (before != project.joints) {
+        if (before != snapshot()) {
             undo.addLast(before)
-            while (undo.size > 40) undo.removeFirst()
+            trimHistory(undo)
             redo.clear()
             if (onboardingStep == 0 && selectedJoint in setOf(JointId.LEFT_WRIST, JointId.RIGHT_WRIST)) onboardingStep = 1
         }
@@ -90,22 +95,26 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
 
     fun updateSelectedRoll(deltaDegrees: Float) {
         val joint = selectedJoint ?: return
-        val next = project.jointRollDegrees.toMutableMap().apply {
-            this[joint] = ((get(joint) ?: 0f) + deltaDegrees).coerceIn(-180f, 180f)
-        }
+        val current = project.jointRollDegrees[joint] ?: 0f
+        val updated = (current + deltaDegrees).coerceIn(-180f, 180f)
+        if (updated == current) return
+        pushUndo()
+        val next = project.jointRollDegrees.toMutableMap().apply { this[joint] = updated }
         updateProject(project.copy(jointRollDegrees = next, modifiedAt = System.currentTimeMillis()))
     }
 
     fun undo() {
         val previous = undo.removeLastOrNull() ?: return
-        redo.addLast(project.joints.toMap())
-        updateProject(project.copy(joints = previous, modifiedAt = System.currentTimeMillis()))
+        redo.addLast(snapshot())
+        trimHistory(redo)
+        restoreSnapshot(previous)
     }
 
     fun redo() {
         val next = redo.removeLastOrNull() ?: return
-        undo.addLast(project.joints.toMap())
-        updateProject(project.copy(joints = next, modifiedAt = System.currentTimeMillis()))
+        undo.addLast(snapshot())
+        trimHistory(undo)
+        restoreSnapshot(next)
     }
 
     fun updateCamera(transform: (CameraState) -> CameraState) {
@@ -150,7 +159,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         recoveryJob?.cancel()
         project = PoseProject()
         selectedJoint = JointId.RIGHT_WRIST
-        undo.clear(); redo.clear(); gestureSnapshot = null
+        clearHistory()
         dirty = false
     }
 
@@ -165,7 +174,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         recoveryJob?.cancel()
         project = store.load(id)
         selectedJoint = null
-        undo.clear(); redo.clear(); gestureSnapshot = null
+        clearHistory()
         dirty = false
         refreshSaved()
     }
@@ -183,7 +192,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         val recovered = recoveryCandidate ?: return
         project = recovered.copy(schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION)
         selectedJoint = null
-        undo.clear(); redo.clear(); gestureSnapshot = null
+        clearHistory()
         dirty = true
         recoveryCandidate = null
         scheduleRecovery()
@@ -202,7 +211,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         )
         project = imported
         selectedJoint = null
-        undo.clear(); redo.clear(); gestureSnapshot = null
+        clearHistory()
         dirty = true
         scheduleRecovery()
     }
@@ -244,9 +253,34 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private fun snapshot(): PoseSnapshot = PoseSnapshot(
+        joints = project.joints.toMap(),
+        jointRollDegrees = project.jointRollDegrees.toMap(),
+    )
+
+    private fun restoreSnapshot(snapshot: PoseSnapshot) {
+        updateProject(
+            project.copy(
+                joints = snapshot.joints,
+                jointRollDegrees = snapshot.jointRollDegrees,
+                modifiedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     private fun pushUndo() {
-        undo.addLast(project.joints.toMap())
-        while (undo.size > 40) undo.removeFirst()
+        undo.addLast(snapshot())
+        trimHistory(undo)
         redo.clear()
+    }
+
+    private fun trimHistory(history: ArrayDeque<PoseSnapshot>) {
+        while (history.size > 40) history.removeFirst()
+    }
+
+    private fun clearHistory() {
+        undo.clear()
+        redo.clear()
+        gestureSnapshot = null
     }
 }
