@@ -5,15 +5,19 @@ Repository gates are fail-closed: code may land before external qualification, b
 ## Repository-side implemented
 
 - offline/no-account core and no INTERNET permission;
-- schema-v2 portable project format with v1 migration and defensive import limits;
-- debounced autosave recovery plus atomic explicit saves;
-- dirty-work confirmation, duplicate/delete and corrupt-project visibility;
-- direct IK, symmetry/copy/ground tools, depth-aware drag and two-finger camera zoom/pan;
+- schema-v2 portable project format with v1 migration, persistent camera pan target and defensive import limits;
+- rollback-safe Android `AtomicFile` project/recovery writes and backup-aware reads/deletes;
+- conflated/debounced autosave recovery off the pointer path;
+- dirty-work confirmation for New/Open/Import, duplicate/delete management and corrupt-project visibility;
+- explicit delete confirmation for saved user projects;
+- direct IK, symmetry/copy/ground tools, depth-aware drag and true two-finger camera-target pan plus pinch zoom;
 - shared scene render model used by interactive and bitmap renderers;
 - responsive phone/landscape/tablet workspace;
-- onboarding and non-canvas accessible joint-adjustment controls;
+- onboarding and non-canvas accessible directional joint-adjustment controls;
+- invisible joint-roll editing is withheld until renderer feedback exists;
 - en-US, zh-CN, zh-TW and zh-HK UI resources;
 - adaptive/monochrome launcher icon;
+- visible in-app privacy-policy entry while the offline app remains free of network permission;
 - release APK/AAB compilation in the normal Pose gate;
 - API 36 instrumentation and 200% font-scale execution in CI;
 - physical-device workflow that records immutable device/source provenance.
