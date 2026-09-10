@@ -7,13 +7,31 @@ if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
   exit 1
 fi
 
-for locale in en-US zh-CN zh-TW zh-HK; do
-  listing="$ROOT/store/play/$locale/full_description.txt"
-  if [[ ! -s "$listing" ]]; then
-    echo "Missing non-empty Pose Studio Play listing source for $locale: $listing" >&2
-    exit 1
-  fi
-done
+python3 - "$ROOT/store/play" <<'PY'
+from pathlib import Path
+import sys
+
+store = Path(sys.argv[1])
+limits = {
+    "title.txt": 30,
+    "short_description.txt": 80,
+    "full_description.txt": 4000,
+}
+for locale in ("en-US", "zh-CN", "zh-TW", "zh-HK"):
+    directory = store / locale
+    for filename, limit in limits.items():
+        path = directory / filename
+        if not path.is_file():
+            raise SystemExit(f"Missing Pose Studio Play metadata for {locale}: {path}")
+        text = path.read_text(encoding="utf-8").strip()
+        if not text:
+            raise SystemExit(f"Empty Pose Studio Play metadata for {locale}: {path}")
+        if len(text) > limit:
+            raise SystemExit(
+                f"Pose Studio Play metadata exceeds {limit} characters for {locale}: "
+                f"{filename} has {len(text)}"
+            )
+PY
 
 privacy_url_file="$ROOT/store/play/PRIVACY_POLICY_URL.txt"
 if [[ ! -s "$privacy_url_file" ]] || ! grep -Eq '^https://' "$privacy_url_file"; then
