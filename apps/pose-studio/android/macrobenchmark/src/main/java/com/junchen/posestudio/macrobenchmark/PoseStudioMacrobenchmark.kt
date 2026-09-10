@@ -25,7 +25,7 @@ class PoseStudioMacrobenchmark {
         rule.measureRepeated(
             packageName = PACKAGE,
             metrics = listOf(StartupTimingMetric()),
-            compilationMode = CompilationMode.Partial(),
+            compilationMode = CompilationMode.DEFAULT,
             startupMode = StartupMode.COLD,
             iterations = 10,
             setupBlock = { pressHome() },
@@ -41,7 +41,7 @@ class PoseStudioMacrobenchmark {
         rule.measureRepeated(
             packageName = PACKAGE,
             metrics = listOf(FrameTimingMetric()),
-            compilationMode = CompilationMode.Partial(),
+            compilationMode = CompilationMode.DEFAULT,
             iterations = 8,
             setupBlock = {
                 device.executeShellCommand("pm clear $PACKAGE")
