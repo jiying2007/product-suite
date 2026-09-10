@@ -53,7 +53,6 @@ import com.junchen.posestudio.R
 import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.Vec3
-import com.junchen.posestudio.render.PoseBitmapRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -123,7 +122,7 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
         scope.launch {
             val result = runCatching {
                 val bitmap = withContext(Dispatchers.Default) {
-                    PoseBitmapRenderer.render(snapshot, transparentBackground = transparentBackground)
+                    viewModel.renderPng(snapshot, transparentBackground = transparentBackground)
                 }
                 try {
                     withContext(Dispatchers.IO) {
