@@ -17,7 +17,8 @@ Project name and unsaved state remain visible in the top bar.
 
 ## Direct manipulation
 
-- Pointer down near a visible joint selects the nearest joint within a density-independent 48 dp hit radius.
+- Pointer down near a visible joint selects within a density-independent 48 dp hit radius.
+- A clearly nearest joint wins; when projected joints fall within a 12 dp overlap band, the visually front-most joint wins before distance tie-breaking so foreshortened/overlapping limbs are less error-prone.
 - Wrists/ankles use two-bone IK.
 - Other joints preserve their parent bone length and move descendants coherently.
 - Pelvis translates the full mannequin.
