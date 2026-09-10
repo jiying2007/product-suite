@@ -32,7 +32,6 @@ class ExportFileNameTest {
         val fileName = exportFileName("😀".repeat(60), "png")
         val stem = fileName.removeSuffix(".png")
         assertEquals(48, stem.codePointCount(0, stem.length))
-        assertTrue(stem.all { !it.isSurrogate() } || stem.codePoints().count() == 48L)
         assertEquals("😀".repeat(48), stem)
     }
 }
