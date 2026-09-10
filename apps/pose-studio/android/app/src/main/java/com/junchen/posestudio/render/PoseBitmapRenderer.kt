@@ -5,12 +5,13 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import androidx.core.graphics.createBitmap
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PoseProject
 
 object PoseBitmapRenderer {
     fun render(project: PoseProject, width: Int = 1440, height: Int = 1440): Bitmap {
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.rgb(247, 247, 245))
         val model = PoseRenderBuilder.build(project, width.toFloat(), height.toFloat())

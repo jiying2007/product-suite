@@ -3,8 +3,10 @@ package com.junchen.posestudio.ui
 import android.app.Application
 import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.junchen.posestudio.data.ProjectCodec
@@ -43,7 +45,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         private set
     var recoveryCandidate by mutableStateOf(store.latestRecovery())
         private set
-    var onboardingStep by mutableStateOf(if (prefs.getBoolean("onboarding_complete", false)) -1 else 0)
+    var onboardingStep by mutableIntStateOf(if (prefs.getBoolean("onboarding_complete", false)) -1 else 0)
         private set
 
     fun selectJoint(joint: JointId?) { selectedJoint = joint }
@@ -211,7 +213,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun completeOnboarding() {
         onboardingStep = -1
-        prefs.edit().putBoolean("onboarding_complete", true).apply()
+        prefs.edit { putBoolean("onboarding_complete", true) }
     }
 
     private fun refreshSaved() {
