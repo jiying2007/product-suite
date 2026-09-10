@@ -33,7 +33,6 @@ fi
 
 cd "$ROOT/android"
 
-# The exact release candidate must be buildable with its own production/upload signing material.
 ./gradlew --no-daemon \
   :app:validatePoseReleaseSigning \
   :app:testDebugUnitTest \
@@ -43,15 +42,11 @@ cd "$ROOT/android"
   :app:assembleBenchmark \
   :macrobenchmark:assembleBenchmark
 
-# Keep the broad in-process regression sentinels, but do not treat them as release UI evidence.
 ./gradlew --no-daemon :app:connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=com.junchen.posestudio.PoseStudioPerformanceTest
 
-# Macrobenchmark targets a non-debuggable, minified build cloned from release and signed only with
-# the standard debug key so a qualification runner can install it. Production AAB provenance is
-# captured separately below from the release build signed by the product-specific key.
 rm -rf macrobenchmark/build/outputs/connected_android_test_additional_output
-./gradlew --no-daemon :macrobenchmark:connectedCheck \
+./gradlew --no-daemon :macrobenchmark:connectedBenchmarkAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark
 
 mapfile -d '' BENCHMARK_FILES < <(find macrobenchmark/build/outputs -type f \
@@ -87,25 +82,47 @@ def named(name):
         raise SystemExit(f"missing Macrobenchmark result: {name}")
     return matches[-1]
 
+def finite_numbers(value):
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return [number] if math.isfinite(number) else []
+    if isinstance(value, list):
+        result = []
+        for item in value:
+            result.extend(finite_numbers(item))
+        return result
+    return []
+
 def percentile(values, q):
     values = sorted(float(v) for v in values)
     if not values:
         raise SystemExit("empty metric sample set")
-    index = max(0, math.ceil(q * len(values)) - 1)
-    return values[index]
+    ideal_index = min(1.0, max(0.0, q)) * (len(values) - 1)
+    first_index = int(ideal_index)
+    second_index = min(first_index + 1, len(values) - 1)
+    ratio = ideal_index - first_index
+    return values[first_index] * (1.0 - ratio) + values[second_index] * ratio
 
 startup = named("coldStartup")
-startup_runs = startup.get("metrics", {}).get("timeToInitialDisplayMs", {}).get("runs", [])
+startup_runs = finite_numbers(startup.get("metrics", {}).get("timeToInitialDisplayMs", {}).get("runs", []))
+if len(startup_runs) < 10:
+    raise SystemExit(f"insufficient cold-start evidence: {len(startup_runs)} samples < 10")
 startup_p95 = percentile(startup_runs, 0.95)
 
 interaction = named("directManipulationFrames")
 frame_metric = interaction.get("sampledMetrics", {}).get("frameDurationCpuMs", {})
-frame_runs = [sample for iteration in frame_metric.get("runs", []) for sample in iteration]
-frame_p95 = float(frame_metric.get("P95", percentile(frame_runs, 0.95)))
-frame_p99 = float(frame_metric.get("P99", percentile(frame_runs, 0.99)))
+frame_runs = finite_numbers(frame_metric.get("runs", []))
+if len(frame_runs) < 100:
+    raise SystemExit(f"insufficient direct-manipulation frame evidence: {len(frame_runs)} samples < 100")
+frame_p95 = percentile(frame_runs, 0.95)
+frame_p99 = percentile(frame_runs, 0.99)
 
 summary = (
+    f"cold_start_samples={len(startup_runs)}\n"
     f"cold_start_p95_ms={startup_p95:.3f}\n"
+    f"direct_manipulation_frame_samples={len(frame_runs)}\n"
     f"direct_manipulation_frame_cpu_p95_ms={frame_p95:.3f}\n"
     f"direct_manipulation_frame_cpu_p99_ms={frame_p99:.3f}\n"
 )
