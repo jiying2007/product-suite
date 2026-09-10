@@ -1,6 +1,8 @@
 package com.junchen.posestudio.ui
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -59,8 +61,12 @@ import java.text.DateFormat
 import java.util.Date
 
 private enum class Panel { POSE, CAMERA, LIGHT, PROJECT }
-private enum class PendingType { NEW, OPEN }
-private data class PendingProjectAction(val type: PendingType, val id: String? = null)
+private enum class PendingType { NEW, OPEN, IMPORT }
+private data class PendingProjectAction(
+    val type: PendingType,
+    val id: String? = null,
+    val payload: String? = null,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +78,44 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
     var showOpen by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<PendingProjectAction?>(null) }
+    var pendingDelete by remember { mutableStateOf<ProjectStore.SavedProject?>(null) }
+
+    fun execute(action: PendingProjectAction) {
+        runCatching {
+            when (action.type) {
+                PendingType.NEW -> viewModel.newProject()
+                PendingType.OPEN -> viewModel.load(requireNotNull(action.id))
+                PendingType.IMPORT -> viewModel.importJson(requireNotNull(action.payload))
+            }
+        }.onSuccess {
+            if (action.type == PendingType.IMPORT) message = resources.getString(R.string.project_imported)
+        }.onFailure { error ->
+            message = if (action.type == PendingType.IMPORT) {
+                resources.getString(R.string.import_failed, error.message ?: "invalid project")
+            } else {
+                resources.getString(R.string.action_failed, error.message ?: "unknown")
+            }
+        }
+    }
+
+    fun request(action: PendingProjectAction) {
+        if (viewModel.dirty) pendingAction = action else execute(action)
+    }
+
+    fun saveWithFeedback(onSuccess: (() -> Unit)? = null) {
+        runCatching(viewModel::save)
+            .onSuccess {
+                message = resources.getString(R.string.saved_locally)
+                onSuccess?.invoke()
+            }
+            .onFailure { message = resources.getString(R.string.save_failed, it.message ?: "unknown") }
+    }
+
+    fun openPrivacyPolicy() {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL))
+        runCatching { context.startActivity(intent) }
+            .onFailure { message = resources.getString(R.string.privacy_open_failed) }
+    }
 
     val exportPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
         if (uri != null) {
@@ -79,10 +123,14 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             scope.launch {
                 val result = runCatching {
                     val bitmap = withContext(Dispatchers.Default) { viewModel.renderPng(snapshot) }
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri)?.use { stream ->
-                            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
-                        } ?: error("Could not open export destination")
+                    try {
+                        withContext(Dispatchers.IO) {
+                            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
+                            } ?: error("Could not open export destination")
+                        }
+                    } finally {
+                        bitmap.recycle()
                     }
                 }
                 if (result.isSuccess) {
@@ -94,9 +142,9 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
     }
     val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
-            val json = viewModel.exportJson()
             scope.launch {
                 val result = runCatching {
+                    val json = viewModel.exportJson()
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(json) }
                             ?: error("Could not open export destination")
@@ -113,27 +161,17 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
         if (uri != null) {
             scope.launch {
                 val result = runCatching {
-                    val text = withContext(Dispatchers.IO) {
+                    withContext(Dispatchers.IO) {
                         context.contentResolver.openInputStream(uri)?.bufferedReader()?.use(::readLimited)
                             ?: error("Could not read project")
                     }
-                    viewModel.importJson(text)
                 }
-                message = if (result.isSuccess) resources.getString(R.string.project_imported)
-                else resources.getString(R.string.import_failed, result.exceptionOrNull()?.message ?: "invalid project")
+                result.onSuccess { text -> request(PendingProjectAction(PendingType.IMPORT, payload = text)) }
+                    .onFailure { error ->
+                        message = resources.getString(R.string.import_failed, error.message ?: "invalid project")
+                    }
             }
         }
-    }
-
-    fun execute(action: PendingProjectAction) {
-        when (action.type) {
-            PendingType.NEW -> viewModel.newProject()
-            PendingType.OPEN -> action.id?.let(viewModel::load)
-        }
-    }
-
-    fun request(action: PendingProjectAction) {
-        if (viewModel.dirty) pendingAction = action else execute(action)
     }
 
     Scaffold(
@@ -149,11 +187,7 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     }
                 },
                 actions = {
-                    TextButton(onClick = {
-                        runCatching(viewModel::save)
-                            .onSuccess { message = resources.getString(R.string.saved_locally) }
-                            .onFailure { message = resources.getString(R.string.save_failed, it.message ?: "unknown") }
-                    }) { Text(stringResource(R.string.save)) }
+                    TextButton(onClick = { saveWithFeedback() }) { Text(stringResource(R.string.save)) }
                     TextButton(onClick = { showOpen = true }) { Text(stringResource(R.string.open)) }
                 },
             )
@@ -167,11 +201,13 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     SceneArea(viewModel, Modifier.weight(1f).fillMaxHeight())
                     ControlArea(
                         viewModel, panel, { panel = it },
+                        onSave = { saveWithFeedback() },
                         onOpen = { showOpen = true },
                         onNew = { request(PendingProjectAction(PendingType.NEW)) },
                         onExportPng = { exportPng.launch(fileName(viewModel.project.name, "png")) },
                         onExportProject = { exportJson.launch(fileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
+                        onPrivacy = ::openPrivacyPolicy,
                         modifier = Modifier.width(360.dp).fillMaxHeight(),
                     )
                 }
@@ -180,11 +216,13 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     SceneArea(viewModel, Modifier.weight(1f).fillMaxWidth())
                     ControlArea(
                         viewModel, panel, { panel = it },
+                        onSave = { saveWithFeedback() },
                         onOpen = { showOpen = true },
                         onNew = { request(PendingProjectAction(PendingType.NEW)) },
                         onExportPng = { exportPng.launch(fileName(viewModel.project.name, "png")) },
                         onExportProject = { exportJson.launch(fileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
+                        onPrivacy = ::openPrivacyPolicy,
                         modifier = Modifier.fillMaxWidth().height(inspectorHeight),
                     )
                 }
@@ -203,8 +241,14 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             projects = viewModel.savedProjects,
             onDismiss = { showOpen = false },
             onOpen = { id -> showOpen = false; request(PendingProjectAction(PendingType.OPEN, id)) },
-            onDuplicate = viewModel::duplicate,
-            onDelete = viewModel::delete,
+            onDuplicate = { id ->
+                runCatching { viewModel.duplicate(id) }
+                    .onFailure { message = resources.getString(R.string.action_failed, it.message ?: "unknown") }
+            },
+            onDelete = { project ->
+                showOpen = false
+                pendingDelete = project
+            },
         )
     }
 
@@ -215,10 +259,10 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             text = { Text(stringResource(R.string.unsaved_body)) },
             confirmButton = {
                 TextButton(onClick = {
-                    runCatching(viewModel::save).onSuccess {
+                    saveWithFeedback {
                         pendingAction = null
                         execute(action)
-                    }.onFailure { message = resources.getString(R.string.save_failed, it.message ?: "unknown") }
+                    }
                 }) { Text(stringResource(R.string.save_continue)) }
             },
             dismissButton = {
@@ -231,6 +275,23 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                     TextButton(onClick = { pendingAction = null }) { Text(stringResource(R.string.cancel)) }
                 }
             },
+        )
+    }
+
+    pendingDelete?.let { project ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.delete)) },
+            text = { Text(stringResource(R.string.delete_project_body, project.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        check(viewModel.delete(project.id)) { "Could not delete project" }
+                    }.onFailure { message = resources.getString(R.string.action_failed, it.message ?: "unknown") }
+                    pendingDelete = null
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -259,6 +320,7 @@ private fun SceneArea(viewModel: PoseStudioViewModel, modifier: Modifier) {
             onPoseEnd = viewModel::endPoseGesture,
             onDragJoint = viewModel::dragJoint,
             onOrbit = viewModel::orbit,
+            onPan = viewModel::pan,
             onZoom = viewModel::zoom,
         )
         PoseSpeedToolbar(
@@ -301,11 +363,13 @@ private fun ControlArea(
     viewModel: PoseStudioViewModel,
     panel: Panel,
     onPanel: (Panel) -> Unit,
+    onSave: () -> Unit,
     onOpen: () -> Unit,
     onNew: () -> Unit,
     onExportPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
+    onPrivacy: () -> Unit,
     modifier: Modifier,
 ) {
     val labels = listOf(R.string.pose, R.string.camera, R.string.light, R.string.project)
@@ -327,7 +391,16 @@ private fun ControlArea(
                 Panel.POSE -> PoseControls(viewModel)
                 Panel.CAMERA -> CameraControls(viewModel)
                 Panel.LIGHT -> LightControls(viewModel)
-                Panel.PROJECT -> ProjectControls(viewModel, onOpen, onNew, onExportPng, onExportProject, onImportProject)
+                Panel.PROJECT -> ProjectControls(
+                    viewModel,
+                    onSave,
+                    onOpen,
+                    onNew,
+                    onExportPng,
+                    onExportProject,
+                    onImportProject,
+                    onPrivacy,
+                )
             }
         }
     }
@@ -357,10 +430,6 @@ private fun PoseControls(viewModel: PoseStudioViewModel) {
             OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, -0.06f, 0f)) }) { Text(stringResource(R.string.down)) }
             OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) }) { Text(stringResource(R.string.forward)) }
             OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) }) { Text(stringResource(R.string.back)) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { viewModel.updateSelectedRoll(-15f) }) { Text(stringResource(R.string.roll_minus)) }
-            OutlinedButton(onClick = { viewModel.updateSelectedRoll(15f) }) { Text(stringResource(R.string.roll_plus)) }
         }
     }
 }
@@ -393,11 +462,13 @@ private fun LightControls(viewModel: PoseStudioViewModel) {
 @Composable
 private fun ProjectControls(
     viewModel: PoseStudioViewModel,
+    onSave: () -> Unit,
     onOpen: () -> Unit,
     onNew: () -> Unit,
     onExportPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
+    onPrivacy: () -> Unit,
 ) {
     Text(stringResource(R.string.project), style = MaterialTheme.typography.titleMedium)
     OutlinedTextField(
@@ -408,7 +479,7 @@ private fun ProjectControls(
         modifier = Modifier.fillMaxWidth(),
     )
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = viewModel::save) { Text(stringResource(R.string.save)) }
+        Button(onClick = onSave) { Text(stringResource(R.string.save)) }
         OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.open)) }
         OutlinedButton(onClick = onNew) { Text(stringResource(R.string.new_project)) }
     }
@@ -420,6 +491,8 @@ private fun ProjectControls(
         OutlinedButton(onClick = onImportProject) { Text(stringResource(R.string.import_json)) }
         OutlinedButton(onClick = onExportPng) { Text(stringResource(R.string.export_png)) }
     }
+    HorizontalDivider()
+    OutlinedButton(onClick = onPrivacy) { Text(stringResource(R.string.privacy_policy)) }
     if (viewModel.corruptProjects.isNotEmpty()) {
         HorizontalDivider()
         Text(stringResource(R.string.corrupt_projects, viewModel.corruptProjects.size), color = MaterialTheme.colorScheme.error)
@@ -445,7 +518,7 @@ private fun OpenProjectDialog(
     onDismiss: () -> Unit,
     onOpen: (String) -> Unit,
     onDuplicate: (String) -> Unit,
-    onDelete: (String) -> Unit,
+    onDelete: (ProjectStore.SavedProject) -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -460,7 +533,7 @@ private fun OpenProjectDialog(
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick = { onOpen(project.id) }) { Text(stringResource(R.string.open)) }
                             TextButton(onClick = { onDuplicate(project.id) }) { Text(stringResource(R.string.duplicate)) }
-                            TextButton(onClick = { onDelete(project.id) }) { Text(stringResource(R.string.delete)) }
+                            TextButton(onClick = { onDelete(project) }) { Text(stringResource(R.string.delete)) }
                         }
                     }
                 }
@@ -486,3 +559,6 @@ private fun fileName(name: String, extension: String): String {
     val safe = name.trim().ifBlank { "pose" }.replace(Regex("[^A-Za-z0-9._-]+"), "-").take(48)
     return "$safe.$extension"
 }
+
+private const val PRIVACY_POLICY_URL =
+    "https://github.com/jiying2007/product-suite/blob/main/apps/pose-studio/docs/PRIVACY_POLICY.md"
