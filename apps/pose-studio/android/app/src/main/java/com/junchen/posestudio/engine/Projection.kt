@@ -13,11 +13,12 @@ object SceneProjection {
     fun project(point: Vec3, camera: CameraState, width: Float, height: Float): ProjectedPoint {
         val yaw = radians(camera.yawDegrees)
         val pitch = radians(camera.pitchDegrees)
+        val relative = point - camera.target
 
-        val x1 = cos(yaw) * point.x - sin(yaw) * point.z
-        val z1 = sin(yaw) * point.x + cos(yaw) * point.z
-        val y2 = cos(pitch) * point.y - sin(pitch) * z1
-        val z2 = sin(pitch) * point.y + cos(pitch) * z1
+        val x1 = cos(yaw) * relative.x - sin(yaw) * relative.z
+        val z1 = sin(yaw) * relative.x + cos(yaw) * relative.z
+        val y2 = cos(pitch) * relative.y - sin(pitch) * z1
+        val z2 = sin(pitch) * relative.y + cos(pitch) * z1
 
         val depth = (camera.distance + z2).coerceAtLeast(0.25f)
         val focal = focalLength(width, camera)
@@ -44,6 +45,9 @@ object SceneProjection {
         val unitsPerPixel = depth.coerceAtLeast(0.25f) / focalLength(width, camera)
         return right * (dx * unitsPerPixel) + up * (-dy * unitsPerPixel)
     }
+
+    fun panTargetDelta(dx: Float, dy: Float, camera: CameraState, width: Float): Vec3 =
+        screenDeltaToWorld(-dx, -dy, camera, width, camera.distance)
 
     private fun focalLength(width: Float, camera: CameraState): Float =
         (width.coerceAtLeast(1f) / 2f) / tan(radians(camera.fovDegrees.coerceIn(20f, 75f)) / 2f)

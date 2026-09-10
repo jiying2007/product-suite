@@ -16,22 +16,28 @@ Dedicated Pose Studio CI additionally boots API 36, runs the full instrumentatio
 - Project schema is explicit and v1 migrates deterministically to v2.
 - Missing/invalid joints fall back safely; future unsupported schemas fail explicitly.
 - Project import is bounded in size and rejects/sanitizes pathological numeric input.
-- Explicit save is atomic; unsaved changes are recoverable through a debounced local journal.
+- Camera pan target is portable, bounded and backward-compatible with files that omit it.
+- Dirty New/Open/Import cannot silently replace unsaved work.
+- Explicit save and recovery use Android `AtomicFile`; committed backups must remain recoverable after an interrupted replacement.
+- Delete removes the committed project plus atomic backup only after explicit user confirmation.
+- High-frequency edits use one conflated/debounced recovery worker rather than creating file IO or one coroutine per pointer update.
 
 ## Privacy gate
 
-The main manifest must not request `android.permission.INTERNET` or `ACCESS_NETWORK_STATE`. No account/ads/analytics SDK may become required for the core loop.
+The main manifest must not request `android.permission.INTERNET` or `ACCESS_NETWORK_STATE`. No account/ads/analytics SDK may become required for the core loop. A visible in-app privacy-policy entry must remain available before Play production submission.
 
 ## UX acceptance
 
 - Direct joint selection/drag and empty-space orbit work without mode switching.
-- Pinch zoom is available.
+- Pinch zoom and true two-finger camera-target pan are available.
 - Mirror/copy/ground and presets are one-step accelerators.
-- Unsaved New/Open cannot silently destroy work.
+- Unsaved New/Open/Import cannot silently destroy work.
+- Destructive saved-project deletion requires confirmation.
 - Save/open/import/export remain account-free.
 - phone/landscape/tablet layout keeps the scene dominant.
 - primary actions remain reachable at 200% font scale.
-- alternate precise joint controls exist for users unable to operate the canvas directly.
+- alternate precise directional joint controls exist for users unable to operate the canvas directly.
+- controls for state that the current renderer cannot visibly express, including joint roll, remain hidden until they become meaningful.
 
 ## Performance
 

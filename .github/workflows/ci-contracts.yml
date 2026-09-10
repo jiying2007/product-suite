@@ -1,0 +1,41 @@
+name: CI Contracts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Verify Reader performance gate ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          main=.github/workflows/ci.yml
+          pr=.github/workflows/reader-performance-pr.yml
+
+          test -f "$main"
+          test -f "$pr"
+
+          grep -Fq -- "if: github.event_name == 'push'" "$main"
+          grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$main"
+          grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$pr"
+          grep -Fq -- "- 'apps/jingdu/**'" "$pr"
+          grep -Fq -- "- 'platform/**'" "$pr"
+          grep -Fq -- "- 'native/**'" "$pr"
+          grep -Fq -- "- 'scripts/run-android-macrobenchmark-ci.sh'" "$pr"
+          grep -Fq -- "- 'scripts/check-android-performance-slo.py'" "$pr"
+
+          if grep -Fq -- "- '.github/workflows/" "$pr"; then
+            echo 'Reader PR performance must not be self-triggered by workflow-scope-only changes' >&2
+            exit 1
+          fi
+
+          grep -Fq -- 'android-performance' "$main"
+          grep -Fq -- 'needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' "$main"

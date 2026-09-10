@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_failed">Action failed: %1$s</string>
+    <string name="delete_project_body">Delete “%1$s” permanently?</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="privacy_open_failed">Could not open the privacy policy.</string>
+    <string name="export_transparent_png">Transparent PNG</string>
+    <string name="transparent_png_exported">Transparent PNG exported</string>
+</resources>

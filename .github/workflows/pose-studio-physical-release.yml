@@ -24,13 +24,41 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Qualify physical device
-        run: bash apps/pose-studio/scripts/physical-release-check.sh "${{ inputs.source_ref }}"
+      - name: Qualify physical device with product-specific release signing
+        shell: bash
+        env:
+          POSE_STUDIO_RELEASE_KEYSTORE_BASE64: ${{ secrets.POSE_STUDIO_RELEASE_KEYSTORE_BASE64 }}
+          POSE_STUDIO_RELEASE_STORE_PASSWORD: ${{ secrets.POSE_STUDIO_RELEASE_STORE_PASSWORD }}
+          POSE_STUDIO_RELEASE_KEY_ALIAS: ${{ secrets.POSE_STUDIO_RELEASE_KEY_ALIAS }}
+          POSE_STUDIO_RELEASE_KEY_PASSWORD: ${{ secrets.POSE_STUDIO_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${POSE_STUDIO_RELEASE_KEYSTORE_BASE64:-}"
+          test -n "${POSE_STUDIO_RELEASE_STORE_PASSWORD:-}"
+          test -n "${POSE_STUDIO_RELEASE_KEY_ALIAS:-}"
+          test -n "${POSE_STUDIO_RELEASE_KEY_PASSWORD:-}"
+
+          KEYSTORE="$RUNNER_TEMP/pose-studio-release.keystore"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          python3 - "$KEYSTORE" <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          import sys
+
+          encoded = os.environ["POSE_STUDIO_RELEASE_KEYSTORE_BASE64"].strip()
+          Path(sys.argv[1]).write_bytes(base64.b64decode(encoded, validate=True))
+          PY
+          test -s "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          export POSE_STUDIO_RELEASE_STORE_FILE="$KEYSTORE"
+
+          bash apps/pose-studio/scripts/physical-release-check.sh "${{ inputs.source_ref }}"
       - name: Preserve physical release evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pose-studio-physical-${{ inputs.source_ref }}
+          name: pose-studio-physical-${{ github.run_id }}
           path: apps/pose-studio/evidence/physical/
           if-no-files-found: error
           retention-days: 90

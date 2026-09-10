@@ -44,11 +44,14 @@ fun PoseScene(
     onPoseEnd: () -> Unit,
     onDragJoint: (JointId, Vec3) -> Unit,
     onOrbit: (Float, Float) -> Unit,
+    onPan: (Float, Float, Float) -> Unit,
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    val hitRadiusPx = with(LocalDensity.current) { 48.dp.toPx() }
+    val density = LocalDensity.current
+    val hitRadiusPx = with(density) { 48.dp.toPx() }
+    val overlapSlopPx = with(density) { 12.dp.toPx() }
     val model = remember(project.joints, project.camera, project.light, canvasSize) {
         if (canvasSize.width == 0) null else PoseRenderBuilder.build(
             project,
@@ -71,15 +74,19 @@ fun PoseScene(
                 contentDescription = sceneDescription
                 selectedJointLabel?.let { stateDescription = it }
             }
-            .pointerInput(canvasSize, hitRadiusPx) {
+            .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val startModel = currentModel
-                    var activeJoint = startModel?.projected?.entries
-                        ?.map { (joint, point) -> joint to Offset(point.x, point.y) }
-                        ?.minByOrNull { (_, point) -> (point - down.position).getDistance() }
-                        ?.takeIf { (_, point) -> (point - down.position).getDistance() <= hitRadiusPx }
-                        ?.first
+                    var activeJoint = startModel?.projected?.let { projected ->
+                        JointPicker.pick(
+                            projected = projected,
+                            touchX = down.position.x,
+                            touchY = down.position.y,
+                            hitRadiusPx = hitRadiusPx,
+                            overlapSlopPx = overlapSlopPx,
+                        )
+                    }
                     var activeDepth = activeJoint?.let { startModel?.projected?.get(it)?.depth } ?: currentCamera.distance
                     var poseStarted = activeJoint != null
                     onSelect(activeJoint)
@@ -99,7 +106,9 @@ fun PoseScene(
                             val zoom = event.calculateZoom()
                             val pan = event.calculatePan()
                             if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
-                            if (pan.getDistance() > 0.01f) onOrbit(pan.x, pan.y)
+                            if (pan.getDistance() > 0.01f && canvasSize.width > 0) {
+                                onPan(pan.x, pan.y, canvasSize.width.toFloat())
+                            }
                             event.changes.forEach { it.consume() }
                         } else {
                             val change = pressed.first()

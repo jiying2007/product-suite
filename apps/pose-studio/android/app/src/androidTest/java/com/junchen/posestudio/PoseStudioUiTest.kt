@@ -26,6 +26,8 @@ class PoseStudioUiTest {
         rule.onNodeWithText("Front").assertIsDisplayed()
         rule.onNodeWithText("Light").performClick()
         rule.onNodeWithText("Directional light").assertIsDisplayed()
+        rule.onNodeWithText("Project").performClick()
+        rule.onNodeWithText("Transparent PNG").fetchSemanticsNode()
     }
 
     @Test

@@ -37,4 +37,21 @@ class ProjectionTest {
         val delta = SceneProjection.screenDeltaToWorld(0f, -50f, CameraState(pitchDegrees = 35f), 1080f, 7f)
         assertTrue(kotlin.math.abs(delta.z) > 0.001f)
     }
+
+    @Test
+    fun cameraTargetOffsetsCompositionWithoutMovingPose() {
+        val base = CameraState(yawDegrees = 0f, pitchDegrees = 0f)
+        val centered = SceneProjection.project(Vec3.ZERO, base, 1000f, 800f)
+        val shifted = SceneProjection.project(Vec3.ZERO, base.copy(target = Vec3(-0.5f, 0f, 0f)), 1000f, 800f)
+        assertTrue(shifted.x > centered.x)
+    }
+
+    @Test
+    fun panTargetDeltaMovesSceneWithFinger() {
+        val camera = CameraState(yawDegrees = 0f, pitchDegrees = 0f)
+        val centered = SceneProjection.project(Vec3.ZERO, camera, 1000f, 800f)
+        val targetDelta = SceneProjection.panTargetDelta(80f, 0f, camera, 1000f)
+        val moved = SceneProjection.project(Vec3.ZERO, camera.copy(target = targetDelta), 1000f, 800f)
+        assertTrue(moved.x > centered.x)
+    }
 }

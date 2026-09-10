@@ -10,16 +10,20 @@ Established independent Android identity/CI, 19-joint procedural mannequin, fixe
 
 - mirror/copy/ground speed tools;
 - depth-aware camera-plane joint dragging;
-- pinch zoom/two-finger scene navigation;
+- pinch zoom/true two-finger camera-target pan;
 - shared render model with stronger procedural volume cues;
 - schema-v2 roll semantics plus v1 migration fixtures;
-- atomic save plus debounced autosave recovery;
-- dirty-work confirmation, duplicate/delete and corruption visibility;
+- rollback-safe atomic save plus conflated/debounced autosave recovery;
+- dirty-work confirmation for New/Open/Import, duplicate/delete and corruption visibility;
+- explicit delete confirmation;
 - bounded/defensive project import;
 - responsive phone/landscape/tablet inspector;
 - interactive first-run guide and accessible precise joint controls;
 - en-US/zh-CN/zh-TW/zh-HK resources and product launcher icon;
+- Unicode-safe export filenames and clean transparent PNG export;
+- light/dark workspace and system-chrome alignment;
 - release APK/AAB compilation, executable API-36 instrumentation, 200% font check and physical qualification workflow;
+- release-like AndroidX Macrobenchmark target for physical startup/frame evidence;
 - product-specific release/signing/privacy/Data Safety/store-source contracts.
 
 This is still not a v1 production claim until external evidence is complete.
@@ -33,7 +37,7 @@ Only after real artist sessions validate direct manipulation:
 - local pose library and pose blending;
 - local reference-image overlay;
 - multiple mannequins and basic props only if they materially reduce artist workflow time;
-- transparent/high-resolution and optional silhouette/line-art export modes.
+- higher-resolution and optional silhouette/line-art export modes.
 
 ## v1.0 — production qualification
 

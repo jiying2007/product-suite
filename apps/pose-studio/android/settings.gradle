@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "PoseStudioAndroid"
-include(":app")
+include(":app", ":macrobenchmark")

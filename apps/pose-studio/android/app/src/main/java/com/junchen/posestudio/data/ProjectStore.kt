@@ -1,6 +1,7 @@
 package com.junchen.posestudio.data
 
 import android.content.Context
+import android.util.AtomicFile
 import com.junchen.posestudio.model.CameraState
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.LightState
@@ -10,6 +11,8 @@ import com.junchen.posestudio.model.Vec3
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
 import java.util.UUID
 
 class ProjectStore(context: Context) {
@@ -18,6 +21,7 @@ class ProjectStore(context: Context) {
 
     data class SavedProject(val id: String, val name: String, val modifiedAt: Long)
     data class CorruptProject(val fileName: String, val modifiedAt: Long)
+    data class ProjectIndex(val saved: List<SavedProject>, val corrupt: List<CorruptProject>)
 
     fun save(project: PoseProject): PoseProject {
         val saved = project.copy(schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION, modifiedAt = System.currentTimeMillis())
@@ -31,43 +35,43 @@ class ProjectStore(context: Context) {
         writeAtomically(recoveryFileFor(snapshot.id), ProjectCodec.encode(snapshot))
     }
 
-    fun load(id: String): PoseProject = ProjectCodec.decode(fileFor(id).readText(Charsets.UTF_8))
+    fun load(id: String): PoseProject = ProjectCodec.decode(readAtomically(fileFor(id)))
 
     fun latestRecovery(): PoseProject? = recoveryDirectory.listFiles()
         .orEmpty()
         .asSequence()
         .filter { it.isFile && it.extension == "json" }
         .sortedByDescending { it.lastModified() }
-        .mapNotNull { runCatching { ProjectCodec.decode(it.readText(Charsets.UTF_8)) }.getOrNull() }
+        .mapNotNull { file -> runCatching { ProjectCodec.decode(readAtomically(file)) }.getOrNull() }
         .firstOrNull { recovered ->
             val saved = fileFor(recovered.id)
             !saved.exists() || recovered.modifiedAt > saved.lastModified()
         }
 
     fun discardRecovery(id: String) {
-        recoveryFileFor(id).delete()
+        AtomicFile(recoveryFileFor(id)).delete()
     }
 
-    fun list(): List<SavedProject> = directory.listFiles()
-        .orEmpty()
-        .asSequence()
-        .filter { it.isFile && it.extension == "json" }
-        .mapNotNull { file ->
-            runCatching { ProjectCodec.decode(file.readText(Charsets.UTF_8)) }
-                .getOrNull()
-                ?.let { SavedProject(it.id, it.name, it.modifiedAt) }
-        }
-        .sortedByDescending { it.modifiedAt }
-        .toList()
+    fun scan(): ProjectIndex {
+        val saved = mutableListOf<SavedProject>()
+        val corrupt = mutableListOf<CorruptProject>()
+        directory.listFiles()
+            .orEmpty()
+            .asSequence()
+            .filter { it.isFile && it.extension == "json" }
+            .forEach { file ->
+                runCatching { ProjectCodec.decode(readAtomically(file)) }
+                    .onSuccess { project -> saved += SavedProject(project.id, project.name, project.modifiedAt) }
+                    .onFailure { corrupt += CorruptProject(file.name, file.lastModified()) }
+            }
+        return ProjectIndex(
+            saved = saved.sortedByDescending { it.modifiedAt },
+            corrupt = corrupt.sortedByDescending { it.modifiedAt },
+        )
+    }
 
-    fun listCorrupt(): List<CorruptProject> = directory.listFiles()
-        .orEmpty()
-        .asSequence()
-        .filter { it.isFile && it.extension == "json" }
-        .filter { file -> runCatching { ProjectCodec.decode(file.readText(Charsets.UTF_8)) }.isFailure }
-        .map { CorruptProject(it.name, it.lastModified()) }
-        .sortedByDescending { it.modifiedAt }
-        .toList()
+    fun list(): List<SavedProject> = scan().saved
+    fun listCorrupt(): List<CorruptProject> = scan().corrupt
 
     fun duplicate(id: String): PoseProject {
         val source = load(id)
@@ -83,16 +87,28 @@ class ProjectStore(context: Context) {
     fun delete(id: String): Boolean {
         discardRecovery(id)
         val file = fileFor(id)
-        return !file.exists() || file.delete()
+        val existed = file.exists() || File(file.path + ".bak").exists()
+        AtomicFile(file).delete()
+        return !existed || (!file.exists() && !File(file.path + ".bak").exists())
     }
 
+    private fun readAtomically(source: File): String =
+        AtomicFile(source).openRead().bufferedReader(Charsets.UTF_8).use { it.readText() }
+
     private fun writeAtomically(destination: File, text: String) {
-        val temp = File(destination.parentFile, ".${destination.name}.tmp")
-        temp.writeText(text, Charsets.UTF_8)
-        check(temp.renameTo(destination) || run {
-            destination.delete()
-            temp.renameTo(destination)
-        }) { "Could not atomically save pose project" }
+        val atomicFile = AtomicFile(destination)
+        var output: FileOutputStream? = null
+        try {
+            output = atomicFile.startWrite()
+            OutputStreamWriter(output, Charsets.UTF_8).apply {
+                write(text)
+                flush()
+            }
+            atomicFile.finishWrite(output)
+        } catch (error: Throwable) {
+            output?.let { atomicFile.failWrite(it) }
+            throw error
+        }
     }
 
     private fun fileFor(id: String): File = File(directory, "${safeId(id)}.json")
@@ -121,7 +137,8 @@ object ProjectCodec {
                 .put("yaw", project.camera.yawDegrees)
                 .put("pitch", project.camera.pitchDegrees)
                 .put("distance", project.camera.distance)
-                .put("fov", project.camera.fovDegrees))
+                .put("fov", project.camera.fovDegrees)
+                .put("target", JSONArray(listOf(project.camera.target.x, project.camera.target.y, project.camera.target.z))))
             .put("light", JSONObject()
                 .put("azimuth", project.light.azimuthDegrees)
                 .put("elevation", project.light.elevationDegrees)
@@ -161,6 +178,7 @@ object ProjectCodec {
                 pitchDegrees = finiteOr(cameraJson.optDouble("pitch", -4.0).toFloat(), -4f).coerceIn(-65f, 65f),
                 distance = finiteOr(cameraJson.optDouble("distance", 7.2).toFloat(), 7.2f).coerceIn(3.8f, 12f),
                 fovDegrees = finiteOr(cameraJson.optDouble("fov", 38.0).toFloat(), 38f).coerceIn(20f, 75f),
+                target = readVec(cameraJson.optJSONArray("target"), Vec3.ZERO),
             ),
             light = LightState(
                 azimuthDegrees = finiteOr(lightJson.optDouble("azimuth", -35.0).toFloat(), -35f).coerceIn(-720f, 720f),
