@@ -5,9 +5,24 @@ plugins {
 
 def releaseSigningProperties = new Properties()
 def releaseSigningPropertiesFile = rootProject.file("keystore.properties")
+def releaseSigningEnvironment = [
+    storeFile: System.getenv("POSE_STUDIO_RELEASE_STORE_FILE"),
+    storePassword: System.getenv("POSE_STUDIO_RELEASE_STORE_PASSWORD"),
+    keyAlias: System.getenv("POSE_STUDIO_RELEASE_KEY_ALIAS"),
+    keyPassword: System.getenv("POSE_STUDIO_RELEASE_KEY_PASSWORD"),
+]
 if (releaseSigningPropertiesFile.exists()) {
     releaseSigningPropertiesFile.withInputStream { releaseSigningProperties.load(it) }
+} else {
+    releaseSigningEnvironment.each { key, value ->
+        if (value) releaseSigningProperties.setProperty(key, value)
+    }
 }
+def releaseSigningKeys = ["storeFile", "storePassword", "keyAlias", "keyPassword"]
+def releaseSigningComplete = releaseSigningKeys.every { key ->
+    def value = releaseSigningProperties.getProperty(key)
+    value != null && !value.trim().isEmpty()
+} && file(releaseSigningProperties.getProperty("storeFile")).isFile()
 
 android {
     namespace = "com.junchen.posestudio"
@@ -23,7 +38,7 @@ android {
     }
 
     signingConfigs {
-        if (releaseSigningPropertiesFile.exists()) {
+        if (releaseSigningComplete) {
             release {
                 storeFile = file(releaseSigningProperties.getProperty("storeFile"))
                 storePassword = releaseSigningProperties.getProperty("storePassword")
@@ -38,7 +53,7 @@ android {
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            if (releaseSigningPropertiesFile.exists()) signingConfig = signingConfigs.release
+            if (releaseSigningComplete) signingConfig = signingConfigs.release
         }
         benchmark {
             initWith release
@@ -64,11 +79,14 @@ android {
 tasks.register("validatePoseReleaseSigning") {
     group = "verification"
     doLast {
-        if (!releaseSigningPropertiesFile.exists()) throw new GradleException("keystore.properties is required for a distributable Pose Studio release")
-        ["storeFile", "storePassword", "keyAlias", "keyPassword"].each { key ->
-            if (!releaseSigningProperties.getProperty(key)) throw new GradleException("Missing release signing property: ${key}")
+        releaseSigningKeys.each { key ->
+            if (!releaseSigningProperties.getProperty(key)) {
+                throw new GradleException("Missing Pose Studio release signing property: ${key}")
+            }
         }
-        if (!file(releaseSigningProperties.getProperty("storeFile")).exists()) throw new GradleException("Pose Studio release keystore does not exist")
+        def keystore = file(releaseSigningProperties.getProperty("storeFile"))
+        if (!keystore.isFile()) throw new GradleException("Pose Studio release keystore does not exist: ${keystore}")
+        if (!releaseSigningComplete) throw new GradleException("Pose Studio release signing configuration is incomplete")
     }
 }
 
