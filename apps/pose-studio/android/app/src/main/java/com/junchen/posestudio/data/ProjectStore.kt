@@ -35,21 +35,21 @@ class ProjectStore(context: Context) {
         writeAtomically(recoveryFileFor(snapshot.id), ProjectCodec.encode(snapshot))
     }
 
-    fun load(id: String): PoseProject = ProjectCodec.decode(fileFor(id).readText(Charsets.UTF_8))
+    fun load(id: String): PoseProject = ProjectCodec.decode(readAtomically(fileFor(id)))
 
     fun latestRecovery(): PoseProject? = recoveryDirectory.listFiles()
         .orEmpty()
         .asSequence()
         .filter { it.isFile && it.extension == "json" }
         .sortedByDescending { it.lastModified() }
-        .mapNotNull { runCatching { ProjectCodec.decode(it.readText(Charsets.UTF_8)) }.getOrNull() }
+        .mapNotNull { file -> runCatching { ProjectCodec.decode(readAtomically(file)) }.getOrNull() }
         .firstOrNull { recovered ->
             val saved = fileFor(recovered.id)
             !saved.exists() || recovered.modifiedAt > saved.lastModified()
         }
 
     fun discardRecovery(id: String) {
-        recoveryFileFor(id).delete()
+        AtomicFile(recoveryFileFor(id)).delete()
     }
 
     fun scan(): ProjectIndex {
@@ -60,7 +60,7 @@ class ProjectStore(context: Context) {
             .asSequence()
             .filter { it.isFile && it.extension == "json" }
             .forEach { file ->
-                runCatching { ProjectCodec.decode(file.readText(Charsets.UTF_8)) }
+                runCatching { ProjectCodec.decode(readAtomically(file)) }
                     .onSuccess { project -> saved += SavedProject(project.id, project.name, project.modifiedAt) }
                     .onFailure { corrupt += CorruptProject(file.name, file.lastModified()) }
             }
@@ -87,8 +87,13 @@ class ProjectStore(context: Context) {
     fun delete(id: String): Boolean {
         discardRecovery(id)
         val file = fileFor(id)
-        return !file.exists() || file.delete()
+        val existed = file.exists() || File(file.path + ".bak").exists()
+        AtomicFile(file).delete()
+        return !existed || (!file.exists() && !File(file.path + ".bak").exists())
     }
+
+    private fun readAtomically(source: File): String =
+        AtomicFile(source).openRead().bufferedReader(Charsets.UTF_8).use { it.readText() }
 
     private fun writeAtomically(destination: File, text: String) {
         val atomicFile = AtomicFile(destination)
