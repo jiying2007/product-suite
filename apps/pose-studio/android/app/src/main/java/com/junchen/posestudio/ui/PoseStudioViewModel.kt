@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.junchen.posestudio.data.ProjectCodec
 import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.engine.PoseMath
+import com.junchen.posestudio.engine.SceneProjection
 import com.junchen.posestudio.model.CameraState
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.LightState
@@ -20,15 +21,18 @@ import com.junchen.posestudio.model.PoseProject
 import com.junchen.posestudio.model.Vec3
 import com.junchen.posestudio.render.PoseBitmapRenderer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 private data class PoseSnapshot(
     val joints: Map<JointId, Vec3>,
     val jointRollDegrees: Map<JointId, Float>,
 )
+
+private data class RecoveryRequest(val generation: Int, val project: PoseProject)
 
 class PoseStudioViewModel(application: Application) : AndroidViewModel(application) {
     private val store = ProjectStore(application)
@@ -36,7 +40,9 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     private val undo = ArrayDeque<PoseSnapshot>()
     private val redo = ArrayDeque<PoseSnapshot>()
     private var gestureSnapshot: PoseSnapshot? = null
-    private var recoveryJob: Job? = null
+    private val recoveryGeneration = AtomicInteger(0)
+    private val recoveryRequests = Channel<RecoveryRequest>(Channel.CONFLATED)
+    private val initialIndex = store.scan()
 
     var project by mutableStateOf(PoseProject())
         private set
@@ -44,14 +50,29 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         private set
     var dirty by mutableStateOf(false)
         private set
-    var savedProjects by mutableStateOf(store.list())
+    var savedProjects by mutableStateOf(initialIndex.saved)
         private set
-    var corruptProjects by mutableStateOf(store.listCorrupt())
+    var corruptProjects by mutableStateOf(initialIndex.corrupt)
         private set
     var recoveryCandidate by mutableStateOf(store.latestRecovery())
         private set
     var onboardingStep by mutableIntStateOf(if (prefs.getBoolean("onboarding_complete", false)) -1 else 0)
         private set
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            for (first in recoveryRequests) {
+                var latest = first
+                while (true) {
+                    val newer = withTimeoutOrNull(650) { recoveryRequests.receive() } ?: break
+                    latest = newer
+                }
+                if (latest.generation == recoveryGeneration.get()) {
+                    runCatching { store.saveRecovery(latest.project) }
+                }
+            }
+        }
+    }
 
     fun selectJoint(joint: JointId?) { selectedJoint = joint }
 
@@ -122,6 +143,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun orbit(dx: Float, dy: Float) {
+        if (!dx.isFinite() || !dy.isFinite()) return
         updateCamera { camera ->
             camera.copy(
                 yawDegrees = camera.yawDegrees + dx * 0.32f,
@@ -129,6 +151,14 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
         if (onboardingStep == 1 && kotlin.math.abs(dx) + kotlin.math.abs(dy) > 2f) onboardingStep = 2
+    }
+
+    fun pan(dx: Float, dy: Float, viewportWidth: Float) {
+        if (!dx.isFinite() || !dy.isFinite() || !viewportWidth.isFinite() || viewportWidth <= 0f) return
+        updateCamera { camera ->
+            val delta = SceneProjection.panTargetDelta(dx, dy, camera, viewportWidth)
+            if (!delta.isFinite()) camera else camera.copy(target = clampCameraTarget(camera.target + delta))
+        }
     }
 
     fun zoom(factor: Float) {
@@ -151,12 +181,12 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     fun skipOnboarding() = completeOnboarding()
 
     fun discardUnsavedRecovery() {
-        recoveryJob?.cancel()
+        invalidateRecovery()
         store.discardRecovery(project.id)
     }
 
     fun newProject() {
-        recoveryJob?.cancel()
+        invalidateRecovery()
         project = PoseProject()
         selectedJoint = JointId.RIGHT_WRIST
         clearHistory()
@@ -164,14 +194,14 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun save() {
-        recoveryJob?.cancel()
+        invalidateRecovery()
         project = store.save(project)
         dirty = false
         refreshSaved()
     }
 
     fun load(id: String) {
-        recoveryJob?.cancel()
+        invalidateRecovery()
         project = store.load(id)
         selectedJoint = null
         clearHistory()
@@ -184,12 +214,15 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         refreshSaved()
     }
 
-    fun delete(id: String) {
-        if (store.delete(id)) refreshSaved()
+    fun delete(id: String): Boolean {
+        val deleted = store.delete(id)
+        if (deleted) refreshSaved()
+        return deleted
     }
 
     fun restoreRecovery() {
         val recovered = recoveryCandidate ?: return
+        invalidateRecovery()
         project = recovered.copy(schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION)
         selectedJoint = null
         clearHistory()
@@ -204,6 +237,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun importJson(text: String) {
+        invalidateRecovery()
         val imported = ProjectCodec.decode(text).copy(
             schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION,
             id = UUID.randomUUID().toString(),
@@ -226,8 +260,9 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun refreshSaved() {
-        savedProjects = store.list()
-        corruptProjects = store.listCorrupt()
+        val index = store.scan()
+        savedProjects = index.saved
+        corruptProjects = index.corrupt
     }
 
     private fun applyPoseEdit(transform: (Map<JointId, Vec3>) -> Map<JointId, Vec3>) {
@@ -245,13 +280,18 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun scheduleRecovery() {
-        recoveryJob?.cancel()
-        val snapshot = project
-        recoveryJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(650)
-            runCatching { store.saveRecovery(snapshot) }
-        }
+        recoveryRequests.trySend(RecoveryRequest(recoveryGeneration.get(), project))
     }
+
+    private fun invalidateRecovery() {
+        recoveryGeneration.incrementAndGet()
+    }
+
+    private fun clampCameraTarget(target: Vec3): Vec3 = Vec3(
+        target.x.coerceIn(-20f, 20f),
+        target.y.coerceIn(-20f, 20f),
+        target.z.coerceIn(-20f, 20f),
+    )
 
     private fun snapshot(): PoseSnapshot = PoseSnapshot(
         joints = project.joints.toMap(),
