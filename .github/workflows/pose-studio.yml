@@ -82,11 +82,10 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
-            cd apps/pose-studio/android
-            ./gradlew --no-daemon connectedDebugAndroidTest
+            apps/pose-studio/android/gradlew -p apps/pose-studio/android --no-daemon connectedDebugAndroidTest
             adb shell settings put system font_scale 2.0
             adb shell am force-stop com.junchen.posestudio
-            ./gradlew --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.junchen.posestudio.PoseStudioLargeFontTest
+            apps/pose-studio/android/gradlew -p apps/pose-studio/android --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.junchen.posestudio.PoseStudioLargeFontTest
       - name: Preserve instrumentation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
