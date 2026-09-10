@@ -31,6 +31,7 @@ data class CameraState(
     val pitchDegrees: Float = -4f,
     val distance: Float = 7.2f,
     val fovDegrees: Float = 38f,
+    val target: Vec3 = Vec3.ZERO,
 )
 
 data class LightState(
