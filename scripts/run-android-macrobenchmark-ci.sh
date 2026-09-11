@@ -185,6 +185,9 @@ install_pair() {
   local label="$1"
   local target_apk="$2"
   local test_apk="$3"
+  if ! wait_for_android_ready 15; then
+    fail_emulator "Android guest is unavailable before ${label} target installation"
+  fi
   assert_guest_identity "before ${label} target installation"
   "$ADB" uninstall "$TEST_PACKAGE" >/dev/null 2>&1 || true
   "$ADB" uninstall "$TARGET_PACKAGE" >/dev/null 2>&1 || true
