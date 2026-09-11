@@ -1,0 +1,149 @@
+name: Pose Studio Beta Release
+
+on:
+  workflow_run:
+    workflows: ["CI Contracts"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-commercial-beta:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Publish stable-debug-key Pose Studio commercial-beta APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: pose-studio-v0.2.0
+          EXPECTED_CANDIDATE_SHA: d6fe64616e963038f265e707509931e45fb4a311
+          EXPECTED_MANIFEST_SHA256: 4db16fed689a4b2da0ad7432fd314c7a6bcf3d7abed0bfbe17f83f5101d8ec91
+          EXPECTED_KEYSTORE_SHA256: b327cb3fd3bf5eeaeb3958737335180f5b8c664d47429fd1b9eb08d32e178a56
+          EXPECTED_CERT_SHA256: 2618e7889486adea5fc083f7cb5155f2ec629baf5dae2a74dabc3abe5cd02a94
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.tag_name == env.TAG) | .id' | head -n 1)"
+          test -n "$RELEASE_ID"
+
+          RELEASE_JSON="$RUNNER_TEMP/pose-studio-release.json"
+          gh api "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > "$RELEASE_JSON"
+          test "$(jq -r '.tag_name' "$RELEASE_JSON")" = "$TAG"
+          test "$(jq -r '.target_commitish' "$RELEASE_JSON")" = "$EXPECTED_CANDIDATE_SHA"
+          test "$(jq -r '.prerelease' "$RELEASE_JSON")" = "true"
+
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          TAG_SHA="$(git rev-list -n 1 "$TAG")"
+          test "$TAG_SHA" = "$EXPECTED_CANDIDATE_SHA"
+
+          APK_NAME="PoseStudio-v0.2.0-commercial-beta-debug-signed.apk"
+          if [[ "$(jq -r '.draft' "$RELEASE_JSON")" == "false" ]]; then
+            mapfile -t existing_assets < <(jq -r '.assets[].name' "$RELEASE_JSON")
+            printf '%s\n' "${existing_assets[@]}" | grep -Fxq "$APK_NAME"
+            printf '%s\n' "${existing_assets[@]}" | grep -Fxq "POSE-STUDIO-SHA256SUMS.txt"
+            printf '%s\n' "${existing_assets[@]}" | grep -Fxq "POSE-STUDIO-SIGNING-CERT-SHA256.txt"
+            printf '%s\n' "${existing_assets[@]}" | grep -Fxq "POSE-STUDIO-SOURCE-SHA.txt"
+            echo "Pose Studio commercial-beta prerelease is already published with complete assets"
+            exit 0
+          fi
+
+          git checkout --detach "$TAG_SHA"
+          MANIFEST="apps/pose-studio/releases/$TAG.md"
+          test -f "$MANIFEST"
+          test "$(sha256sum "$MANIFEST" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          grep -Fxq 'version: pose-studio-v0.2.0' "$MANIFEST"
+          grep -Fxq 'android_version_name: 0.2.0' "$MANIFEST"
+          grep -Fxq 'android_version_code: 2' "$MANIFEST"
+          grep -Fxq 'production_v1: false' "$MANIFEST"
+          grep -Fxq 'production_signing_proven: false' "$MANIFEST"
+          grep -Fxq 'google_play_production: false' "$MANIFEST"
+
+          KEYSTORE_SOURCE="config/signing/android-debug.keystore"
+          test -f "$KEYSTORE_SOURCE"
+          test "$(sha256sum "$KEYSTORE_SOURCE" | awk '{print $1}')" = "$EXPECTED_KEYSTORE_SHA256"
+          KEYSTORE="$RUNNER_TEMP/pose-studio-beta-debug.keystore"
+          cp "$KEYSTORE_SOURCE" "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey > "$RUNNER_TEMP/pose-studio-keytool.txt"
+          KEY_CERT_SHA="$(sed -n 's/.*SHA256: //p' "$RUNNER_TEMP/pose-studio-keytool.txt" | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          test "$KEY_CERT_SHA" = "$EXPECTED_CERT_SHA256"
+
+          ANDROID_ROOT="apps/pose-studio/android"
+          cat > "$ANDROID_ROOT/keystore.properties" <<EOF
+          storeFile=$KEYSTORE
+          storePassword=android
+          keyAlias=androiddebugkey
+          keyPassword=android
+          EOF
+
+          cd "$ANDROID_ROOT"
+          ./gradlew --no-daemon --no-configuration-cache --warning-mode all \
+            validatePoseReleaseSigning assembleRelease
+
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools" -type f -name apksigner -perm -111 | sort -V | tail -n1)"
+          AAPT="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools" -type f -name aapt -perm -111 | sort -V | tail -n1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/pose-studio-apksigner.txt"
+          APK_CERT_SHA="$(sed -n 's/.*certificate SHA-256 digest: //p' "$RUNNER_TEMP/pose-studio-apksigner.txt" | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          test "$APK_CERT_SHA" = "$EXPECTED_CERT_SHA256"
+
+          BADGING="$($AAPT dump badging "$APK")"
+          grep -Fq "package: name='com.junchen.posestudio' versionCode='2' versionName='0.2.0'" <<<"$BADGING"
+
+          OUT_DIR="$RUNNER_TEMP/pose-studio-beta-release"
+          mkdir -p "$OUT_DIR"
+          cp "$APK" "$OUT_DIR/$APK_NAME"
+          sha256sum "$OUT_DIR/$APK_NAME" | sed "s#  .*#  $APK_NAME#" > "$OUT_DIR/POSE-STUDIO-SHA256SUMS.txt"
+          printf '%s\n' "$APK_CERT_SHA" > "$OUT_DIR/POSE-STUDIO-SIGNING-CERT-SHA256.txt"
+          printf '%s\n' "$TAG_SHA" > "$OUT_DIR/POSE-STUDIO-SOURCE-SHA.txt"
+
+          gh release upload "$TAG" \
+            "$OUT_DIR/$APK_NAME" \
+            "$OUT_DIR/POSE-STUDIO-SHA256SUMS.txt" \
+            "$OUT_DIR/POSE-STUDIO-SIGNING-CERT-SHA256.txt" \
+            "$OUT_DIR/POSE-STUDIO-SOURCE-SHA.txt" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+          BODY="$RUNNER_TEMP/pose-studio-release-body.md"
+          jq -r '.body' "$RELEASE_JSON" > "$BODY"
+          if ! grep -Fq '## Installable commercial-beta APK' "$BODY"; then
+            {
+              printf '\n## Installable commercial-beta APK\n\n'
+              printf '`%s` is built from immutable candidate `%s` (`%s`) using the repository-stable generic Android debug key.\n\n' "$APK_NAME" "$TAG" "$TAG_SHA"
+              printf 'This APK is **pre-production commercial-beta distribution only**. The signing identity is intentionally the repository generic debug key, not a Pose-Studio-specific upload/release key, and therefore does **not** satisfy issue #83 production signing or Google Play evidence.\n\n'
+              printf 'Published provenance files: `POSE-STUDIO-SHA256SUMS.txt`, `POSE-STUDIO-SIGNING-CERT-SHA256.txt`, and `POSE-STUDIO-SOURCE-SHA.txt`.\n'
+            } >> "$BODY"
+          fi
+
+          PAYLOAD="$RUNNER_TEMP/pose-studio-release-publish.json"
+          jq -n --rawfile body "$BODY" '{draft:false, prerelease:true, make_latest:"false", body:$body}' > "$PAYLOAD"
+          gh api --method PATCH "/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --input "$PAYLOAD" > "$RELEASE_JSON"
+
+          test "$(jq -r '.draft' "$RELEASE_JSON")" = "false"
+          test "$(jq -r '.prerelease' "$RELEASE_JSON")" = "true"
+          test "$(jq -r '.tag_name' "$RELEASE_JSON")" = "$TAG"
+          test "$(jq -r '.target_commitish' "$RELEASE_JSON")" = "$EXPECTED_CANDIDATE_SHA"
+          mapfile -t final_assets < <(jq -r '.assets[].name' "$RELEASE_JSON")
+          printf '%s\n' "${final_assets[@]}" | grep -Fxq "$APK_NAME"
+          printf '%s\n' "${final_assets[@]}" | grep -Fxq "POSE-STUDIO-SHA256SUMS.txt"
+          printf '%s\n' "${final_assets[@]}" | grep -Fxq "POSE-STUDIO-SIGNING-CERT-SHA256.txt"
+          printf '%s\n' "${final_assets[@]}" | grep -Fxq "POSE-STUDIO-SOURCE-SHA.txt"
+
+          echo "Published Pose Studio commercial-beta prerelease: $TAG -> $TAG_SHA release=$RELEASE_ID apk=$APK_NAME"

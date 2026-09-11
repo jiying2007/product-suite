@@ -77,3 +77,35 @@ jobs:
           grep -Fq -- 'production_v1: false' "$manifest"
           grep -Fq -- 'production_signing_proven: false' "$manifest"
           grep -Fq -- 'google_play_production: false' "$manifest"
+
+      - name: Verify Pose Studio commercial-beta distribution contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/pose-studio-beta-release.yml
+          test -f "$workflow"
+
+          grep -Fq -- 'workflows: ["CI Contracts"]' "$workflow"
+          grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
+          grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
+          grep -Fq -- "github.event.workflow_run.conclusion == 'success'" "$workflow"
+          grep -Fq -- 'contents: write' "$workflow"
+          grep -Fq -- 'TAG: pose-studio-v0.2.0' "$workflow"
+          grep -Fq -- 'EXPECTED_CANDIDATE_SHA: d6fe64616e963038f265e707509931e45fb4a311' "$workflow"
+          grep -Fq -- 'EXPECTED_MANIFEST_SHA256: 4db16fed689a4b2da0ad7432fd314c7a6bcf3d7abed0bfbe17f83f5101d8ec91' "$workflow"
+          grep -Fq -- 'EXPECTED_KEYSTORE_SHA256: b327cb3fd3bf5eeaeb3958737335180f5b8c664d47429fd1b9eb08d32e178a56' "$workflow"
+          grep -Fq -- 'EXPECTED_CERT_SHA256: 2618e7889486adea5fc083f7cb5155f2ec629baf5dae2a74dabc3abe5cd02a94' "$workflow"
+          grep -Fq -- 'validatePoseReleaseSigning assembleRelease' "$workflow"
+          grep -Fq -- 'PoseStudio-v0.2.0-commercial-beta-debug-signed.apk' "$workflow"
+          grep -Fq -- 'production_signing_proven: false' "$workflow"
+          grep -Fq -- 'google_play_production: false' "$workflow"
+          grep -Fq -- 'pre-production commercial-beta distribution only' "$workflow"
+          grep -Fq -- 'POSE-STUDIO-SHA256SUMS.txt' "$workflow"
+          grep -Fq -- 'POSE-STUDIO-SIGNING-CERT-SHA256.txt' "$workflow"
+          grep -Fq -- 'POSE-STUDIO-SOURCE-SHA.txt' "$workflow"
+          grep -Fq -- '{draft:false, prerelease:true, make_latest:"false", body:$body}' "$workflow"
+
+          if grep -Fq -- 'bundleRelease' "$workflow"; then
+            echo 'Commercial-beta GitHub distribution must not publish a Play-style AAB' >&2
+            exit 1
+          fi
