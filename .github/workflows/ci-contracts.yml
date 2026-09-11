@@ -51,6 +51,7 @@ jobs:
           test -f "$workflow"
           test -f "$publisher"
           test -f "$manifest"
+          python3 -m py_compile "$publisher"
 
           grep -Fq -- 'workflows: ["CI", "Pose Studio", "CI Contracts"]' "$workflow"
           grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
