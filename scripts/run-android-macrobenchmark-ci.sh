@@ -23,6 +23,8 @@ REMOTE_RESULT_ROOT="/sdcard/Download/jingdu-reader-ci"
 RESULT_ROOT="$ANDROID_DIR/macrobenchmark/build/outputs/direct-instrumentation"
 HOSTED_BASELINE="$ROOT/scripts/reader-hosted-emulator-baseline.json"
 INSTRUMENTATION=""
+GUEST_BOOT_ID=""
+GUEST_LAST_UPTIME_SECONDS=""
 export ANDROID_AVD_HOME="$AVD_HOME"
 
 cleanup() {
@@ -81,8 +83,68 @@ wait_for_android_ready() {
   return 1
 }
 
+read_guest_uptime_seconds() {
+  local raw first
+  raw="$("$ADB" shell cat /proc/uptime 2>/dev/null | tr -d '\r' | head -n 1 || true)"
+  first="${raw%% *}"
+  if [[ ! "$first" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    return 1
+  fi
+  printf '%s\n' "$first"
+}
+
+read_guest_boot_id() {
+  local boot_id
+  boot_id="$("$ADB" shell cat /proc/sys/kernel/random/boot_id 2>/dev/null | tr -d '\r\n ' || true)"
+  if [[ -z "$boot_id" ]]; then
+    return 1
+  fi
+  printf '%s\n' "$boot_id"
+}
+
+record_guest_identity() {
+  local boot_id uptime_seconds uptime_integer
+  if ! wait_for_android_ready 15; then
+    fail_emulator "Android framework services were unavailable while recording performance guest identity"
+  fi
+  boot_id="$(read_guest_boot_id || true)"
+  uptime_seconds="$(read_guest_uptime_seconds || true)"
+  if [[ -z "$boot_id" || -z "$uptime_seconds" ]]; then
+    fail_emulator "Android performance guest identity is unreadable (boot_id=${boot_id:-missing} uptime=${uptime_seconds:-missing})"
+  fi
+  uptime_integer="${uptime_seconds%%.*}"
+  GUEST_BOOT_ID="$boot_id"
+  GUEST_LAST_UPTIME_SECONDS="$uptime_integer"
+  echo "Android performance guest identity recorded: boot_id=$GUEST_BOOT_ID guest_uptime=${uptime_seconds}s"
+}
+
+assert_guest_identity() {
+  local label="$1"
+  local boot_id uptime_seconds uptime_integer
+  if ! wait_for_android_ready 15; then
+    fail_emulator "Android framework health check failed ${label}"
+  fi
+  boot_id="$(read_guest_boot_id || true)"
+  uptime_seconds="$(read_guest_uptime_seconds || true)"
+  if [[ -z "$boot_id" || -z "$uptime_seconds" ]]; then
+    fail_emulator "Android performance guest identity became unreadable ${label} (boot_id=${boot_id:-missing} uptime=${uptime_seconds:-missing})"
+  fi
+  if [[ -z "$GUEST_BOOT_ID" || -z "$GUEST_LAST_UPTIME_SECONDS" ]]; then
+    fail_emulator "Android performance guest identity was not recorded before ${label}"
+  fi
+  if [[ "$boot_id" != "$GUEST_BOOT_ID" ]]; then
+    fail_emulator "Android performance guest rebooted ${label}: expected boot_id=$GUEST_BOOT_ID actual=$boot_id"
+  fi
+  uptime_integer="${uptime_seconds%%.*}"
+  if (( uptime_integer < GUEST_LAST_UPTIME_SECONDS )); then
+    fail_emulator "Android performance guest uptime moved backwards ${label}: previous=${GUEST_LAST_UPTIME_SECONDS}s actual=${uptime_seconds}s"
+  fi
+  GUEST_LAST_UPTIME_SECONDS="$uptime_integer"
+  echo "Android performance guest health ${label}: boot_id=$boot_id guest_uptime=${uptime_seconds}s"
+}
+
 wait_for_performance_settle() {
-  local second uptime_seconds
+  local second
 
   if [[ ! "$PERFORMANCE_SETTLE_SECONDS" =~ ^[0-9]+$ ]] || (( PERFORMANCE_SETTLE_SECONDS < 1 )); then
     fail_emulator "Android performance settle duration must be a positive integer: ${PERFORMANCE_SETTLE_SECONDS}"
@@ -91,28 +153,22 @@ wait_for_performance_settle() {
   # Keep the measurement guest fresh, but do not benchmark the first seconds after sys.boot_completed.
   # The checked-in hosted baseline and the last same-code green run were measured after roughly six
   # minutes of healthy post-boot residency. A deterministic 360 s settle preserves that measurement
-  # age without keeping the guest alive during host Gradle/R8 work. Core framework services are
-  # checked every 15 s so a system_server failure is infrastructure evidence, never a frame result.
+  # age without keeping the guest alive during host Gradle/R8 work. Core framework services plus the
+  # immutable boot ID and monotonic guest uptime are checked every 15 s so a guest reboot/system_server
+  # failure is infrastructure evidence, never a frame result.
   echo "Waiting ${PERFORMANCE_SETTLE_SECONDS}s for fresh Android performance guest post-boot stabilization"
   for ((second = 1; second <= PERFORMANCE_SETTLE_SECONDS; second++)); do
     if [[ -n "$EMULATOR_PID" ]] && ! kill -0 "$EMULATOR_PID" >/dev/null 2>&1; then
       fail_emulator "Android performance emulator exited during post-boot stabilization"
     fi
     if (( second % 15 == 0 || second == PERFORMANCE_SETTLE_SECONDS )); then
-      if ! wait_for_android_ready 5; then
-        fail_emulator "Android framework health check failed during performance settle at ${second}s/${PERFORMANCE_SETTLE_SECONDS}s"
-      fi
-      uptime_seconds="$("$ADB" shell cut -d' ' -f1 /proc/uptime 2>/dev/null | tr -d '\r' || true)"
-      echo "Android performance settle: ${second}s/${PERFORMANCE_SETTLE_SECONDS}s guest_uptime=${uptime_seconds:-unknown}s"
+      assert_guest_identity "during performance settle at ${second}s/${PERFORMANCE_SETTLE_SECONDS}s"
     fi
     sleep 1
   done
 
-  if ! wait_for_android_ready 15; then
-    fail_emulator "Android framework services were not healthy after performance settle"
-  fi
-  uptime_seconds="$("$ADB" shell cut -d' ' -f1 /proc/uptime 2>/dev/null | tr -d '\r' || true)"
-  echo "Android performance guest stabilized after ${PERFORMANCE_SETTLE_SECONDS}s post-boot settle: guest_uptime=${uptime_seconds:-unknown}s"
+  assert_guest_identity "after performance settle"
+  echo "Android performance guest stabilized after ${PERFORMANCE_SETTLE_SECONDS}s post-boot settle"
 }
 
 resolve_instrumentation() {
@@ -129,9 +185,7 @@ install_pair() {
   local label="$1"
   local target_apk="$2"
   local test_apk="$3"
-  if ! wait_for_android_ready 120; then
-    fail_emulator "Android guest is unavailable before ${label} target installation"
-  fi
+  assert_guest_identity "before ${label} target installation"
   "$ADB" uninstall "$TEST_PACKAGE" >/dev/null 2>&1 || true
   "$ADB" uninstall "$TARGET_PACKAGE" >/dev/null 2>&1 || true
   INSTRUMENTATION=""
@@ -139,6 +193,7 @@ install_pair() {
   "$ADB" install "$target_apk"
   echo "Installing ${label} tests: $test_apk"
   "$ADB" install "$test_apk"
+  assert_guest_identity "after ${label} APK installation"
   local target_path
   target_path="$("$ADB" shell pm path "$TARGET_PACKAGE" 2>/dev/null | tr -d '\r')"
   if [[ "$target_path" != package:* ]]; then
@@ -148,6 +203,7 @@ install_pair() {
   fi
   echo "${label} target installed: $target_path"
   resolve_instrumentation
+  assert_guest_identity "after ${label} instrumentation registration"
 }
 
 run_instrumentation() {
@@ -160,6 +216,7 @@ run_instrumentation() {
     class_args=(-e class "$test_class")
     echo "Instrumentation class filter: $test_class"
   fi
+  assert_guest_identity "before ${rule} instrumentation"
   "$ADB" shell rm -rf "$remote_dir"
   "$ADB" shell mkdir -p "$remote_dir"
 
@@ -180,6 +237,7 @@ run_instrumentation() {
     cat "$log_file" >&2
     return 1
   fi
+  assert_guest_identity "after ${rule} instrumentation"
 }
 
 preserve_failed_macro_evidence() {
@@ -324,6 +382,7 @@ fi
 "$ADB" shell settings put global animator_duration_scale 0
 "$ADB" shell getprop ro.build.version.release
 "$ADB" shell getprop ro.product.cpu.abi
+record_guest_identity
 wait_for_performance_settle
 
 # Stage 1: production-like R8 target. The hosted result is frozen before any generated profile exists.
