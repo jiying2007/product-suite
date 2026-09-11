@@ -133,8 +133,16 @@ assert 'wait_for_performance_settle()' in runner, "fresh hosted performance sett
 assert settle_call in runner and r8_install in runner
 assert runner.index(emulator_start) < runner.index(settle_call) < runner.index(r8_install), "performance measurement must begin only after fresh guest settle"
 assert 'second % 15 == 0' in runner, "performance settle must repeatedly verify guest health"
-assert 'Android framework health check failed during performance settle' in runner
-assert 'guest_uptime=' in runner, "performance settle must log guest age for evidence"
+assert 'read_guest_uptime_seconds()' in runner and '"$ADB" shell cat /proc/uptime' in runner, "guest uptime must be read without lossy adb argument quoting"
+assert "shell cut -d' ' -f1 /proc/uptime" not in runner, "remote cut-based uptime parsing must not return"
+assert 'read_guest_boot_id()' in runner and '/proc/sys/kernel/random/boot_id' in runner, "guest boot identity tracking missing"
+assert 'record_guest_identity' in runner and 'assert_guest_identity()' in runner, "guest identity fail-closed contract missing"
+assert 'assert_guest_identity "during performance settle at ${second}s/${PERFORMANCE_SETTLE_SECONDS}s"' in runner
+assert 'assert_guest_identity "before ${label} target installation"' in runner
+assert 'assert_guest_identity "after ${label} APK installation"' in runner
+assert 'assert_guest_identity "before ${rule} instrumentation"' in runner
+assert 'assert_guest_identity "after ${rule} instrumentation"' in runner
+assert 'guest_uptime=' in runner, "performance guest age must remain visible in evidence"
 assert runner.index(slo_call) < runner.index(profile_swap) < runner.index(profile_call), "R8 performance result must freeze before non-minified profile target is installed"
 assert "SLO_STATUS=$?" in runner, "performance result must be retained across profile generation"
 assert 'preserve_failed_macro_evidence "$MACRO_REMOTE"' in runner

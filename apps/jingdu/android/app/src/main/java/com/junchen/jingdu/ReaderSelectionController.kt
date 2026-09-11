@@ -22,8 +22,7 @@ internal object ReaderSelectionController {
 
     /**
      * Builds the per-code-point source map on the same worker that prepares the display projection.
-     * Selection remains exact, but normal reader frames no longer allocate thousands of annotations
-     * on the main thread for every new page/window.
+     * Continuous mode uses this idle/window prewarm before it asks for a selectable AnnotatedString.
      */
     fun prewarmSelectionMap(displayText: String, map: SourceDisplayMap) {
         synchronized(preparedSelectionMaps) {
@@ -41,9 +40,21 @@ internal object ReaderSelectionController {
         if (displayText.isEmpty()) return displayText
         val prepared = synchronized(preparedSelectionMaps) { preparedSelectionMaps[map] }
             ?.takeIf { it.text.startsWith(displayText.text) }
-            ?: selectionMap(displayText.text, map).also { value ->
-                synchronized(preparedSelectionMaps) { preparedSelectionMaps[map] = value }
+
+        // Paged reading normally has no prewarmed selection map. Building an intermediate
+        // AnnotatedString and then copying every source annotation into a second visual string made
+        // every page turn pay twice for metadata that is unrelated to drawing. Build the final
+        // selectable string in one pass instead. Continuous mode keeps using its explicit prewarm.
+        if (prepared == null) {
+            return buildAnnotatedString {
+                append(displayText.text)
+                addSourceRanges(displayText.text, map)
+                displayText.spanStyles.forEach { range -> addStyle(range.item, range.start, range.end) }
+                displayText.paragraphStyles.forEach { range -> addStyle(range.item, range.start, range.end) }
+                addStringAnnotation(SOURCE_BASE_TAG, sourceBase.toString(), 0, displayText.length)
             }
+        }
+
         val selection = if (prepared.length == displayText.length) prepared else prepared.subSequence(0, displayText.length)
         return buildAnnotatedString {
             append(selection)
@@ -53,9 +64,7 @@ internal object ReaderSelectionController {
         }
     }
 
-    private fun selectionMap(displayText: String, map: SourceDisplayMap): AnnotatedString = buildAnnotatedString {
-        append(displayText)
-        if (displayText.isEmpty()) return@buildAnnotatedString
+    private fun AnnotatedString.Builder.addSourceRanges(displayText: String, map: SourceDisplayMap) {
         var utfStart = 0
         var displayCp = 0L
         while (utfStart < displayText.length) {
@@ -67,6 +76,12 @@ internal object ReaderSelectionController {
             utfStart = utfEnd
             displayCp++
         }
+    }
+
+    private fun selectionMap(displayText: String, map: SourceDisplayMap): AnnotatedString = buildAnnotatedString {
+        append(displayText)
+        if (displayText.isEmpty()) return@buildAnnotatedString
+        addSourceRanges(displayText, map)
     }
 
     fun fromSelectedTexts(selectedTexts: List<AnnotatedString>): ReaderSelectionRange? {
