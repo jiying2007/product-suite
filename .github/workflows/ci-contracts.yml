@@ -39,3 +39,40 @@ jobs:
 
           grep -Fq -- 'android-performance' "$main"
           grep -Fq -- 'needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' "$main"
+
+      - name: Verify Pose Studio candidate release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/pose-studio-candidate-release.yml
+          publisher=apps/pose-studio/scripts/publish-candidate-release.py
+          manifest=apps/pose-studio/releases/pose-studio-v0.2.0.md
+
+          test -f "$workflow"
+          test -f "$publisher"
+          test -f "$manifest"
+
+          grep -Fq -- 'workflows: ["CI", "Pose Studio", "CI Contracts"]' "$workflow"
+          grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
+          grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
+          grep -Fq -- 'ref: ${{ github.event.workflow_run.head_sha }}' "$workflow"
+          grep -Fq -- 'contents: write' "$workflow"
+          grep -Fq -- 'actions: read' "$workflow"
+          grep -Fq -- 'CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha }}' "$workflow"
+          grep -Fq -- 'python3 apps/pose-studio/scripts/publish-candidate-release.py' "$workflow"
+
+          grep -Fq -- 'REQUIRED_WORKFLOWS = ("CI", "Pose Studio", "CI Contracts")' "$publisher"
+          grep -Fq -- 'pose-studio-v{version}' "$publisher"
+          grep -Fq -- 'main_sha() != CANDIDATE_SHA' "$publisher"
+          grep -Fq -- '"draft": True' "$publisher"
+          grep -Fq -- '"prerelease": True' "$publisher"
+          grep -Fq -- 'production-v1: false' "$publisher"
+          grep -Fq -- 'production-signing-proven: false' "$publisher"
+          grep -Fq -- 'google-play-production: false' "$publisher"
+
+          grep -Fq -- 'version: pose-studio-v0.2.0' "$manifest"
+          grep -Fq -- 'android_version_name: 0.2.0' "$manifest"
+          grep -Fq -- 'android_version_code: 2' "$manifest"
+          grep -Fq -- 'production_v1: false' "$manifest"
+          grep -Fq -- 'production_signing_proven: false' "$manifest"
+          grep -Fq -- 'google_play_production: false' "$manifest"
