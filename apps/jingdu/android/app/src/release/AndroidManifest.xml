@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Production distribution integrates optional Google Play Billing and In-App Review.
+         Core Reader content/search/annotations/Smart Clean remain local and no Jingdu-operated
+         content, analytics, account or entitlement backend is introduced by this capability. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

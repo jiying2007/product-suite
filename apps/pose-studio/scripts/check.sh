@@ -11,6 +11,7 @@ CANDIDATE_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-candidate-release.y
 SOURCE_RELEASE_SCRIPT="$REPO_ROOT/scripts/publish-source-release.py"
 BENCHMARK_ANALYZER="$ROOT/scripts/analyze-artist-benchmark.py"
 BENCHMARK_TEMPLATE="$ROOT/docs/BENCHMARK_RESULTS_TEMPLATE.csv"
+QUALIFICATION_RUNBOOK="$ROOT/docs/PRODUCTION_QUALIFICATION.md"
 
 if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
   echo "Pose Studio must remain offline-first: INTERNET permission is forbidden" >&2
@@ -100,6 +101,81 @@ if grep -Fq '/blob/main/' "$privacy_url_file" || grep -Fq '/blob/main/' "$APP_UI
   echo "Pose Studio beta privacy links must not depend on mutable main; pin released beta policy content" >&2
   exit 1
 fi
+for required in 'App content' 'Ads' 'App access' 'Target audience' 'Content rating' 'Data Safety'; do
+  if ! grep -Fq "$required" "$QUALIFICATION_RUNBOOK"; then
+    echo "Pose Studio production qualification runbook missing Play declaration: $required" >&2
+    exit 1
+  fi
+done
 
 cd "$ROOT/android"
 ./gradlew --no-daemon --warning-mode all poseStudioCheck
+
+# Validate the final merged release manifest after dependency manifests have been applied. The
+# offline-first contract must hold for the distributable package, not merely for src/main.
+MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*release*' -print | grep -E '/merged_manifest/|/merged_manifests/' | head -n1 || true)"
+[[ -n "$MERGED_MANIFEST" && -s "$MERGED_MANIFEST" ]] || { echo "Pose Studio merged release manifest missing" >&2; exit 1; }
+if grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST"; then
+  echo "Pose Studio merged release manifest unexpectedly requests INTERNET" >&2
+  exit 1
+fi
+if grep -Fq '<profileable' "$MERGED_MANIFEST"; then
+  echo "Pose Studio production release must not be profileable" >&2
+  exit 1
+fi
+if grep -Eq 'android:debuggable="true"|android:allowBackup="true"' "$MERGED_MANIFEST"; then
+  echo "Pose Studio merged release manifest contains debug/backup behavior forbidden for production" >&2
+  exit 1
+fi
+
+# Pose Studio must produce the Play-uploadable App Bundle in addition to the release APK used for
+# package inspection. Failing closed here prevents a green build from silently losing AAB output.
+RELEASE_AAB="app/build/outputs/bundle/release/app-release.aab"
+[[ -s "$RELEASE_AAB" ]] || { echo "Pose Studio release AAB missing: $RELEASE_AAB" >&2; exit 1; }
+RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+[[ -n "$RELEASE_APK" && -s "$RELEASE_APK" ]] || { echo "Pose Studio release APK missing" >&2; exit 1; }
+
+# The business code is Kotlin/Java, but AndroidX may legitimately contribute native libraries.
+# Validate the *final* package instead of assuming the dependency graph is native-free. Google Play
+# requires 64-bit support for native apps and 16 KiB page-size compatibility on 64-bit devices.
+mapfile -t NATIVE_ENTRIES < <(unzip -Z1 "$RELEASE_APK" | grep -E '^lib/[^/]+/.*\.so$' || true)
+if ((${#NATIVE_ENTRIES[@]} > 0)); then
+  printf '%s\n' "${NATIVE_ENTRIES[@]}" | grep -q '^lib/arm64-v8a/' || {
+    echo "Pose Studio release contains native code but no arm64-v8a libraries" >&2
+    exit 1
+  }
+  printf '%s\n' "${NATIVE_ENTRIES[@]}" | grep -q '^lib/x86_64/' || {
+    echo "Pose Studio release contains x86 native code but no x86_64 libraries" >&2
+    exit 1
+  }
+
+  SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+  ZIPALIGN="$(find "$SDK_ROOT/build-tools" -type f -name zipalign -perm -111 | sort -V | tail -n1)"
+  READELF="$(command -v readelf || true)"
+  [[ -n "$ZIPALIGN" && -x "$ZIPALIGN" ]] || { echo "zipalign missing from Android SDK" >&2; exit 1; }
+  [[ -n "$READELF" && -x "$READELF" ]] || { echo "readelf missing from CI image" >&2; exit 1; }
+
+  "$ZIPALIGN" -c -P 16 -v 4 "$RELEASE_APK" >/tmp/pose-studio-zipalign-16k.txt
+  cat /tmp/pose-studio-zipalign-16k.txt
+
+  TMP_NATIVE="$(mktemp -d)"
+  trap 'rm -rf "$TMP_NATIVE"' EXIT
+  unzip -q "$RELEASE_APK" 'lib/*/*.so' -d "$TMP_NATIVE"
+  for abi in arm64-v8a x86_64; do
+    [[ -d "$TMP_NATIVE/lib/$abi" ]] || { echo "Pose Studio release missing required 64-bit ABI: $abi" >&2; exit 1; }
+    while IFS= read -r lib; do
+      mapfile -t aligns < <("$READELF" -lW "$lib" | awk '$1 == "LOAD" {print $NF}')
+      ((${#aligns[@]} > 0)) || { echo "no ELF LOAD segments: $lib" >&2; exit 1; }
+      for align in "${aligns[@]}"; do
+        value=$((align))
+        if (( value < 16384 )); then
+          echo "Pose Studio 16 KiB ELF alignment failure: ${lib#"$TMP_NATIVE/"} LOAD align=$align" >&2
+          exit 1
+        fi
+      done
+      echo "Pose Studio 16 KiB ELF alignment OK: ${lib#"$TMP_NATIVE/"} (${aligns[*]})"
+    done < <(find "$TMP_NATIVE/lib/$abi" -type f -name '*.so' | sort)
+  done
+fi
+
+echo "Pose Studio merged release manifest/AAB/64-bit/16 KiB package contract OK"

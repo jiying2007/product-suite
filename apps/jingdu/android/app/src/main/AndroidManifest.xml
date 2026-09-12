@@ -19,7 +19,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Jingdu"
         android:usesCleartextTraffic="false">
-        <profileable android:shell="true" />
         <service
             android:name=".TtsPlaybackService"
             android:exported="false"

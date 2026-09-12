@@ -1,6 +1,6 @@
 # Jingdu Privacy Policy
 
-**Effective date:** September 9, 2026
+**Effective date:** September 12, 2026
 
 Jingdu / 净读 ("Jingdu") is an offline-first TXT reader developed and published by **jiying2007**. This policy explains how the Android product handles user and device data.
 
@@ -10,13 +10,14 @@ Privacy inquiries may be submitted through the public project contact mechanism 
 
 Jingdu is designed so that ordinary reading does not require an account, advertising identifier, analytics service, cloud library, or Jingdu-operated server.
 
-- Jingdu does **not** request the Android `INTERNET` permission.
+- The Android package requests `INTERNET` because optional Google Play Billing and Google Play In-App Review flows can communicate with Google Play services.
 - Jingdu does **not** contain an advertising SDK or runtime analytics SDK.
-- Jingdu does **not** upload TXT book contents to a Jingdu server.
-- Imported TXT files and derived reading data are processed in app-private storage unless the user explicitly exports something.
+- Jingdu does **not** operate a content, analytics, account, or entitlement server.
+- Jingdu does **not** upload TXT book contents, search queries, annotations, reading progress, or Smart Clean text to a Jingdu server.
+- Imported TXT files and derived reading data are processed in app-private storage unless the user explicitly exports something or invokes an external platform action described below.
 - The original external TXT selected by the user is never modified or deleted by Jingdu.
 
-Some optional Android platform features involve other applications or Google Play services. Those boundaries are described below.
+The `INTERNET` capability does not make the core reader cloud-dependent. Network-capable product flows are limited to optional Google Play platform services; ordinary reading, search, chapters, cleaning, annotations, local backup, and local diagnostics remain on-device.
 
 ## 2. Data Jingdu accesses locally
 
@@ -47,23 +48,23 @@ Smart Clean correction memory stores one-way SHA-256-derived candidate fingerpri
 
 ## 5. Read-aloud and external text actions
 
-Jingdu uses Android's system Text-to-Speech API for read-aloud. Text chunks are sent through Android IPC to the TTS engine selected or configured on the device. Jingdu itself has no `INTERNET` permission and does not operate a speech server, but a separately installed/system TTS engine is software supplied by another provider and may have its own network and privacy behavior. Users should review the privacy settings of their chosen TTS engine. When Jingdu offers an explicit Pro offline-voice selector, it only lists voices the Android TTS engine reports as not requiring a network connection.
+Jingdu uses Android's system Text-to-Speech API for read-aloud. Text chunks are sent through Android IPC to the TTS engine selected or configured on the device. Jingdu does not operate a speech server, but a separately installed/system TTS engine is software supplied by another provider and may have its own network and privacy behavior. Users should review the privacy settings of their chosen TTS engine. When Jingdu offers an explicit Pro offline-voice selector, it only lists voices the Android TTS engine reports as not requiring a network connection.
 
 If the user explicitly invokes Android `PROCESS_TEXT` / "Look up" on selected text, the selected text is intentionally handed to the external application chosen by the user. That external application's data practices are governed by its own policy.
 
 ## 6. Google Play Billing and review services
 
-The Android product may use Google Play Billing for the optional one-time `jingdu_pro_lifetime` purchase and Google Play In-App Review after meaningful usage milestones.
+The Android package includes Google Play Billing for the optional one-time `jingdu_pro_lifetime` purchase and Google Play In-App Review after meaningful local usage milestones. These optional platform flows are why the final Android package has network capability.
 
-Google Play may process purchase, account, payment, device, and review-related information under Google's own terms and privacy policies. Jingdu receives only the billing/review responses needed to provide those features. Jingdu does not send book text, search queries, annotations, file paths, or Smart Clean content to Google Play Billing or Review.
+Google Play may process purchase, account, payment, device, and review-related information under Google's own terms and privacy policies. Jingdu receives only the billing/review responses needed to provide those features. Jingdu does not send book text, search queries, annotations, file paths, reading progress, or Smart Clean content to Google Play Billing or Review.
 
-Jingdu has no product account or entitlement backend. The last Play-verified Pro entitlement may be cached locally for offline use.
+Jingdu has no product account or developer-operated entitlement backend. The last Play-verified Pro entitlement may be cached locally for offline use.
 
 ## 7. Portable local-user backup
 
 An optional Pro backup can export user-owned Reader state such as settings, global Clean rules, annotations, favorites/tags, revision-bound progress, reading sessions/pace, Smart Clean decision fingerprints, and supported pronunciation preferences.
 
-The backup declares `containsBookText=false` and excludes source, normalized, and Clean book files. The user chooses where the exported backup is written. Jingdu does not upload it.
+The backup declares `containsBookText=false` and excludes source, normalized, and Clean book files. The user chooses where the exported backup is written. Jingdu does not upload it to a Jingdu service.
 
 Storage Access Framework grants and unavailable imported font binaries are not treated as portable credentials and must be selected again when required on another installation or device.
 
@@ -77,14 +78,14 @@ The user may explicitly export a local privacy/diagnostic JSON. That export is u
 
 Jingdu does not sell user data.
 
-Jingdu does not operate a server that collects reading data, book text, annotations, search history, advertising identifiers, or analytics events.
+Jingdu does not operate a server that collects reading data, book text, annotations, search history, advertising identifiers, analytics events, or purchase tokens.
 
-Data leaves the Jingdu application boundary only through an explicit user/platform action such as:
+Data may leave the Jingdu application boundary only through an explicit user/platform action or the optional Google Play platform integrations described in this policy, including:
 
 - exporting a TXT, rules file, diagnostic report, or local-user backup to a destination selected by the user;
 - using Android system TTS, which passes text chunks to the configured TTS engine;
 - using an explicitly selected external `PROCESS_TEXT` application;
-- completing an optional purchase or review flow through Google Play.
+- communicating with Google Play for optional Billing or In-App Review flows.
 
 ## 10. Retention and deletion
 
@@ -99,9 +100,9 @@ Jingdu has no server account, so there is no separate server-side account deleti
 
 ## 11. Security
 
-Jingdu uses app-private Android storage for imported/private working data, does not allow cleartext network traffic in its manifest, avoids broad storage permission, and validates imported/backup structures before applying them. Production signing keys and credentials are not stored in the public source repository.
+Jingdu uses app-private Android storage for imported/private working data, disables cleartext network traffic in its manifest, avoids broad storage permission, and validates imported/backup structures before applying them. Production signing keys and credentials are not stored in the public source repository.
 
-No software can guarantee absolute security, but the product minimizes exposure by keeping the primary reading path local and avoiding a Jingdu-operated network service.
+The package's network capability is not used as a general-purpose developer telemetry or content-upload channel. No software can guarantee absolute security, but Jingdu minimizes exposure by keeping the primary reading path local and avoiding a Jingdu-operated network service.
 
 ## 12. Children
 

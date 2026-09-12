@@ -64,6 +64,8 @@ for required in (
     'Text-to-Speech',
     'PROCESS_TEXT',
     'Google Play Billing',
+    'Google Play In-App Review',
+    'requests `INTERNET`',
     'Retention and deletion',
     'com.junchen.jingdu',
 ):
@@ -73,18 +75,46 @@ for required in (
 privacy_url = (root / 'store/play/PRIVACY_POLICY_URL.txt').read_text(encoding='utf-8').strip()
 if not privacy_url.startswith('https://') or 'docs/PRIVACY_POLICY.md' not in privacy_url:
     raise SystemExit(f'invalid Play privacy policy URL: {privacy_url!r}')
+if '/blob/main/' in privacy_url:
+    raise SystemExit('Play privacy policy URL must not depend on mutable main')
+
+privacy_resource = (root / 'apps/jingdu/android/app/src/main/res/values/strings_privacy.xml').read_text(encoding='utf-8')
+if privacy_url not in privacy_resource:
+    raise SystemExit('in-app privacy policy URL must match Play privacy policy URL')
 
 data_safety = (root / 'store/play/DATA_SAFETY.md').read_text(encoding='utf-8')
-for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'production AAB'):
+for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'Google Play In-App Review', 'package requests `INTERNET`', 'production AAB'):
     if required not in data_safety:
         raise SystemExit(f'Data safety SSOT missing required boundary: {required}')
+
+play_setup = (root / 'docs/PLAY_CONSOLE_SETUP.md').read_text(encoding='utf-8')
+for required in ('App content and policy declarations', 'Ads: declare **No**', 'Target audience and content', 'Content rating', 'Foreground services', '`mediaPlayback`'):
+    if required not in play_setup:
+        raise SystemExit(f'Play Console setup missing required production declaration: {required}')
 PY
+
+MAIN_MANIFEST='apps/jingdu/android/app/src/main/AndroidManifest.xml'
+RELEASE_MANIFEST='apps/jingdu/android/app/src/release/AndroidManifest.xml'
+BENCHMARK_MANIFEST='apps/jingdu/android/app/src/benchmark/AndroidManifest.xml'
+if grep -Fq '<profileable' "$MAIN_MANIFEST"; then
+  echo 'production Jingdu main manifest must not be profileable' >&2
+  exit 1
+fi
+grep -Fq '<profileable android:shell="true"' "$BENCHMARK_MANIFEST"
+if grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST"; then
+  echo 'Jingdu core/main manifest must remain network-free' >&2
+  exit 1
+fi
+grep -Fq 'android.permission.INTERNET' "$RELEASE_MANIFEST"
+grep -Fq 'android:usesCleartextTraffic="false"' "$MAIN_MANIFEST"
 
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
 
 grep -q 'com.android.billingclient:billing:9.1.0' apps/jingdu/android/app/build.gradle
 grep -q 'com.google.android.play:review:2.0.2' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.room3:room3-runtime:3.0.3' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.sqlite:sqlite-bundled:2.7.1' apps/jingdu/android/app/build.gradle
 
 grep -q 'jingdu_pro_lifetime' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
 grep -q 'enableOneTimeProducts' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
@@ -100,10 +130,5 @@ grep -q 'R.string.privacy_policy' apps/jingdu/android/app/src/main/java/com/junc
 grep -q 'Intent.ACTION_VIEW' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'OpenMultipleDocuments' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
 grep -q 'ReviewManagerFactory' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReviewPrompter.kt
-
-if grep -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/AndroidManifest.xml; then
-  echo 'direct INTERNET permission is forbidden by local/private product position' >&2
-  exit 1
-fi
 
 echo 'Play store/growth/monetization/privacy contract OK'
