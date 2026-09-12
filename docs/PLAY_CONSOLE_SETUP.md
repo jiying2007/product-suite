@@ -127,7 +127,22 @@ Recommended order:
 
 Change one major variable per test. Compare install conversion and downstream user quality rather than chasing clicks alone.
 
-## 9. Release safety
+## 9. App content and policy declarations
+
+Complete every applicable Play Console **App content** declaration against the exact production AAB before review:
+
+- Privacy policy: use the HTTPS URL in `store/play/PRIVACY_POLICY_URL.txt`; confirm it is publicly accessible, non-geofenced, non-PDF, and matches the in-app Privacy policy action.
+- Data safety: submit answers from `store/play/DATA_SAFETY.md` and re-check the exact production AAB dependency/permission graph before submission.
+- Ads: declare **No** while the product contains no advertising SDK or ad placement.
+- App access: Jingdu has no product account/sign-in gate; declare that reviewer access credentials are not required unless that architecture changes.
+- Target audience and content: select the actual intended age groups. Do not include children merely to broaden reach; if children are intentionally included, complete the Families-policy review before release.
+- Content rating: complete and retain the rating questionnaire/result for the exact listing; do not submit an unrated app.
+- Foreground services: declare the `mediaPlayback` foreground-service type used by `TtsPlaybackService`. State that it continues user-initiated read-aloud while the app is backgrounded, explain the impact of deferral/interruption, and provide the Play-required reviewer video showing how a user starts and stops read-aloud.
+- Any newly surfaced declaration in **Needs attention** is release-blocking until completed or made inapplicable by changing the production AAB.
+
+The foreground-service declaration must remain consistent with the production manifest permissions `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `android:foregroundServiceType="mediaPlayback"`. Do not add broader FGS types as a workaround.
+
+## 10. Release safety
 
 Before uploading Android 2.3.x:
 
@@ -138,10 +153,11 @@ Before uploading Android 2.3.x:
 - confirm Billing product and all four localized product descriptions are active before advertising Pro as purchasable;
 - confirm all four default listings and intended Custom Listings are uploaded from repository SSOT;
 - confirm Data safety / privacy declarations remain consistent with no text upload, no advertising SDK and no analytics SDK;
+- complete the App content declarations in section 9, including the `mediaPlayback` foreground-service declaration;
 - capture actual GitHub `main`/`v*` protection evidence;
 - use internal/closed testing and staged rollout rather than immediately exposing 100% of production users after the Reader + commerce hardening changes.
 
-## 10. Post-release checks
+## 11. Post-release checks
 
 Verify in production Play:
 
