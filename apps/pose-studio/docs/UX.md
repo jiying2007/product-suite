@@ -7,7 +7,7 @@ The app should feel like picking up a digital drawing mannequin. The artist shou
 ## Workspace hierarchy
 
 1. Scene — dominant visual surface.
-2. Integrated Speed tools — mirror/copy/ground without leaving the scene.
+2. Integrated Speed tools — Neutral reset, mirror/copy/ground without leaving the scene.
 3. Pose — presets, undo/redo and precise accessible adjustments.
 4. Camera — composition controls.
 5. Light — form-clarity controls.
@@ -29,7 +29,7 @@ Project name and unsaved state remain visible in the top bar.
 
 ## Pose accelerators
 
-Current: four starting presets, full mirror, left/right arm copy, left/right leg copy and ground. These are evaluated by whether they lower time-to-pose; asset count is not a success metric.
+Current: four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground. These are evaluated by whether they lower time-to-pose; asset count is not a success metric.
 
 Next accelerators require benchmark/user evidence: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and balance assistance.
 
