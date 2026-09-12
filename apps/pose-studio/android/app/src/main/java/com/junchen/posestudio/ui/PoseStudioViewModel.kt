@@ -309,7 +309,7 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         projectBusy = true
         return try {
             withContext(Dispatchers.IO) {
-                projectIoMutex.withLock(block)
+                projectIoMutex.withLock { block() }
             }
         } finally {
             activeProjectOperations -= 1
