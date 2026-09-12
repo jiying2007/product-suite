@@ -2,6 +2,7 @@ package com.junchen.posestudio
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -33,10 +34,11 @@ class PoseStudioUiTest {
 
     @Test
     fun accessibleJointPickerCanSelectAndAdjustWithoutCanvas() {
-        rule.onNodeWithText("Pelvis").performClick()
-        rule.onNodeWithText("Selected: Pelvis").performScrollTo().assertIsDisplayed()
+        val pelvis = rule.onNodeWithText("Pelvis")
+        pelvis.performClick()
+        pelvis.assertIsSelected()
         rule.onNodeWithText("Left").performScrollTo().assertIsDisplayed().performClick()
-        rule.onNodeWithText("Selected: Pelvis").performScrollTo().assertIsDisplayed()
+        pelvis.assertIsSelected()
     }
 
     @Test
