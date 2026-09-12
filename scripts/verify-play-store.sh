@@ -73,12 +73,26 @@ for required in (
 privacy_url = (root / 'store/play/PRIVACY_POLICY_URL.txt').read_text(encoding='utf-8').strip()
 if not privacy_url.startswith('https://') or 'docs/PRIVACY_POLICY.md' not in privacy_url:
     raise SystemExit(f'invalid Play privacy policy URL: {privacy_url!r}')
+if '/blob/main/' in privacy_url:
+    raise SystemExit('Play privacy policy URL must not depend on mutable main')
+
+privacy_resource = (root / 'apps/jingdu/android/app/src/main/res/values/strings_privacy.xml').read_text(encoding='utf-8')
+if privacy_url not in privacy_resource:
+    raise SystemExit('in-app privacy policy URL must match Play privacy policy URL')
 
 data_safety = (root / 'store/play/DATA_SAFETY.md').read_text(encoding='utf-8')
 for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'production AAB'):
     if required not in data_safety:
         raise SystemExit(f'Data safety SSOT missing required boundary: {required}')
 PY
+
+MAIN_MANIFEST='apps/jingdu/android/app/src/main/AndroidManifest.xml'
+BENCHMARK_MANIFEST='apps/jingdu/android/app/src/benchmark/AndroidManifest.xml'
+if grep -Fq '<profileable' "$MAIN_MANIFEST"; then
+  echo 'production Jingdu manifest must not be profileable' >&2
+  exit 1
+fi
+grep -Fq '<profileable android:shell="true"' "$BENCHMARK_MANIFEST"
 
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
