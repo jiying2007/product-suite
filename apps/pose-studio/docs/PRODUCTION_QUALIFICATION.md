@@ -77,14 +77,18 @@ The analyzer checks study completeness and reports median/P95, abandonment, conf
 
 ## 6. Privacy and Play policy
 
-Before production submission:
+Before production submission, complete the exact production AAB review and every applicable Play Console **App content** item:
 
-- publish the final privacy policy at a stable public HTTPS URL suitable for Play (not a mutable `blob/main` source page);
-- update the in-app privacy action to that stable URL;
-- inspect the exact production AAB permissions and dependency graph;
-- submit matching Play Data Safety answers;
-- complete developer contact, content rating and all required declarations;
-- capture store screenshots/feature graphic from the exact qualified build for supported locales.
+- publish the final privacy policy at the stable public HTTPS URL in `apps/pose-studio/store/play/PRIVACY_POLICY_URL.txt`; it must not depend on mutable `blob/main` content, and the in-app privacy action must match it;
+- inspect the exact production AAB permissions, merged manifest and dependency graph, then submit matching **Data Safety** answers from `apps/pose-studio/store/play/DATA_SAFETY.md`;
+- **Ads:** declare No while the exact production build contains no advertising SDK or ad placement;
+- **App access:** Pose Studio has no account/sign-in/reviewer credential gate; declare unrestricted access unless that architecture changes;
+- **Target audience and content:** select only the age groups the product is actually intended for. Do not include children solely to broaden distribution; if children are intentionally included, complete the applicable Families-policy review before release;
+- **Content rating:** complete and retain the Play rating questionnaire/result; an unrated production listing is release-blocking;
+- complete developer contact and any other item surfaced by Play Console under **Needs attention** before review;
+- capture store screenshots/feature graphic from the exact qualified build for en-US, zh-CN, zh-TW and zh-HK. Do not substitute mockups that show behavior not present in the submitted build.
+
+Pose Studio currently declares no foreground service and no sensitive/runtime permission. If the exact merged production manifest changes that fact, re-run policy review and update this runbook/Data Safety before upload rather than copying the prior declaration.
 
 ## 7. Closed track and rollout
 
