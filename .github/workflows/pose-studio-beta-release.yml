@@ -29,9 +29,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: pose-studio-v0.2.0
-          EXPECTED_CANDIDATE_SHA: d6fe64616e963038f265e707509931e45fb4a311
-          EXPECTED_MANIFEST_SHA256: 4db16fed689a4b2da0ad7432fd314c7a6bcf3d7abed0bfbe17f83f5101d8ec91
+          TAG: pose-studio-v0.2.1
+          EXPECTED_CANDIDATE_SHA: da999c8432bcc447d12123e55bdbb84d24e9583b
+          EXPECTED_MANIFEST_SHA256: 6ec5c4b3589735933155042764f492abfa663aa7d3fb652afdcffb21c65c657f
           EXPECTED_KEYSTORE_SHA256: b327cb3fd3bf5eeaeb3958737335180f5b8c664d47429fd1b9eb08d32e178a56
           EXPECTED_CERT_SHA256: 2618e7889486adea5fc083f7cb5155f2ec629baf5dae2a74dabc3abe5cd02a94
         run: |
@@ -51,7 +51,7 @@ jobs:
           TAG_SHA="$(git rev-list -n 1 "$TAG")"
           test "$TAG_SHA" = "$EXPECTED_CANDIDATE_SHA"
 
-          APK_NAME="PoseStudio-v0.2.0-commercial-beta-debug-signed.apk"
+          APK_NAME="PoseStudio-v0.2.1-commercial-beta-debug-signed.apk"
           if [[ "$(jq -r '.draft' "$RELEASE_JSON")" == "false" ]]; then
             mapfile -t existing_assets < <(jq -r '.assets[].name' "$RELEASE_JSON")
             printf '%s\n' "${existing_assets[@]}" | grep -Fxq "$APK_NAME"
@@ -66,9 +66,9 @@ jobs:
           MANIFEST="apps/pose-studio/releases/$TAG.md"
           test -f "$MANIFEST"
           test "$(sha256sum "$MANIFEST" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
-          grep -Fxq 'version: pose-studio-v0.2.0' "$MANIFEST"
-          grep -Fxq 'android_version_name: 0.2.0' "$MANIFEST"
-          grep -Fxq 'android_version_code: 2' "$MANIFEST"
+          grep -Fxq 'version: pose-studio-v0.2.1' "$MANIFEST"
+          grep -Fxq 'android_version_name: 0.2.1' "$MANIFEST"
+          grep -Fxq 'android_version_code: 3' "$MANIFEST"
           grep -Fxq 'production_v1: false' "$MANIFEST"
           grep -Fxq 'production_signing_proven: false' "$MANIFEST"
           grep -Fxq 'google_play_production: false' "$MANIFEST"
@@ -105,7 +105,7 @@ jobs:
           test "$APK_CERT_SHA" = "$EXPECTED_CERT_SHA256"
 
           BADGING="$($AAPT dump badging "$APK")"
-          grep -Fq "package: name='com.junchen.posestudio' versionCode='2' versionName='0.2.0'" <<<"$BADGING"
+          grep -Fq "package: name='com.junchen.posestudio' versionCode='3' versionName='0.2.1'" <<<"$BADGING"
 
           OUT_DIR="$RUNNER_TEMP/pose-studio-beta-release"
           mkdir -p "$OUT_DIR"
