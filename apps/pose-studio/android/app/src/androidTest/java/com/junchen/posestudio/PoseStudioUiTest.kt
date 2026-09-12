@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import org.junit.Rule
@@ -33,9 +34,9 @@ class PoseStudioUiTest {
     @Test
     fun accessibleJointPickerCanSelectAndAdjustWithoutCanvas() {
         rule.onNodeWithText("Pelvis").performClick()
-        rule.onNodeWithText("Selected: Pelvis").assertIsDisplayed()
-        rule.onNodeWithText("Left").performClick()
-        rule.onNodeWithText("Selected: Pelvis").assertIsDisplayed()
+        rule.onNodeWithText("Selected: Pelvis").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Left").performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithText("Selected: Pelvis").performScrollTo().assertIsDisplayed()
     }
 
     @Test
