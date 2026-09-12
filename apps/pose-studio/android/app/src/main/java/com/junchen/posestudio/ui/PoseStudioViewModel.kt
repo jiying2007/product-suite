@@ -23,6 +23,9 @@ import com.junchen.posestudio.render.PoseBitmapRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -42,7 +45,8 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     private var gestureSnapshot: PoseSnapshot? = null
     private val recoveryGeneration = AtomicInteger(0)
     private val recoveryRequests = Channel<RecoveryRequest>(Channel.CONFLATED)
-    private val initialIndex = store.scan()
+    private val projectIoMutex = Mutex()
+    private var activeProjectOperations = 0
 
     var project by mutableStateOf(PoseProject())
         private set
@@ -50,11 +54,13 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         private set
     var dirty by mutableStateOf(false)
         private set
-    var savedProjects by mutableStateOf(initialIndex.saved)
+    var savedProjects by mutableStateOf(emptyList<ProjectStore.SavedProject>())
         private set
-    var corruptProjects by mutableStateOf(initialIndex.corrupt)
+    var corruptProjects by mutableStateOf(emptyList<ProjectStore.CorruptProject>())
         private set
-    var recoveryCandidate by mutableStateOf(store.latestRecovery())
+    var recoveryCandidate by mutableStateOf<PoseProject?>(null)
+        private set
+    var projectBusy by mutableStateOf(false)
         private set
     var onboardingStep by mutableIntStateOf(if (prefs.getBoolean("onboarding_complete", false)) -1 else 0)
         private set
@@ -70,6 +76,14 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
                 if (latest.generation == recoveryGeneration.get()) {
                     runCatching { store.saveRecovery(latest.project) }
                 }
+            }
+        }
+        viewModelScope.launch {
+            runCatching {
+                runProjectIo { store.scan() to store.latestRecovery() }
+            }.onSuccess { (index, recovery) ->
+                applyIndex(index)
+                recoveryCandidate = recovery
             }
         }
     }
@@ -180,9 +194,10 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
 
     fun skipOnboarding() = completeOnboarding()
 
-    fun discardUnsavedRecovery() {
+    suspend fun discardUnsavedRecovery() {
+        val id = project.id
         invalidateRecovery()
-        store.discardRecovery(project.id)
+        runProjectIo { store.discardRecovery(id) }
     }
 
     fun newProject() {
@@ -193,30 +208,44 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         dirty = false
     }
 
-    fun save() {
+    suspend fun save() {
+        val snapshot = project
         invalidateRecovery()
-        project = store.save(project)
-        dirty = false
-        refreshSaved()
+        val (saved, index) = runProjectIo {
+            val persisted = store.save(snapshot)
+            persisted to store.scan()
+        }
+        applyIndex(index)
+        if (project == snapshot) {
+            project = saved
+            dirty = false
+        } else {
+            dirty = true
+            scheduleRecovery()
+        }
     }
 
-    fun load(id: String) {
+    suspend fun load(id: String) {
         invalidateRecovery()
-        project = store.load(id)
+        val (loaded, index) = runProjectIo { store.load(id) to store.scan() }
+        project = loaded
         selectedJoint = null
         clearHistory()
         dirty = false
-        refreshSaved()
+        applyIndex(index)
     }
 
-    fun duplicate(id: String) {
-        store.duplicate(id)
-        refreshSaved()
+    suspend fun duplicate(id: String) {
+        val index = runProjectIo {
+            store.duplicate(id)
+            store.scan()
+        }
+        applyIndex(index)
     }
 
-    fun delete(id: String): Boolean {
-        val deleted = store.delete(id)
-        if (deleted) refreshSaved()
+    suspend fun delete(id: String): Boolean {
+        val (deleted, index) = runProjectIo { store.delete(id) to store.scan() }
+        applyIndex(index)
         return deleted
     }
 
@@ -231,18 +260,21 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         scheduleRecovery()
     }
 
-    fun dismissRecovery() {
-        recoveryCandidate?.let { store.discardRecovery(it.id) }
-        recoveryCandidate = null
+    suspend fun dismissRecovery() {
+        val recovered = recoveryCandidate ?: return
+        runProjectIo { store.discardRecovery(recovered.id) }
+        if (recoveryCandidate?.id == recovered.id) recoveryCandidate = null
     }
 
-    fun importJson(text: String) {
+    suspend fun importJson(text: String) {
         invalidateRecovery()
-        val imported = ProjectCodec.decode(text).copy(
-            schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION,
-            id = UUID.randomUUID().toString(),
-            modifiedAt = System.currentTimeMillis(),
-        )
+        val imported = withContext(Dispatchers.Default) {
+            ProjectCodec.decode(text).copy(
+                schemaVersion = PoseProject.CURRENT_SCHEMA_VERSION,
+                id = UUID.randomUUID().toString(),
+                modifiedAt = System.currentTimeMillis(),
+            )
+        }
         project = imported
         selectedJoint = null
         clearHistory()
@@ -250,7 +282,11 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         scheduleRecovery()
     }
 
-    fun exportJson(): String = ProjectCodec.encode(project)
+    suspend fun exportJson(): String {
+        val snapshot = project
+        return withContext(Dispatchers.Default) { ProjectCodec.encode(snapshot) }
+    }
+
     fun renderPng(
         snapshot: PoseProject = project,
         width: Int = 1440,
@@ -263,10 +299,22 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit { putBoolean("onboarding_complete", true) }
     }
 
-    private fun refreshSaved() {
-        val index = store.scan()
+    private fun applyIndex(index: ProjectStore.ProjectIndex) {
         savedProjects = index.saved
         corruptProjects = index.corrupt
+    }
+
+    private suspend fun <T> runProjectIo(block: () -> T): T {
+        activeProjectOperations += 1
+        projectBusy = true
+        return try {
+            withContext(Dispatchers.IO) {
+                projectIoMutex.withLock(block)
+            }
+        } finally {
+            activeProjectOperations -= 1
+            projectBusy = activeProjectOperations > 0
+        }
     }
 
     private fun applyPoseEdit(transform: (Map<JointId, Vec3>) -> Map<JointId, Vec3>) {
