@@ -74,7 +74,13 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
                     latest = newer
                 }
                 if (latest.generation == recoveryGeneration.get()) {
-                    runCatching { store.saveRecovery(latest.project) }
+                    runCatching {
+                        projectIoMutex.withLock {
+                            if (latest.generation == recoveryGeneration.get()) {
+                                store.saveRecovery(latest.project)
+                            }
+                        }
+                    }
                 }
             }
         }
