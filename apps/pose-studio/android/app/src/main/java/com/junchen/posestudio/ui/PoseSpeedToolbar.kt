@@ -12,10 +12,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.junchen.posestudio.R
 import com.junchen.posestudio.model.PosePreset
+
+internal const val SCENE_NEUTRAL_PRESET_TAG = "scene-neutral-preset"
 
 @Composable
 fun PoseSpeedToolbar(viewModel: PoseStudioViewModel, modifier: Modifier = Modifier) {
@@ -34,6 +37,7 @@ fun PoseSpeedToolbar(viewModel: PoseStudioViewModel, modifier: Modifier = Modifi
             AssistChip(
                 onClick = { viewModel.applyPreset(PosePreset.NEUTRAL) },
                 label = { Text(presetLabel(PosePreset.NEUTRAL)) },
+                modifier = Modifier.testTag(SCENE_NEUTRAL_PRESET_TAG),
             )
             AssistChip(onClick = viewModel::mirrorPose, label = { Text(stringResource(R.string.mirror)) })
             AssistChip(onClick = viewModel::copyLeftArmToRight, label = { Text(stringResource(R.string.left_arm_to_right)) })
