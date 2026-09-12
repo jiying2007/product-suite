@@ -35,26 +35,9 @@ import java.util.Date
 
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
-    Text(stringResource(R.string.fast_pose), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(R.string.fast_pose_help))
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        PosePreset.entries.forEach { preset ->
-            FilterChip(
-                selected = false,
-                onClick = { viewModel.applyPreset(preset) },
-                label = { Text(presetLabel(preset)) },
-            )
-        }
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
-        OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
-    }
-
-    HorizontalDivider()
+    // Joint selection and precise adjustment are first-class Pose actions. Keep them ahead of
+    // presets so TalkBack, keyboard and switch users can reach the alternate manipulation path
+    // immediately instead of scrolling past the speed-tool section first.
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(R.string.select_joint_help))
     val jointRows = listOf(
@@ -107,6 +90,26 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
             OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) }) { Text(stringResource(R.string.forward)) }
             OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) }) { Text(stringResource(R.string.back)) }
         }
+    }
+
+    HorizontalDivider()
+    Text(stringResource(R.string.fast_pose), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.fast_pose_help))
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PosePreset.entries.forEach { preset ->
+            FilterChip(
+                selected = false,
+                onClick = { viewModel.applyPreset(preset) },
+                label = { Text(presetLabel(preset)) },
+            )
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
+        OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
     }
 }
 
