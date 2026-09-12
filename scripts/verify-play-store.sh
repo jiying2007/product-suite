@@ -84,6 +84,11 @@ data_safety = (root / 'store/play/DATA_SAFETY.md').read_text(encoding='utf-8')
 for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'production AAB'):
     if required not in data_safety:
         raise SystemExit(f'Data safety SSOT missing required boundary: {required}')
+
+play_setup = (root / 'docs/PLAY_CONSOLE_SETUP.md').read_text(encoding='utf-8')
+for required in ('App content and policy declarations', 'Ads: declare **No**', 'Target audience and content', 'Content rating', 'Foreground services', '`mediaPlayback`'):
+    if required not in play_setup:
+        raise SystemExit(f'Play Console setup missing required production declaration: {required}')
 PY
 
 MAIN_MANIFEST='apps/jingdu/android/app/src/main/AndroidManifest.xml'
