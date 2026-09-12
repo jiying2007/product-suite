@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="select_joint">选择关节</string>
-    <string name="select_joint_help">无需操作画布，也可在这里选择关节，再用方向控件进行精确调整。</string>
+    <string name="select_joint_help">选择关节后，用方向控件精调。</string>
 </resources>
