@@ -517,4 +517,4 @@ internal fun exportFileName(name: String, extension: String): String {
 }
 
 private const val PRIVACY_POLICY_URL =
-    "https://github.com/jiying2007/product-suite/blob/main/apps/pose-studio/docs/PRIVACY_POLICY.md"
+    "https://github.com/jiying2007/product-suite/blob/pose-studio-v0.2.0/apps/pose-studio/docs/PRIVACY_POLICY.md"
