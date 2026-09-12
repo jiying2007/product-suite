@@ -8,6 +8,7 @@ APP_UI="$ROOT/android/app/src/main/java/com/junchen/posestudio/ui/PoseStudioApp.
 PHYSICAL_CHECK="$ROOT/scripts/physical-release-check.sh"
 PHYSICAL_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-physical-release.yml"
 CANDIDATE_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-candidate-release.yml"
+SOURCE_RELEASE_SCRIPT="$REPO_ROOT/scripts/publish-source-release.py"
 BENCHMARK_ANALYZER="$ROOT/scripts/analyze-artist-benchmark.py"
 BENCHMARK_TEMPLATE="$ROOT/docs/BENCHMARK_RESULTS_TEMPLATE.csv"
 
@@ -49,6 +50,14 @@ grep -Fq 'POSE_STUDIO_RELEASE_KEY_PASSWORD' "$APP_GRADLE"
 grep -Fq 'candidate already frozen for $tag' "$CANDIDATE_WORKFLOW"
 grep -Fq 'git ls-remote --exit-code --tags origin' "$CANDIDATE_WORKFLOW"
 grep -Fq 'releases/tags/$tag' "$CANDIDATE_WORKFLOW"
+
+# Gated main may prune stale temporary/release branches, but only if they have no open PR and their
+# tip is already fully contained in the exact main SHA. This prevents cleanup from deleting work.
+python3 -m py_compile "$SOURCE_RELEASE_SCRIPT"
+grep -Fq 'fully_merged_into_main' "$SOURCE_RELEASE_SCRIPT"
+grep -Fq '/compare/{tip_sha}...{MAIN_SHA}' "$SOURCE_RELEASE_SCRIPT"
+grep -Fq 'retained temporary branch with unmerged commits' "$SOURCE_RELEASE_SCRIPT"
+grep -Fq 'release/pose-studio-' "$SOURCE_RELEASE_SCRIPT"
 
 # The real-artist benchmark remains external evidence, but its repository-side evidence shape and
 # analyzer are executable contracts rather than prose only.
