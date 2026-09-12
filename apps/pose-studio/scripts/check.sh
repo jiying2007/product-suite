@@ -11,6 +11,7 @@ CANDIDATE_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-candidate-release.y
 SOURCE_RELEASE_SCRIPT="$REPO_ROOT/scripts/publish-source-release.py"
 BENCHMARK_ANALYZER="$ROOT/scripts/analyze-artist-benchmark.py"
 BENCHMARK_TEMPLATE="$ROOT/docs/BENCHMARK_RESULTS_TEMPLATE.csv"
+QUALIFICATION_RUNBOOK="$ROOT/docs/PRODUCTION_QUALIFICATION.md"
 
 if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
   echo "Pose Studio must remain offline-first: INTERNET permission is forbidden" >&2
@@ -100,6 +101,12 @@ if grep -Fq '/blob/main/' "$privacy_url_file" || grep -Fq '/blob/main/' "$APP_UI
   echo "Pose Studio beta privacy links must not depend on mutable main; pin released beta policy content" >&2
   exit 1
 fi
+for required in 'App content' 'Ads' 'App access' 'Target audience' 'Content rating' 'Data Safety'; do
+  if ! grep -Fq "$required" "$QUALIFICATION_RUNBOOK"; then
+    echo "Pose Studio production qualification runbook missing Play declaration: $required" >&2
+    exit 1
+  fi
+done
 
 cd "$ROOT/android"
 ./gradlew --no-daemon --warning-mode all poseStudioCheck
@@ -121,6 +128,11 @@ if grep -Eq 'android:debuggable="true"|android:allowBackup="true"' "$MERGED_MANI
   exit 1
 fi
 
+# Pose Studio must produce the Play-uploadable App Bundle in addition to the release APK used for
+# local package inspection. Failing closed here prevents a green build from silently losing AAB output.
+RELEASE_AAB="app/build/outputs/bundle/release/app-release.aab"
+[[ -s "$RELEASE_AAB" ]] || { echo "Pose Studio release AAB missing: $RELEASE_AAB" >&2; exit 1; }
+
 # Pose Studio is currently Java/Kotlin-only. If a future dependency introduces native code, fail
 # closed so 64-bit/16 KiB compatibility is added and proven before that release can pass CI.
 RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
@@ -130,4 +142,4 @@ if unzip -Z1 "$RELEASE_APK" | grep -Eq '^lib/[^/]+/.*\.so$'; then
   exit 1
 fi
 
-echo "Pose Studio merged release manifest/package contract OK"
+echo "Pose Studio merged release manifest/AAB/package contract OK"
