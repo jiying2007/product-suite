@@ -212,7 +212,7 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val wide = maxWidth >= 840.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.2f)
-            val inspectorHeight = (maxHeight * 0.42f).coerceIn(220.dp, 340.dp)
+            val inspectorHeight = (maxHeight * 0.46f).coerceIn(240.dp, 400.dp)
             if (wide) {
                 Row(Modifier.fillMaxSize()) {
                     SceneArea(viewModel, Modifier.weight(1f).fillMaxHeight())
