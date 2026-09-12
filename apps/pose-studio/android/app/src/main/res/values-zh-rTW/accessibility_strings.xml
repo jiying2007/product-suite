@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="select_joint">選擇關節</string>
+    <string name="select_joint_help">選擇關節後，用方向控制精調。</string>
+</resources>

@@ -27,4 +27,21 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+
+          version="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' \
+            apps/pose-studio/android/app/build.gradle | head -n 1)"
+          test -n "$version"
+          tag="pose-studio-v${version}"
+
+          # A released/frozen semver is immutable. Later main commits may still carry
+          # that development version; they must not turn the intentional freeze into
+          # a red workflow or move the existing tag. A future candidate requires a
+          # version bump, while a tag-without-release inconsistency still falls
+          # through to the fail-closed publisher for diagnosis.
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1 && \
+             gh api --silent "/repos/$GH_REPOSITORY/releases/tags/$tag"; then
+            echo "Pose Studio candidate already frozen for $tag; current main remains development-only until version is bumped."
+            exit 0
+          fi
+
           python3 apps/pose-studio/scripts/publish-candidate-release.py

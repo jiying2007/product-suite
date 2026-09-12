@@ -8,7 +8,7 @@ The product goal is not to become a general-purpose 3D modeller. It optimizes on
 
 The current development line is `0.2.0`. It is a commercial-beta candidate, not a v1 production claim.
 
-Implemented product foundations include direct joint manipulation with IK, symmetry/copy/ground speed tools, depth-aware camera-plane dragging, two-finger camera zoom/pan, responsive phone/tablet layout, autosave recovery, versioned schema migration, portable JSON/PNG export, localized UI resources and executable Android instrumentation gates.
+Implemented product foundations include direct joint manipulation with IK, symmetry/copy/ground speed tools, depth-aware camera-plane dragging, two-finger camera zoom/pan, responsive phone/tablet layout, an explicit non-canvas joint selector plus directional adjustments, autosave recovery, versioned schema migration, portable JSON/PNG export, localized UI resources and executable Android instrumentation gates.
 
 ## Product promises
 
@@ -26,4 +26,4 @@ cd apps/pose-studio/android
 ./gradlew --no-daemon --warning-mode all poseStudioCheck
 ```
 
-See `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/UX.md`, `docs/QUALITY.md`, `docs/PERFORMANCE.md`, `docs/COMMERCIAL_READINESS.md`, `docs/PRIVACY_POLICY.md` and `docs/RELEASE.md` for product and release contracts.
+See `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/UX.md`, `docs/QUALITY.md`, `docs/PERFORMANCE.md`, `docs/COMMERCIAL_READINESS.md`, `docs/PRODUCTION_QUALIFICATION.md`, `docs/PRIVACY_POLICY.md` and `docs/RELEASE.md` for product and release contracts.

@@ -34,6 +34,8 @@ Rules:
 - unsaved edits are coalesced by one conflated recovery worker instead of creating/cancelling a coroutine on every pointer update;
 - entitlement state is never required to decode a project.
 
+`PoseStudioViewModel` is the UI orchestration boundary for project operations. Startup scan/recovery discovery and explicit save/open/duplicate/delete operations are dispatched off the main thread and serialized by one project-IO mutex. Project JSON encode/decode is also performed away from the Compose main thread. Save captures the project snapshot being persisted; if the user edits while that IO is in flight, the completed save updates the saved-project index without replacing the newer in-memory project and a new recovery snapshot remains scheduled.
+
 ### Rendering
 
 `render/PoseRenderModel.kt` is the shared render-description seam. Both interactive Compose Canvas and deterministic Android Bitmap export consume the same projected scene geometry, volume cues, depth order and lighting values. Platform-specific drawing APIs remain thin adapters.
@@ -42,9 +44,9 @@ The current renderer stays procedural and asset-free while time-to-pose is teste
 
 ### UI
 
-Compose UI is split into scene surface, integrated speed toolbar and Pose/Camera/Light/Project inspectors. Phone inspector height is responsive; landscape/tablet uses a persistent side inspector. Primary strings are Android resources for en-US/zh-CN/zh-TW/zh-HK.
+Compose UI is split into scene/orchestration plus inspector panels. Phone inspector height is responsive; landscape/tablet uses a persistent side inspector. Primary strings are Android resources for en-US/zh-CN/zh-TW/zh-HK.
 
-The scene exposes accessibility semantics; non-visual/keyboard/switch users can select a joint and apply explicit directional adjustments from the Pose inspector rather than relying exclusively on canvas gestures. New/Open/Import share dirty-work protection, project deletion requires confirmation, and all visible Save entry points share the same failure handling.
+The scene exposes accessibility semantics. The Pose inspector also exposes a localized, non-canvas joint selector and explicit directional adjustments so TalkBack/keyboard/switch users do not need to touch the Canvas to choose or adjust a joint. New/Open/Import share dirty-work protection, project deletion requires confirmation, and all visible Save entry points share the same failure handling.
 
 ## Offline architecture
 
@@ -54,4 +56,4 @@ Future online features must be additive and optional; offline create/edit/save/e
 
 ## Performance model
 
-Pointer movement updates in-memory pose/camera state and submits a conflated recovery request; no file write or serialization executes on the pointer path. Recovery is debounced on one `Dispatchers.IO` worker; JSON import/export IO and bitmap render/compression are outside the UI pointer path. CI executes broad API-36 device-emulator regression budgets, while commercial release qualification still requires the physical workflow and recorded device/source provenance in `PERFORMANCE.md`.
+Pointer movement updates in-memory pose/camera state and submits a conflated recovery request; no file write or serialization executes on the pointer path. Recovery is debounced on one `Dispatchers.IO` worker; explicit project-file operations are serialized off-main; JSON import/export IO and bitmap render/compression are outside the UI pointer path. CI executes broad API-36 device-emulator regression budgets, while commercial release qualification still requires the physical workflow and recorded device/source provenance in `PERFORMANCE.md`.

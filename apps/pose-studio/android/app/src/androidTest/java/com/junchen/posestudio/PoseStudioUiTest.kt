@@ -2,10 +2,13 @@ package com.junchen.posestudio
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import org.junit.Rule
@@ -19,7 +22,7 @@ class PoseStudioUiTest {
     fun primaryWorkspaceAndSpeedToolsAreUsable() {
         rule.onNodeWithText("Pose Studio").assertIsDisplayed()
         rule.onNodeWithText("Pose").assertIsDisplayed()
-        rule.onNodeWithText("Neutral").assertIsDisplayed()
+        rule.onNodeWithTag("scene-neutral-preset").assertIsDisplayed().performClick()
         rule.onNodeWithText("Mirror").performClick()
         rule.onNodeWithText("Undo").performClick()
         rule.onNodeWithText("Camera").performClick()
@@ -28,6 +31,15 @@ class PoseStudioUiTest {
         rule.onNodeWithText("Directional light").assertIsDisplayed()
         rule.onNodeWithText("Project").performClick()
         rule.onNodeWithText("Transparent PNG").fetchSemanticsNode()
+    }
+
+    @Test
+    fun accessibleJointPickerCanSelectAndAdjustWithoutCanvas() {
+        val pelvis = rule.onNodeWithText("Pelvis")
+        pelvis.performScrollTo().assertIsDisplayed().performClick()
+        pelvis.assertIsSelected()
+        rule.onNodeWithText("Left").performScrollTo().assertIsDisplayed().performClick()
+        pelvis.assertIsSelected()
     }
 
     @Test

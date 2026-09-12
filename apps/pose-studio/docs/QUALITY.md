@@ -21,6 +21,8 @@ Dedicated Pose Studio CI additionally boots API 36, runs the full instrumentatio
 - Explicit save and recovery use Android `AtomicFile`; committed backups must remain recoverable after an interrupted replacement.
 - Delete removes the committed project plus atomic backup only after explicit user confirmation.
 - High-frequency edits use one conflated/debounced recovery worker rather than creating file IO or one coroutine per pointer update.
+- Project scanning/save/open/duplicate/delete and project JSON codec work do not execute on the Compose main thread.
+- Explicit project-file operations are serialized; completion of an older save snapshot must not overwrite edits made while the save was in flight.
 
 ## Privacy gate
 
@@ -35,8 +37,8 @@ The main manifest must not request `android.permission.INTERNET` or `ACCESS_NETW
 - Destructive saved-project deletion requires confirmation.
 - Save/open/import/export remain account-free.
 - phone/landscape/tablet layout keeps the scene dominant.
-- primary actions remain reachable at 200% font scale.
-- alternate precise directional joint controls exist for users unable to operate the canvas directly.
+- primary actions and inspector tabs remain reachable at 200% font scale.
+- an always-available non-canvas joint selector plus explicit directional controls allow selecting and adjusting a joint without touching the scene Canvas.
 - controls for state that the current renderer cannot visibly express, including joint roll, remain hidden until they become meaningful.
 
 ## Performance

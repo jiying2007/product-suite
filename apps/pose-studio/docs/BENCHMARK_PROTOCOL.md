@@ -47,3 +47,11 @@ Compare mis-selection rate, undo/correction count, abandonment, confidence and q
 ## Evidence
 
 Bind study data to exact Pose Studio source SHA/version, device model/API and comparator versions. Preserve raw anonymized timing rows plus the frozen target-set provenance. Do not publish participant personal data.
+
+Record the structured rows using `BENCHMARK_RESULTS_TEMPLATE.csv`. Before interpreting results, run:
+
+```bash
+python3 apps/pose-studio/scripts/analyze-artist-benchmark.py path/to/results.csv
+```
+
+The analyzer fails closed if there are fewer than eight participants, fewer than two comparators, missing participant/tool/task combinations, mixed Pose Studio source SHAs, duplicate task rows or malformed values. It reports the protocol statistics but deliberately does not convert them into an automatic marketing claim.
