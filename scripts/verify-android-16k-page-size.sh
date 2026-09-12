@@ -25,6 +25,23 @@ SYMBOL_ZIP="app/build/outputs/native-debug-symbols/release/native-debug-symbols.
 [[ -s "$SYMBOL_ZIP" ]] || { echo "FULL native debug symbols missing: $SYMBOL_ZIP" >&2; exit 1; }
 [[ -d "$NDK_DIR" ]] || { echo "pinned NDK missing: $NDK_DIR" >&2; exit 1; }
 
+# Inspect the merged release manifest, not only src/main, so transitive library manifests cannot
+# silently inject network/debug/profile/backup behavior into the package that will be distributed.
+MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*release*' -print | grep -E '/merged_manifest/|/merged_manifests/' | head -n1 || true)"
+[[ -n "$MERGED_MANIFEST" && -s "$MERGED_MANIFEST" ]] || { echo "merged release manifest missing" >&2; exit 1; }
+if grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST"; then
+  echo "merged release manifest unexpectedly requests INTERNET" >&2
+  exit 1
+fi
+if grep -Fq '<profileable' "$MERGED_MANIFEST"; then
+  echo "merged release manifest must not be profileable" >&2
+  exit 1
+fi
+if grep -Eq 'android:debuggable="true"|android:allowBackup="true"' "$MERGED_MANIFEST"; then
+  echo "merged release manifest contains debug/backup behavior forbidden for production" >&2
+  exit 1
+fi
+
 # Current NDK packages expose llvm-readelf through the toolchain bin directory and may represent
 # it as a symlink. Do not require -type f here.
 READELF="$(find "$NDK_DIR/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)"
