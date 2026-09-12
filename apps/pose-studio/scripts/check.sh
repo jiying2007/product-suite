@@ -6,6 +6,9 @@ MANIFEST="$ROOT/android/app/src/main/AndroidManifest.xml"
 APP_GRADLE="$ROOT/android/app/build.gradle"
 PHYSICAL_CHECK="$ROOT/scripts/physical-release-check.sh"
 PHYSICAL_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-physical-release.yml"
+CANDIDATE_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-candidate-release.yml"
+BENCHMARK_ANALYZER="$ROOT/scripts/analyze-artist-benchmark.py"
+BENCHMARK_TEMPLATE="$ROOT/docs/BENCHMARK_RESULTS_TEMPLATE.csv"
 
 if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
   echo "Pose Studio must remain offline-first: INTERNET permission is forbidden" >&2
@@ -39,6 +42,18 @@ grep -Fq 'POSE_STUDIO_RELEASE_STORE_FILE' "$APP_GRADLE"
 grep -Fq 'POSE_STUDIO_RELEASE_STORE_PASSWORD' "$APP_GRADLE"
 grep -Fq 'POSE_STUDIO_RELEASE_KEY_ALIAS' "$APP_GRADLE"
 grep -Fq 'POSE_STUDIO_RELEASE_KEY_PASSWORD' "$APP_GRADLE"
+
+# Frozen candidate tags are immutable. Once the current semver already has a tag+release, later
+# main commits must no-op rather than moving the tag or creating a misleading red release job.
+grep -Fq 'candidate already frozen for $tag' "$CANDIDATE_WORKFLOW"
+grep -Fq 'git ls-remote --exit-code --tags origin' "$CANDIDATE_WORKFLOW"
+grep -Fq 'releases/tags/$tag' "$CANDIDATE_WORKFLOW"
+
+# The real-artist benchmark remains external evidence, but its repository-side evidence shape and
+# analyzer are executable contracts rather than prose only.
+python3 -m py_compile "$BENCHMARK_ANALYZER"
+test -s "$BENCHMARK_TEMPLATE"
+head -n 1 "$BENCHMARK_TEMPLATE" | grep -Fq 'participant_id,tool,tool_version,task_id,completion_seconds'
 
 python3 - "$ROOT/store/play" <<'PY'
 from pathlib import Path
