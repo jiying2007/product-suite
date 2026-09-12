@@ -41,6 +41,8 @@ Schema-v2 roll state remains stored for forward compatibility, but roll controls
 - Dirty work cannot be silently replaced by New, Open or JSON Import.
 - Unsaved edits are locally journaled and offered for recovery after process death.
 - Explicit project and recovery writes use Android `AtomicFile`; reads participate in backup recovery rather than bypassing it.
+- Project scanning, save/open/duplicate/delete and project JSON codec work stay off the Compose main thread; project-file operations are serialized so file maintenance cannot race another project operation.
+- A save snapshots the project being persisted and must not overwrite newer in-memory edits that happen while disk IO is in flight.
 - Deleting a saved project requires explicit confirmation and cleans atomic backup state.
 - Corrupt saved files remain preserved and visible rather than silently disappearing.
 - JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
@@ -49,7 +51,7 @@ Schema-v2 roll state remains stored for forward compatibility, but roll controls
 
 ## Responsive design
 
-Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll instead of shrinking touch targets.
+Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll instead of shrinking touch targets. Inspector tabs remain horizontally scrollable so 200% font scale does not force labels into undersized targets.
 
 Light and dark modes keep Compose surfaces and Android status/navigation bars visually aligned rather than leaving bright system chrome around a dark workspace.
 
@@ -57,8 +59,8 @@ Light and dark modes keep Compose surfaces and Android status/navigation bars vi
 
 - Non-canvas controls use Material controls with minimum touch targets and visible labels.
 - Scene exposes descriptive and selected-joint state semantics.
-- The Pose inspector provides explicit left/right/up/down/forward/back controls as an alternative to gesture-only manipulation.
-- CI reruns primary-action reachability at 200% font scale.
+- The Pose inspector always exposes an explicit localized joint selector plus left/right/up/down/forward/back adjustments. A user must be able to choose and adjust a joint without touching the canvas, including after Open/Import/Recovery leaves the canvas selection empty.
+- CI reruns primary-action reachability at 200% font scale and exercises non-canvas joint selection/adjustment.
 - Before v1, manual TalkBack/switch/keyboard audits on the final release build remain mandatory.
 
 ## Onboarding
