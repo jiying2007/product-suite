@@ -3,6 +3,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT/apps/jingdu/android"
+MAIN_MANIFEST="$ANDROID_DIR/app/src/main/AndroidManifest.xml"
+APP_GRADLE="$ANDROID_DIR/app/build.gradle"
+PRIVACY_POLICY="$ROOT/docs/PRIVACY_POLICY.md"
+DATA_SAFETY="$ROOT/store/play/DATA_SAFETY.md"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 NDK_VERSION="29.0.14206865"
 NDK_DIR="$SDK_ROOT/ndk/$NDK_VERSION"
@@ -26,13 +30,19 @@ SYMBOL_ZIP="app/build/outputs/native-debug-symbols/release/native-debug-symbols.
 [[ -d "$NDK_DIR" ]] || { echo "pinned NDK missing: $NDK_DIR" >&2; exit 1; }
 
 # Inspect the merged release manifest, not only src/main, so transitive library manifests cannot
-# silently inject network/debug/profile/backup behavior into the package that will be distributed.
+# silently change package behavior. Jingdu intentionally declares INTERNET because optional Google
+# Play Billing and In-App Review are network-capable platform integrations. The primary reading path
+# remains local and there is no Jingdu-operated network backend.
 MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*release*' -print | grep -E '/merged_manifest/|/merged_manifests/' | head -n1 || true)"
 [[ -n "$MERGED_MANIFEST" && -s "$MERGED_MANIFEST" ]] || { echo "merged release manifest missing" >&2; exit 1; }
-if grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST"; then
-  echo "merged release manifest unexpectedly requests INTERNET" >&2
-  exit 1
-fi
+grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST" || { echo "Jingdu source manifest must explicitly declare the approved Play network capability" >&2; exit 1; }
+grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST" || { echo "merged release manifest lost required INTERNET permission for Play services" >&2; exit 1; }
+grep -Fq 'android:usesCleartextTraffic="false"' "$MERGED_MANIFEST" || { echo "merged release manifest must keep cleartext traffic disabled" >&2; exit 1; }
+grep -Fq 'com.android.billingclient:billing:9.1.0' "$APP_GRADLE" || { echo "approved Billing dependency drift" >&2; exit 1; }
+grep -Fq 'com.google.android.play:review:2.0.2' "$APP_GRADLE" || { echo "approved In-App Review dependency drift" >&2; exit 1; }
+grep -Fq 'Google Play Billing' "$PRIVACY_POLICY" || { echo "privacy policy missing Google Play Billing network boundary" >&2; exit 1; }
+grep -Fq 'Google Play In-App Review' "$PRIVACY_POLICY" || { echo "privacy policy missing Google Play Review network boundary" >&2; exit 1; }
+grep -Fq 'package requests `INTERNET`' "$DATA_SAFETY" || { echo "Data Safety worksheet missing final package INTERNET disclosure" >&2; exit 1; }
 if grep -Fq '<profileable' "$MERGED_MANIFEST"; then
   echo "merged release manifest must not be profileable" >&2
   exit 1
@@ -79,10 +89,11 @@ done
 # Keep the build contract explicit so a future toolchain downgrade cannot silently remove support.
 grep -Fq 'ndkVersion = "29.0.14206865"' app/build.gradle
 grep -Fq 'debugSymbolLevel = "FULL"' app/build.gradle
+grep -Fq 'androidx.sqlite:sqlite-bundled:2.7.1' app/build.gradle
 unzip -Z1 "$SYMBOL_ZIP" > "$TMP/native-symbols.list"
 grep -qE '\.(so|dbg|sym)$|libjingdu_(native|core)' "$TMP/native-symbols.list"
 
-echo "Android 16 KiB page-size packaging gate PASS"
+echo "Android release package/network/16 KiB gate PASS"
 echo "Pinned NDK: $NDK_VERSION"
 echo "Validated ELF ABIs: arm64-v8a x86_64"
 echo "Release AAB: $AAB"
