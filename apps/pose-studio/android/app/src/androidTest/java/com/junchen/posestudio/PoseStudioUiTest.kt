@@ -35,7 +35,7 @@ class PoseStudioUiTest {
     @Test
     fun accessibleJointPickerCanSelectAndAdjustWithoutCanvas() {
         val pelvis = rule.onNodeWithText("Pelvis")
-        pelvis.performClick()
+        pelvis.performScrollTo().assertIsDisplayed().performClick()
         pelvis.assertIsSelected()
         rule.onNodeWithText("Left").performScrollTo().assertIsDisplayed().performClick()
         pelvis.assertIsSelected()
