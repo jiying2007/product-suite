@@ -39,7 +39,6 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     // so the alternate manipulation path and the speed tools remain reachable in the bounded phone
     // inspector without forcing a vertical scroll before the user can start editing.
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
-    Text(stringResource(R.string.select_joint_help))
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
