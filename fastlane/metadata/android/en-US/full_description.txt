@@ -1,6 +1,6 @@
 Downloaded TXT opens as mojibake, contains repeated site ads, or is simply too large for a comfortable reader? Jingdu focuses on the hard parts of local long-form TXT reading.
 
-Jingdu is an offline, privacy-first TXT novel reader. Instead of chasing every document format, it goes deeper on encoding recovery, local cleanup and long-session reading.
+Jingdu is a local-first, privacy-focused TXT novel reader. Instead of chasing every document format, it goes deeper on encoding recovery, local cleanup and long-session reading.
 
 OPEN MESSY TXT CORRECTLY
 • Auto-detect common UTF-8, UTF-16, GB18030, GBK, GB2312 and Big5 text
@@ -28,18 +28,19 @@ READ COMFORTABLY
 • Reading progress, full-text search, generated chapters and revision-safe bookmarks
 
 LONG-SESSION TOOLS
-• System offline TTS
+• Android system Text-to-Speech, using the TTS engine configured on your device
 • Speech rate and pitch
 • Auto paging
 • Sleep timer
 • Volume-key paging
 
 PRIVACY FIRST
-• No account required
+• No Jingdu account required
 • No advertising SDK
 • No analytics/tracking SDK
-• No INTERNET permission
-• Your TXT content is not uploaded
+• No Jingdu-operated content, analytics or entitlement server
+• Your TXT content, search queries, annotations and reading progress are not uploaded to a Jingdu server
+• The app has network capability only for optional Google Play Billing and In-App Review platform flows; core reading stays local
 • External source files are never modified or deleted
 
 JINGDU PRO
@@ -52,4 +53,4 @@ Pro is a one-time purchase for local automation and reusable assets:
 • Recommended Chinese web-novel patterns
 • Rule import and export
 
-Your books, rules and progress stay on your device.
+Your books, rules and reading progress remain local to your device unless you explicitly export them or use an external platform action described in the privacy policy.
