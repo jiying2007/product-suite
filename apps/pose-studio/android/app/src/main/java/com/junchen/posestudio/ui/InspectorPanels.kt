@@ -35,44 +35,21 @@ import java.util.Date
 
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
-    // Joint selection and precise adjustment are first-class Pose actions. Keep them ahead of
-    // presets so TalkBack, keyboard and switch users can reach the alternate manipulation path
-    // immediately instead of scrolling past the speed-tool section first.
+    // Joint selection and precise adjustment are first-class Pose actions. Keep the picker compact
+    // so the alternate manipulation path and the speed tools remain reachable in the bounded phone
+    // inspector without forcing a vertical scroll before the user can start editing.
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(R.string.select_joint_help))
-    val jointRows = listOf(
-        listOf(JointId.PELVIS, JointId.SPINE, JointId.CHEST, JointId.NECK, JointId.HEAD),
-        listOf(
-            JointId.LEFT_SHOULDER,
-            JointId.LEFT_ELBOW,
-            JointId.LEFT_WRIST,
-            JointId.RIGHT_SHOULDER,
-            JointId.RIGHT_ELBOW,
-            JointId.RIGHT_WRIST,
-        ),
-        listOf(
-            JointId.LEFT_HIP,
-            JointId.LEFT_KNEE,
-            JointId.LEFT_ANKLE,
-            JointId.LEFT_FOOT,
-            JointId.RIGHT_HIP,
-            JointId.RIGHT_KNEE,
-            JointId.RIGHT_ANKLE,
-            JointId.RIGHT_FOOT,
-        ),
-    )
-    jointRows.forEach { joints ->
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            joints.forEach { joint ->
-                FilterChip(
-                    selected = viewModel.selectedJoint == joint,
-                    onClick = { viewModel.selectJoint(joint) },
-                    label = { Text(jointLabel(joint)) },
-                )
-            }
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        JointId.entries.forEach { joint ->
+            FilterChip(
+                selected = viewModel.selectedJoint == joint,
+                onClick = { viewModel.selectJoint(joint) },
+                label = { Text(jointLabel(joint)) },
+            )
         }
     }
 
