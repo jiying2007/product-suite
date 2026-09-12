@@ -31,6 +31,14 @@ class PoseStudioUiTest {
     }
 
     @Test
+    fun accessibleJointPickerCanSelectAndAdjustWithoutCanvas() {
+        rule.onNodeWithText("Pelvis").performClick()
+        rule.onNodeWithText("Selected: Pelvis").assertIsDisplayed()
+        rule.onNodeWithText("Left").performClick()
+        rule.onNodeWithText("Selected: Pelvis").assertIsDisplayed()
+    }
+
+    @Test
     fun sceneAcceptsDirectOrbitGestureWithoutCrashing() {
         val description = "Pose canvas. Select and drag joints, drag empty space to orbit, or use two fingers to zoom and pan."
         rule.onNodeWithContentDescription(description).performTouchInput {
