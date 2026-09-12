@@ -4,6 +4,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 MANIFEST="$ROOT/android/app/src/main/AndroidManifest.xml"
 APP_GRADLE="$ROOT/android/app/build.gradle"
+APP_UI="$ROOT/android/app/src/main/java/com/junchen/posestudio/ui/PoseStudioApp.kt"
 PHYSICAL_CHECK="$ROOT/scripts/physical-release-check.sh"
 PHYSICAL_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-physical-release.yml"
 CANDIDATE_WORKFLOW="$REPO_ROOT/.github/workflows/pose-studio-candidate-release.yml"
@@ -84,6 +85,10 @@ PY
 privacy_url_file="$ROOT/store/play/PRIVACY_POLICY_URL.txt"
 if [[ ! -s "$privacy_url_file" ]] || ! grep -Eq '^https://' "$privacy_url_file"; then
   echo "Pose Studio Play privacy-policy URL must be a non-empty HTTPS URL" >&2
+  exit 1
+fi
+if grep -Fq '/blob/main/' "$privacy_url_file" || grep -Fq '/blob/main/' "$APP_UI"; then
+  echo "Pose Studio beta privacy links must not depend on mutable main; pin released beta policy content" >&2
   exit 1
 fi
 
