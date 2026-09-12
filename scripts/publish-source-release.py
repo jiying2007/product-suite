@@ -21,8 +21,22 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-TEMP_PREFIXES = ("feat/", "fix/", "chore/", "ci/", "refactor/", "docs/", "test/", "perf/", "tmp/", "dependabot/")
-RELEASE_PREFIX = "release/source-v"
+TEMP_PREFIXES = (
+    "feat/",
+    "fix/",
+    "chore/",
+    "ci/",
+    "refactor/",
+    "docs/",
+    "test/",
+    "perf/",
+    "tmp/",
+    "dependabot/",
+    "improve/",
+    "revert/",
+)
+RELEASE_PREFIXES = ("release/source-v", "release/pose-studio-")
+TEMP_EXACT_BRANCHES = {"noop", "tmp-do-not-use"}
 CURRENT_STAGE_MARKER = "## Current Android release stage"
 CURRENT_STAGE_TEXT = (
     "This release records immutable source provenance. The attached debug-signed APK is the official "
@@ -267,7 +281,23 @@ def release_body(tag: str, manifest: Path) -> str:
     )
 
 
-def cleanup_closed_temporary_branches() -> None:
+def temporary_branch(ref: str) -> bool:
+    return (
+        ref in TEMP_EXACT_BRANCHES
+        or ref.startswith(TEMP_PREFIXES)
+        or ref.startswith(RELEASE_PREFIXES)
+    )
+
+
+def fully_merged_into_main(tip_sha: str) -> bool:
+    if tip_sha == MAIN_SHA:
+        return True
+    _, comparison = request(f"/compare/{tip_sha}...{MAIN_SHA}")
+    comparison = comparison or {}
+    return comparison.get("status") == "ahead" and comparison.get("behind_by") == 0
+
+
+def cleanup_merged_temporary_branches() -> None:
     open_pulls = paged("/pulls?state=open")
     open_heads = {
         pr.get("head", {}).get("ref")
@@ -275,23 +305,22 @@ def cleanup_closed_temporary_branches() -> None:
         if pr.get("head", {}).get("repo", {}).get("full_name") == REPO
     }
 
-    closed_pulls = paged("/pulls?state=closed&sort=updated&direction=desc")
-    candidates: list[str] = []
-    for pr in closed_pulls:
-        head = pr.get("head") or {}
-        head_repo = head.get("repo") or {}
-        ref = head.get("ref")
-        if head_repo.get("full_name") != REPO or not ref or ref == "main" or ref in open_heads:
+    for branch in paged("/branches"):
+        ref = branch.get("name", "")
+        tip_sha = (branch.get("commit") or {}).get("sha", "")
+        if not ref or ref == "main" or ref in open_heads or not temporary_branch(ref):
             continue
-        if ref.startswith(RELEASE_PREFIX) or ref.startswith(TEMP_PREFIXES):
-            if ref not in candidates:
-                candidates.append(ref)
+        if not tip_sha:
+            print(f"retained temporary branch with missing tip: {ref}")
+            continue
+        if not fully_merged_into_main(tip_sha):
+            print(f"retained temporary branch with unmerged commits: {ref} -> {tip_sha}")
+            continue
 
-    for ref in candidates:
         encoded = urllib.parse.quote(ref, safe="/")
         status, _ = request(f"/git/refs/heads/{encoded}", method="DELETE", allowed=(404, 422))
         if status in (204, 404, 422):
-            print(f"pruned closed temporary branch: {ref} ({status})")
+            print(f"pruned fully merged temporary branch: {ref} ({status})")
 
 
 def main() -> int:
@@ -300,11 +329,11 @@ def main() -> int:
     manifest = verify_manifest(tag)
     if manifest is None:
         print(f"no source manifest for {tag}; publication skipped")
-        cleanup_closed_temporary_branches()
+        cleanup_merged_temporary_branches()
         return 0
 
     prepare_release(tag, manifest)
-    cleanup_closed_temporary_branches()
+    cleanup_merged_temporary_branches()
     return 0
 
 

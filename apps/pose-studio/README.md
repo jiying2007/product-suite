@@ -6,9 +6,9 @@ The product goal is not to become a general-purpose 3D modeller. It optimizes on
 
 ## Current product state
 
-The current development line is `0.2.0`. It is a commercial-beta candidate, not a v1 production claim.
+The current development line is `0.2.1`. It is a commercial-beta candidate, not a v1 production claim.
 
-Implemented product foundations include direct joint manipulation with IK, symmetry/copy/ground speed tools, depth-aware camera-plane dragging, two-finger camera zoom/pan, responsive phone/tablet layout, an explicit non-canvas joint selector plus directional adjustments, autosave recovery, versioned schema migration, portable JSON/PNG export, localized UI resources and executable Android instrumentation gates.
+Implemented product foundations include direct joint manipulation with IK, symmetry/copy/ground/Neutral speed tools, depth-aware camera-plane dragging, two-finger camera zoom/pan, responsive phone/tablet layout, an explicit non-canvas joint selector plus directional adjustments, asynchronous project I/O and autosave recovery, versioned schema migration, portable JSON/PNG export, localized UI resources and executable Android instrumentation gates.
 
 ## Product promises
 

@@ -6,7 +6,7 @@ Pose Studio is independently release-bearing. It must never inherit Jingdu ident
 
 - application ID: `com.junchen.posestudio`
 - release namespace: `pose-studio-v<semver>`
-- current development version: `0.2.0` / versionCode `2`
+- current development version: `0.2.1` / versionCode `3`
 
 ## Signing
 
@@ -35,6 +35,8 @@ Gradle accepts either the local untracked properties file or the corresponding `
 ## Candidate immutability
 
 Once a `pose-studio-v<semver>` tag/release exists, that semver is frozen. Later `main` commits may temporarily retain the same development version, but the candidate workflow must no-op rather than moving the tag or reporting a false release failure. A new release candidate requires incrementing `versionName`/`versionCode` and adding its matching release manifest first.
+
+The 0.2.1 line is a patch commercial-beta hardening release. It preserves the 0.2 project format and product scope while carrying the repository-side commercial-readiness, accessibility, project-I/O and release-topology fixes validated after 0.2.0. It is not a v1 production declaration.
 
 ## Required v1 evidence
 
