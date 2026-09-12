@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           workflow=.github/workflows/pose-studio-candidate-release.yml
           publisher=apps/pose-studio/scripts/publish-candidate-release.py
-          manifest=apps/pose-studio/releases/pose-studio-v0.2.0.md
+          manifest=apps/pose-studio/releases/pose-studio-v0.2.1.md
 
           test -f "$workflow"
           test -f "$publisher"
@@ -71,9 +71,9 @@ jobs:
           grep -Fq -- 'production-signing-proven: false' "$publisher"
           grep -Fq -- 'google-play-production: false' "$publisher"
 
-          grep -Fq -- 'version: pose-studio-v0.2.0' "$manifest"
-          grep -Fq -- 'android_version_name: 0.2.0' "$manifest"
-          grep -Fq -- 'android_version_code: 2' "$manifest"
+          grep -Fq -- 'version: pose-studio-v0.2.1' "$manifest"
+          grep -Fq -- 'android_version_name: 0.2.1' "$manifest"
+          grep -Fq -- 'android_version_code: 3' "$manifest"
           grep -Fq -- 'production_v1: false' "$manifest"
           grep -Fq -- 'production_signing_proven: false' "$manifest"
           grep -Fq -- 'google_play_production: false' "$manifest"
@@ -90,13 +90,13 @@ jobs:
           grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
           grep -Fq -- "github.event.workflow_run.conclusion == 'success'" "$workflow"
           grep -Fq -- 'contents: write' "$workflow"
-          grep -Fq -- 'TAG: pose-studio-v0.2.0' "$workflow"
-          grep -Fq -- 'EXPECTED_CANDIDATE_SHA: d6fe64616e963038f265e707509931e45fb4a311' "$workflow"
-          grep -Fq -- 'EXPECTED_MANIFEST_SHA256: 4db16fed689a4b2da0ad7432fd314c7a6bcf3d7abed0bfbe17f83f5101d8ec91' "$workflow"
+          grep -Fq -- 'TAG: pose-studio-v0.2.1' "$workflow"
+          grep -Fq -- 'EXPECTED_CANDIDATE_SHA: da999c8432bcc447d12123e55bdbb84d24e9583b' "$workflow"
+          grep -Fq -- 'EXPECTED_MANIFEST_SHA256: 6ec5c4b3589735933155042764f492abfa663aa7d3fb652afdcffb21c65c657f' "$workflow"
           grep -Fq -- 'EXPECTED_KEYSTORE_SHA256: b327cb3fd3bf5eeaeb3958737335180f5b8c664d47429fd1b9eb08d32e178a56' "$workflow"
           grep -Fq -- 'EXPECTED_CERT_SHA256: 2618e7889486adea5fc083f7cb5155f2ec629baf5dae2a74dabc3abe5cd02a94' "$workflow"
           grep -Fq -- 'validatePoseReleaseSigning assembleRelease' "$workflow"
-          grep -Fq -- 'PoseStudio-v0.2.0-commercial-beta-debug-signed.apk' "$workflow"
+          grep -Fq -- 'PoseStudio-v0.2.1-commercial-beta-debug-signed.apk' "$workflow"
           grep -Fq -- 'production_signing_proven: false' "$workflow"
           grep -Fq -- 'google_play_production: false' "$workflow"
           grep -Fq -- 'pre-production commercial-beta distribution only' "$workflow"
