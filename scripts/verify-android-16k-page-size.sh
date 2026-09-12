@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT/apps/jingdu/android"
 MAIN_MANIFEST="$ANDROID_DIR/app/src/main/AndroidManifest.xml"
+RELEASE_MANIFEST="$ANDROID_DIR/app/src/release/AndroidManifest.xml"
 APP_GRADLE="$ANDROID_DIR/app/build.gradle"
 PRIVACY_POLICY="$ROOT/docs/PRIVACY_POLICY.md"
 DATA_SAFETY="$ROOT/store/play/DATA_SAFETY.md"
@@ -29,13 +30,16 @@ SYMBOL_ZIP="app/build/outputs/native-debug-symbols/release/native-debug-symbols.
 [[ -s "$SYMBOL_ZIP" ]] || { echo "FULL native debug symbols missing: $SYMBOL_ZIP" >&2; exit 1; }
 [[ -d "$NDK_DIR" ]] || { echo "pinned NDK missing: $NDK_DIR" >&2; exit 1; }
 
-# Inspect the merged release manifest, not only src/main, so transitive library manifests cannot
-# silently change package behavior. Jingdu intentionally declares INTERNET because optional Google
-# Play Billing and In-App Review are network-capable platform integrations. The primary reading path
-# remains local and there is no Jingdu-operated network backend.
+# Inspect the merged release manifest, not only source manifests, so transitive library manifests
+# cannot silently change package behavior. Reader main stays network-free; the release overlay
+# explicitly declares the approved Google Play Billing / In-App Review capability.
 MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*release*' -print | grep -E '/merged_manifest/|/merged_manifests/' | head -n1 || true)"
 [[ -n "$MERGED_MANIFEST" && -s "$MERGED_MANIFEST" ]] || { echo "merged release manifest missing" >&2; exit 1; }
-grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST" || { echo "Jingdu source manifest must explicitly declare the approved Play network capability" >&2; exit 1; }
+if grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST"; then
+  echo "Reader core/main manifest must remain network-free" >&2
+  exit 1
+fi
+grep -Fq 'android.permission.INTERNET' "$RELEASE_MANIFEST" || { echo "Jingdu release overlay must explicitly declare approved Play network capability" >&2; exit 1; }
 grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST" || { echo "merged release manifest lost required INTERNET permission for Play services" >&2; exit 1; }
 grep -Fq 'android:usesCleartextTraffic="false"' "$MERGED_MANIFEST" || { echo "merged release manifest must keep cleartext traffic disabled" >&2; exit 1; }
 grep -Fq 'com.android.billingclient:billing:9.1.0' "$APP_GRADLE" || { echo "approved Billing dependency drift" >&2; exit 1; }
@@ -52,15 +56,11 @@ if grep -Eq 'android:debuggable="true"|android:allowBackup="true"' "$MERGED_MANI
   exit 1
 fi
 
-# Current NDK packages expose llvm-readelf through the toolchain bin directory and may represent
-# it as a symlink. Do not require -type f here.
 READELF="$(find "$NDK_DIR/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)"
 ZIPALIGN="$(find "$SDK_ROOT/build-tools" -type f -name zipalign -perm -111 | sort -V | tail -n1)"
 [[ -n "$READELF" && -x "$READELF" ]] || { echo "llvm-readelf missing from pinned NDK" >&2; exit 1; }
 [[ -x "$ZIPALIGN" ]] || { echo "zipalign missing" >&2; exit 1; }
 
-# Package alignment applies to the complete APK. Google Play's 16 KiB compatibility requirement is
-# specifically for 64-bit devices, and Android's ELF validation guidance checks arm64-v8a/x86_64.
 "$ZIPALIGN" -c -P 16 -v 4 "$APK" >/tmp/jingdu-zipalign-16k.txt
 cat /tmp/jingdu-zipalign-16k.txt
 
@@ -86,7 +86,6 @@ for lib in "${LIBS[@]}"; do
   echo "16 KiB 64-bit ELF alignment OK: ${lib#"$TMP/"} (${aligns[*]})"
 done
 
-# Keep the build contract explicit so a future toolchain downgrade cannot silently remove support.
 grep -Fq 'ndkVersion = "29.0.14206865"' app/build.gradle
 grep -Fq 'debugSymbolLevel = "FULL"' app/build.gradle
 grep -Fq 'androidx.sqlite:sqlite-bundled:2.7.1' app/build.gradle
