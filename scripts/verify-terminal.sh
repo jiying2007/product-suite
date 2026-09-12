@@ -23,8 +23,19 @@ test "$(sha256sum "$PUBLIC_DEBUG_KEY" | awk '{print $1}')" = "$PUBLIC_DEBUG_KEY_
 if git grep -n -E 'uses:[[:space:]]+actions/[^@]+@v[0-9]+' -- .github/workflows; then
   echo 'floating GitHub Actions major tag found' >&2; exit 1
 fi
-if grep -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/AndroidManifest.xml; then
-  echo 'direct INTERNET permission violates local/private Android contract' >&2; exit 1
+
+# Jingdu remains local-first but intentionally has network capability for optional Google Play
+# Billing / In-App Review. Keep this explicit instead of relying on a transitive manifest merge.
+JINGDU_MANIFEST='apps/jingdu/android/app/src/main/AndroidManifest.xml'
+grep -Fq 'android.permission.INTERNET' "$JINGDU_MANIFEST" || { echo 'Jingdu must explicitly declare approved Play network capability' >&2; exit 1; }
+grep -Fq 'android:usesCleartextTraffic="false"' "$JINGDU_MANIFEST" || { echo 'Jingdu must keep cleartext traffic disabled' >&2; exit 1; }
+grep -Fq 'com.android.billingclient:billing:9.1.0' apps/jingdu/android/app/build.gradle
+grep -Fq 'com.google.android.play:review:2.0.2' apps/jingdu/android/app/build.gradle
+grep -Fq 'requests `INTERNET`' docs/PRIVACY_POLICY.md
+
+# Pose Studio has no approved network product surface and must remain package/source offline.
+if grep -q 'android.permission.INTERNET' apps/pose-studio/android/app/src/main/AndroidManifest.xml; then
+  echo 'Pose Studio direct INTERNET permission violates its offline product contract' >&2; exit 1
 fi
 
 required=(
@@ -93,6 +104,8 @@ grep -q 'compileSdk = 37' apps/jingdu/android/app/build.gradle
 grep -q 'generateLocaleConfig = true' apps/jingdu/android/app/build.gradle
 grep -q 'project(":readerproto")' apps/jingdu/android/app/build.gradle
 grep -q 'media3-session:1.11.0' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.room3:room3-runtime:3.0.3' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.sqlite:sqlite-bundled:2.7.1' apps/jingdu/android/app/build.gradle
 
 grep -q 'const val SCHEMA = 4' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 grep -q 'containsBookText' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
