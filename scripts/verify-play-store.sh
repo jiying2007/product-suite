@@ -64,6 +64,8 @@ for required in (
     'Text-to-Speech',
     'PROCESS_TEXT',
     'Google Play Billing',
+    'Google Play In-App Review',
+    'requests `INTERNET`',
     'Retention and deletion',
     'com.junchen.jingdu',
 ):
@@ -81,7 +83,7 @@ if privacy_url not in privacy_resource:
     raise SystemExit('in-app privacy policy URL must match Play privacy policy URL')
 
 data_safety = (root / 'store/play/DATA_SAFETY.md').read_text(encoding='utf-8')
-for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'production AAB'):
+for required in ('Data safety', 'TTS engine', 'PROCESS_TEXT', 'Google Play Billing', 'Google Play In-App Review', 'package requests `INTERNET`', 'production AAB'):
     if required not in data_safety:
         raise SystemExit(f'Data safety SSOT missing required boundary: {required}')
 
@@ -98,12 +100,16 @@ if grep -Fq '<profileable' "$MAIN_MANIFEST"; then
   exit 1
 fi
 grep -Fq '<profileable android:shell="true"' "$BENCHMARK_MANIFEST"
+grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST"
+grep -Fq 'android:usesCleartextTraffic="false"' "$MAIN_MANIFEST"
 
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
 
 grep -q 'com.android.billingclient:billing:9.1.0' apps/jingdu/android/app/build.gradle
 grep -q 'com.google.android.play:review:2.0.2' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.room3:room3-runtime:3.0.3' apps/jingdu/android/app/build.gradle
+grep -q 'androidx.sqlite:sqlite-bundled:2.7.1' apps/jingdu/android/app/build.gradle
 
 grep -q 'jingdu_pro_lifetime' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
 grep -q 'enableOneTimeProducts' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
@@ -119,10 +125,5 @@ grep -q 'R.string.privacy_policy' apps/jingdu/android/app/src/main/java/com/junc
 grep -q 'Intent.ACTION_VIEW' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'OpenMultipleDocuments' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/MainActivity.kt
 grep -q 'ReviewManagerFactory' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReviewPrompter.kt
-
-if grep -q 'android.permission.INTERNET' apps/jingdu/android/app/src/main/AndroidManifest.xml; then
-  echo 'direct INTERNET permission is forbidden by local/private product position' >&2
-  exit 1
-fi
 
 echo 'Play store/growth/monetization/privacy contract OK'
