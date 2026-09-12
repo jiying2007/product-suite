@@ -71,7 +71,6 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
 
     HorizontalDivider()
     Text(stringResource(R.string.fast_pose), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(R.string.fast_pose_help))
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
