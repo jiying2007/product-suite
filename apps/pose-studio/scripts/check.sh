@@ -103,3 +103,31 @@ fi
 
 cd "$ROOT/android"
 ./gradlew --no-daemon --warning-mode all poseStudioCheck
+
+# Validate the final merged release manifest after dependency manifests have been applied. The
+# offline-first contract must hold for the distributable package, not merely for src/main.
+MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml -path '*release*' -print | grep -E '/merged_manifest/|/merged_manifests/' | head -n1 || true)"
+[[ -n "$MERGED_MANIFEST" && -s "$MERGED_MANIFEST" ]] || { echo "Pose Studio merged release manifest missing" >&2; exit 1; }
+if grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST"; then
+  echo "Pose Studio merged release manifest unexpectedly requests INTERNET" >&2
+  exit 1
+fi
+if grep -Fq '<profileable' "$MERGED_MANIFEST"; then
+  echo "Pose Studio production release must not be profileable" >&2
+  exit 1
+fi
+if grep -Eq 'android:debuggable="true"|android:allowBackup="true"' "$MERGED_MANIFEST"; then
+  echo "Pose Studio merged release manifest contains debug/backup behavior forbidden for production" >&2
+  exit 1
+fi
+
+# Pose Studio is currently Java/Kotlin-only. If a future dependency introduces native code, fail
+# closed so 64-bit/16 KiB compatibility is added and proven before that release can pass CI.
+RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+[[ -n "$RELEASE_APK" && -s "$RELEASE_APK" ]] || { echo "Pose Studio release APK missing" >&2; exit 1; }
+if unzip -Z1 "$RELEASE_APK" | grep -Eq '^lib/[^/]+/.*\.so$'; then
+  echo "Pose Studio release gained native libraries; add explicit 64-bit/16 KiB validation before shipping" >&2
+  exit 1
+fi
+
+echo "Pose Studio merged release manifest/package contract OK"
