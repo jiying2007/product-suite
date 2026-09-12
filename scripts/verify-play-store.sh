@@ -94,13 +94,18 @@ for required in ('App content and policy declarations', 'Ads: declare **No**', '
 PY
 
 MAIN_MANIFEST='apps/jingdu/android/app/src/main/AndroidManifest.xml'
+RELEASE_MANIFEST='apps/jingdu/android/app/src/release/AndroidManifest.xml'
 BENCHMARK_MANIFEST='apps/jingdu/android/app/src/benchmark/AndroidManifest.xml'
 if grep -Fq '<profileable' "$MAIN_MANIFEST"; then
-  echo 'production Jingdu manifest must not be profileable' >&2
+  echo 'production Jingdu main manifest must not be profileable' >&2
   exit 1
 fi
 grep -Fq '<profileable android:shell="true"' "$BENCHMARK_MANIFEST"
-grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST"
+if grep -Fq 'android.permission.INTERNET' "$MAIN_MANIFEST"; then
+  echo 'Jingdu core/main manifest must remain network-free' >&2
+  exit 1
+fi
+grep -Fq 'android.permission.INTERNET' "$RELEASE_MANIFEST"
 grep -Fq 'android:usesCleartextTraffic="false"' "$MAIN_MANIFEST"
 
 python3 ./scripts/verify-android-i18n.py
