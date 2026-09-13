@@ -21,6 +21,19 @@ class ReaderMotionControllerTest {
         assertEquals(ReaderMotionState.IDLE, controller.state)
     }
 
+    @Test fun automaticChromeProjectionTracksModeAndMotion() {
+        try {
+            ReaderMotionUiRuntime.publish(ReaderMode.CONTINUOUS, ReaderMotionState.AUTO_SCROLL)
+            assertEquals(ReaderMode.CONTINUOUS, ReaderMotionUiRuntime.readingMode)
+            assertEquals(ReaderMotionState.AUTO_SCROLL, ReaderMotionUiRuntime.motion)
+            ReaderMotionUiRuntime.publish(ReaderMode.PAGED, ReaderMotionState.AUTO_PAGE)
+            assertEquals(ReaderMode.PAGED, ReaderMotionUiRuntime.readingMode)
+            assertEquals(ReaderMotionState.AUTO_PAGE, ReaderMotionUiRuntime.motion)
+        } finally {
+            ReaderMotionUiRuntime.publish(ReaderMode.PAGED, ReaderMotionState.IDLE)
+        }
+    }
+
     @Test fun adaptiveAutoPageRemainsResponsiveAndBounded() {
         val controller = ReaderMotionController()
         val settings = ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 1f)
