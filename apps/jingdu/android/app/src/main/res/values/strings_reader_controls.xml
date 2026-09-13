@@ -61,8 +61,6 @@
     <string name="reader_highlight_pink">Pink</string>
     <string name="reader_screen_on_motion">Keep screen awake during automatic reading</string>
     <string name="reader_no_chapters">No chapter markers found.</string>
-    <string name="reader_tts_voice_section">Offline-capable system voices</string>
     <string name="reader_tts_voice_privacy">Jingdu lists voices the system marks as not requiring network access. Read-aloud is provided by your selected system TTS engine, which follows its own network and privacy behavior; Jingdu does not send book text to Jingdu-operated servers.</string>
-    <string name="reader_empty_body_truthful">Detect common Chinese encodings automatically, handle large files, search, chapters, Smart Clean and system read-aloud. Your source file stays unchanged, and Jingdu does not upload your books to Jingdu-operated servers.</string>
     <string name="ok">Save</string>
 </resources>
