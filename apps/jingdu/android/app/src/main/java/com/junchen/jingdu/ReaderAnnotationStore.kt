@@ -416,7 +416,10 @@ class ReaderAnnotationStore(private val context: Context) {
     private companion object {
         const val PERSISTENCE_THREAD = "jingdu-annotations"
         val persistence = Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, PERSISTENCE_THREAD).apply { isDaemon = true }
+            Thread({
+                runCatching { android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND) }
+                runnable.run()
+            }, PERSISTENCE_THREAD).apply { isDaemon = true }
         }
         val cache = ConcurrentHashMap<String, List<ReaderAnnotation>>()
         val loadedBooks = ConcurrentHashMap.newKeySet<String>()
@@ -450,7 +453,7 @@ class ReaderAnnotationStore(private val context: Context) {
 
         fun flushPersistenceQueue() {
             if (Thread.currentThread().name == PERSISTENCE_THREAD) return
-            runCatching { persistence.submit { Unit }.get() }
+            runCatching { persistence.submit {}.get() }
         }
     }
 }
