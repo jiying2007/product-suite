@@ -48,19 +48,22 @@ class ReaderMotionControllerTest {
 
     @Test fun adaptivePaceMultiplierStillChangesCadenceWithinHumanScaleBounds() {
         val controller = ReaderMotionController()
+        // 300 chars at 1,800 CPM is a 10s base cadence: 0.5x reaches the 18s comfort cap while
+        // 2x remains 5s, so this validates multiplier ordering instead of comparing two clamped
+        // values at the same upper bound.
         val slower = controller.adaptivePageDelayMs(
-            800,
-            600.0,
+            300,
+            1_800.0,
             ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 0.5f),
         )
         val faster = controller.adaptivePageDelayMs(
-            800,
-            600.0,
+            300,
+            1_800.0,
             ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 2f),
         )
         assertTrue(faster < slower)
-        assertTrue(faster >= ReaderMotionController.MIN_ADAPTIVE_PAGE_DELAY_MS)
-        assertTrue(slower <= ReaderMotionController.MAX_ADAPTIVE_PAGE_DELAY_MS)
+        assertEquals(5_000L, faster)
+        assertEquals(ReaderMotionController.MAX_ADAPTIVE_PAGE_DELAY_MS, slower)
     }
 
     @Test fun fixedAutoPageUsesExplicitInterval() {
