@@ -33,8 +33,17 @@ internal class ReaderMotionController {
         val safeChars = visibleSourceChars.coerceAtLeast(ReaderController.MIN_PAGE_CHARS)
         val safeCpm = charsPerMinute.coerceIn(120.0, 1800.0)
         val base = safeChars.toDouble() * 60_000.0 / safeCpm
+        // A literal whole-page reading-time estimate can easily exceed one or two minutes for a
+        // dense phone page. That made Auto Page look broken even though its timer was technically
+        // running. Adaptive mode is a hands-free *page cadence*, so keep the learned pace signal but
+        // bound it to a range where the next action is perceptible and still comfortable.
         return (base / settings.autoPagePaceMultiplier.coerceIn(0.5f, 2f))
             .roundToLong()
-            .coerceIn(2_500L, 120_000L)
+            .coerceIn(MIN_ADAPTIVE_PAGE_DELAY_MS, MAX_ADAPTIVE_PAGE_DELAY_MS)
+    }
+
+    companion object {
+        const val MIN_ADAPTIVE_PAGE_DELAY_MS = 3_000L
+        const val MAX_ADAPTIVE_PAGE_DELAY_MS = 18_000L
     }
 }
