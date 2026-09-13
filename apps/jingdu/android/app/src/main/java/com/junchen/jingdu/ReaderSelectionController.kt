@@ -18,6 +18,8 @@ data class ReaderSelectionRange(
 internal object ReaderSelectionController {
     private const val SOURCE_TAG = "jingdu.source.relative-range"
     private const val SOURCE_BASE_TAG = "jingdu.source.base"
+    private const val CACHED_UNIT_SOURCE_RANGES = 4 * 1024
+    private val unitSourceRanges = Array(CACHED_UNIT_SOURCE_RANGES) { index -> "$index:${index + 1}" }
     private val preparedSelectionMaps = WeakHashMap<SourceDisplayMap, AnnotatedString>()
 
     /**
@@ -72,7 +74,16 @@ internal object ReaderSelectionController {
             val utfEnd = utfStart + Character.charCount(cp)
             val sourceStart = map.sourceForDisplay(displayCp)
             val sourceEnd = map.sourceForDisplay(displayCp + 1).coerceAtLeast(sourceStart + 1)
-            addStringAnnotation(SOURCE_TAG, "$sourceStart:$sourceEnd", utfStart, utfEnd)
+            val sourceRange = if (
+                sourceEnd == sourceStart + 1 &&
+                sourceStart >= 0L &&
+                sourceStart < unitSourceRanges.size.toLong()
+            ) {
+                unitSourceRanges[sourceStart.toInt()]
+            } else {
+                "$sourceStart:$sourceEnd"
+            }
+            addStringAnnotation(SOURCE_TAG, sourceRange, utfStart, utfEnd)
             utfStart = utfEnd
             displayCp++
         }
