@@ -40,18 +40,13 @@ internal class ReaderSkimController(context: Context, private val bookId: String
             preview = preview,
             chapterProgressPercent = chapterProgress,
             bookProgressPercent = bookProgress,
-            chapterRemainingMinutes = remaining(offset, chapterEnd, charsPerMinute),
-            bookRemainingMinutes = remaining(offset, length, charsPerMinute),
+            chapterRemainingMinutes = readerRemainingMinutes(offset, chapterEnd, charsPerMinute),
+            bookRemainingMinutes = readerRemainingMinutes(offset, length, charsPerMinute),
             originOffset = originOffset,
         )
     }
 
     override fun close() = engine.close()
-
-    private fun remaining(position: Long, end: Long, cpm: Double): Int? {
-        if (end <= position || cpm <= 0) return null
-        return kotlin.math.ceil((end - position).toDouble() / cpm.coerceAtLeast(1.0)).toInt().coerceAtLeast(1)
-    }
 
     private fun utf16Index(text: String, codePoints: Long): Int {
         val total = text.codePointCount(0, text.length)

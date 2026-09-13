@@ -303,6 +303,11 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
     SettingSlider(stringResource(R.string.speech_rate), s.ttsRate, 0.5f..2f, "%.1f×".format(s.ttsRate)) { actions.onSettingsChanged(s.copy(ttsRate = it)) }
     SettingSlider(stringResource(R.string.speech_pitch), s.ttsPitch, 0.6f..1.6f, "%.1f×".format(s.ttsPitch)) { actions.onSettingsChanged(s.copy(ttsPitch = it)) }
     Section(stringResource(R.string.offline_voice)) {
+        Text(
+            stringResource(R.string.reader_tts_voice_privacy),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (state.proUnlocked) {
             FilterChip(s.ttsVoiceName.isEmpty(), { actions.onSettingsChanged(s.copy(ttsVoiceName = "")) }, label = { Text(stringResource(R.string.system_default)) })
             state.ttsVoices.take(20).forEach { voice -> FilterChip(s.ttsVoiceName == voice.name, { actions.onSettingsChanged(s.copy(ttsVoiceName = voice.name)) }, label = { Text(voice.label) }) }

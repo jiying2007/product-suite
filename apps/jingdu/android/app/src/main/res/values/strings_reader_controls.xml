@@ -16,6 +16,7 @@
     <string name="reader_annotation_added">Saved locally</string>
     <string name="reader_bookmark_marker">Bookmark</string>
     <string name="reader_current_position">Current position</string>
+    <string name="reader_jump_to_chapter">Jump to chapter</string>
     <string name="reader_auto_scroll_slow">Slower</string>
     <string name="reader_auto_scroll_fast">Faster</string>
     <string name="reader_auto_scroll_speed_value">%1$d · auto scroll</string>
@@ -60,5 +61,6 @@
     <string name="reader_highlight_pink">Pink</string>
     <string name="reader_screen_on_motion">Keep screen awake during automatic reading</string>
     <string name="reader_no_chapters">No chapter markers found.</string>
+    <string name="reader_tts_voice_privacy">Jingdu lists voices the system marks as not requiring network access. Read-aloud is provided by your selected system TTS engine, which follows its own network and privacy behavior; Jingdu does not send book text to Jingdu-operated servers.</string>
     <string name="ok">Save</string>
 </resources>

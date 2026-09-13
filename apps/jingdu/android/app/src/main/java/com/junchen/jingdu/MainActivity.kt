@@ -551,6 +551,7 @@ class MainActivity : ComponentActivity() {
         uiState.panel?.let { uiState = uiState.copy(panel = null); return }
         val book = currentBook
         if (book != null && !cleanMode) persistProgress(book, force = true)
+        statsStore.finish()
         stopAllMotion(); reader.close()
         currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
         uiState = uiState.copy(
@@ -619,8 +620,6 @@ class MainActivity : ComponentActivity() {
                 }
                 val overrides = TocOverrideStore(this).load(book.id, length)
                 val report = TocOverrideStore(this).apply(base, overrides)
-                // Materialize the potentially large chapter projection on the background TOC worker.
-                // The main thread only publishes an already-built immutable list.
                 val chapterModels = report.chapters.map { ChapterModel(it.offset, it.title, it.source, it.confidence) }
                 main.post {
                     if (chapterWorkKey == key) chapterWorkKey = null
@@ -1107,6 +1106,7 @@ class MainActivity : ComponentActivity() {
     private fun deleteCurrentBook() {
         val book = currentBook ?: return
         uiState = uiState.copy(deleteConfirmation = false)
+        statsStore.finish()
         stopAllMotion(); workGeneration.incrementAndGet(); reader.close()
         repository.delete(book)
         clearBookPreferences(book)
