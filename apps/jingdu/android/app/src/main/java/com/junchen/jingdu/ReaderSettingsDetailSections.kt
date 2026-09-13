@@ -53,8 +53,8 @@ internal fun AutoReadSettings(state: AppUiState, actions: JingduActions) = Setti
             } else {
                 SettingSlider(
                     stringResource(R.string.interval),
-                    s.autoPageDelayMs.toFloat(),
-                    3_000f..30_000f,
+                    s.autoPageDelayMs.toFloat().coerceIn(2_000f, 120_000f),
+                    2_000f..120_000f,
                     "%.1fs".format(s.autoPageDelayMs / 1000f),
                 ) { actions.onSettingsChanged(s.copy(autoPageDelayMs = it.toLong())) }
             }
