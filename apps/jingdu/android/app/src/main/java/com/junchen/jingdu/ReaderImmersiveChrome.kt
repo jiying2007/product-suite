@@ -272,7 +272,7 @@ private fun ReaderDockActions(
 @Composable
 private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, fraction: Float) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val bubbleWidth = 196.dp
+        val bubbleWidth = 224.dp
         val travel = (maxWidth - bubbleWidth).coerceAtLeast(0.dp)
         val x = travel * fraction.coerceIn(0f, 1f)
         Surface(
@@ -283,9 +283,9 @@ private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, 
             shadowElevation = 4.dp,
         ) {
             Row(
-                Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Text(
                     preview?.chapter ?: stringResource(R.string.reader_book_progress_value, preview?.bookProgressPercent ?: fallbackPercent),
@@ -294,8 +294,11 @@ private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                preview?.chapterRemainingMinutes?.let {
-                    Text(stringResource(R.string.reader_chapter_remaining, it), style = MaterialTheme.typography.labelSmall)
+                (preview?.chapterRemainingMinutes ?: preview?.bookRemainingMinutes)?.let { minutes ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(Icons.Outlined.Timer, null, Modifier.size(14.dp))
+                        Text(stringResource(R.string.minutes_value, minutes), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 if (preview?.chapter != null) {
                     Text(stringResource(R.string.reader_book_progress_value, preview.bookProgressPercent), style = MaterialTheme.typography.labelSmall)
