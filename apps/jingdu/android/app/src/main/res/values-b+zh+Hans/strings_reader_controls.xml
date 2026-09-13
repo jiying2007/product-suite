@@ -61,8 +61,6 @@
     <string name="reader_highlight_pink">粉色</string>
     <string name="reader_screen_on_motion">自动阅读时保持屏幕常亮</string>
     <string name="reader_no_chapters">未识别到章节标记。</string>
-    <string name="reader_tts_voice_section">无需联网的系统声音</string>
     <string name="reader_tts_voice_privacy">净读只列出系统标记为无需网络的声音。实际朗读由你选择的系统 TTS 引擎提供，其联网与隐私行为由该引擎决定；净读不会把书籍正文发送到净读运营的服务器。</string>
-    <string name="reader_empty_body_truthful">自动识别常见中文编码，支持大文件、搜索、目录、智能净读和系统朗读。源文件始终保持不变，净读不会把书籍正文上传到净读运营的服务器。</string>
     <string name="ok">保存</string>
 </resources>
