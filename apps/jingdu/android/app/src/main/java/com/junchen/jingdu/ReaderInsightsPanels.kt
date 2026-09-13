@@ -167,11 +167,10 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                         }
                     }
                     bookRemaining?.let { minutes ->
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(stringResource(R.string.minutes_value, minutes)) },
-                            leadingIcon = { Icon(Icons.Outlined.Schedule, null, Modifier.size(17.dp)) },
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(Icons.Outlined.Schedule, null, Modifier.size(17.dp))
+                            Text(stringResource(R.string.minutes_value, minutes), style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 }
             }
@@ -242,7 +241,7 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                                     ) {
                                         Icon(Icons.Outlined.ArrowForward, null, Modifier.size(17.dp))
                                         Spacer(Modifier.width(5.dp))
-                                        Text(if (active) stringResource(R.string.continue_reading) else stringResource(R.string.reader_skim_preview))
+                                        Text(if (active) stringResource(R.string.continue_reading) else stringResource(R.string.reader_jump_to_chapter))
                                     }
                                 }
                             }
