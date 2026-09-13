@@ -1,6 +1,9 @@
 package com.junchen.jingdu
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -38,13 +41,17 @@ data class ReaderAnnotation(
  * Room-backed source-range annotations. The process-local snapshot makes normal Reader CRUD
  * immediate while one serialized background writer performs Room I/O and source-anchor capture.
  * Re-decode/backup paths explicitly drain queued mutations before operations that require a durable
- * point-in-time view.
+ * point-in-time view. The writer is also drained at the Activity pause boundary so a just-created
+ * annotation is durable before Android is free to kill the background process.
  */
 class ReaderAnnotationStore(private val context: Context) {
     private val dao = ReaderDatabaseProvider.get(context).annotationDao()
     private val repository = BookRepository(context.applicationContext)
 
-    init { prewarmCache() }
+    init {
+        registerLifecycleFlush(context.applicationContext)
+        prewarmCache()
+    }
 
     fun observe(bookId: String): Flow<List<ReaderAnnotation>> = dao.observe(bookId).map { values -> values.map(::fromEntity) }
     suspend fun listAsync(bookId: String): List<ReaderAnnotation> = dao.list(bookId).map(::fromEntity)
@@ -310,10 +317,7 @@ class ReaderAnnotationStore(private val context: Context) {
     private fun normalizedSnapshot(values: List<ReaderAnnotation>): List<ReaderAnnotation> =
         values.distinctBy { it.id }.sortedWith(compareBy<ReaderAnnotation> { it.sourceStart }.thenBy { it.createdAt })
 
-    private fun awaitPendingWrites() {
-        if (Thread.currentThread().name == PERSISTENCE_THREAD) return
-        runCatching { persistence.submit { Unit }.get() }
-    }
+    private fun awaitPendingWrites() = flushPersistenceQueue()
 
     private fun captureAnchor(bookId: String, start: Long, end: Long, bookmark: Boolean): Anchor {
         val book = repository.list().firstOrNull { it.id == bookId } ?: return Anchor.EMPTY
@@ -419,6 +423,7 @@ class ReaderAnnotationStore(private val context: Context) {
         val cacheLock = Any()
         val prewarmStarted = AtomicBoolean(false)
         val prewarmComplete = AtomicBoolean(false)
+        val lifecycleFlushRegistered = AtomicBoolean(false)
         val preparedRemaps = ConcurrentHashMap<String, String>()
         const val MAX_ANNOTATIONS = 20_000
         const val MAX_NOTE_CHARS = 8 * 1024
@@ -428,6 +433,25 @@ class ReaderAnnotationStore(private val context: Context) {
         const val MAX_ANCHOR_WINDOW_CP = 512
         const val SEARCH_RADIUS_CP = 8192L
         const val MAX_ANCHOR_CANDIDATES = 64
+
+        fun registerLifecycleFlush(context: Context) {
+            val application = context as? Application ?: return
+            if (!lifecycleFlushRegistered.compareAndSet(false, true)) return
+            application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                override fun onActivityPaused(activity: Activity) = flushPersistenceQueue()
+                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+                override fun onActivityStarted(activity: Activity) = Unit
+                override fun onActivityResumed(activity: Activity) = Unit
+                override fun onActivityStopped(activity: Activity) = Unit
+                override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+                override fun onActivityDestroyed(activity: Activity) = Unit
+            })
+        }
+
+        fun flushPersistenceQueue() {
+            if (Thread.currentThread().name == PERSISTENCE_THREAD) return
+            runCatching { persistence.submit { Unit }.get() }
+        }
     }
 }
 
