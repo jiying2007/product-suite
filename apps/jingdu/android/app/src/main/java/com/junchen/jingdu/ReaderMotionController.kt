@@ -1,19 +1,22 @@
 package com.junchen.jingdu
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlin.math.roundToLong
 
 enum class ReaderMotionState { IDLE, AUTO_SCROLL, AUTO_PAGE, TTS }
 
-/** Lightweight read-only projection used by Reader chrome to label the active automatic motion. */
+/** Observable projection used by Reader chrome to label the active automatic motion. */
 internal object ReaderMotionUiRuntime {
-    @Volatile var readingMode: ReaderMode = ReaderMode.PAGED
+    var readingMode by mutableStateOf(ReaderMode.PAGED)
         private set
-    @Volatile var motion: ReaderMotionState = ReaderMotionState.IDLE
+    var motion by mutableStateOf(ReaderMotionState.IDLE)
         private set
 
     fun publish(mode: ReaderMode, nextMotion: ReaderMotionState) {
-        readingMode = mode
-        motion = nextMotion
+        if (readingMode != mode) readingMode = mode
+        if (motion != nextMotion) motion = nextMotion
     }
 }
 
