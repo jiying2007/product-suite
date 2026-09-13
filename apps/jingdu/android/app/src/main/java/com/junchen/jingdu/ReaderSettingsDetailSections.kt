@@ -21,14 +21,65 @@ import kotlin.math.roundToInt
 @Composable
 internal fun AutoReadSettings(state: AppUiState, actions: JingduActions) = SettingsList {
     val s = state.settings
-    Section(stringResource(R.string.reader_page_animation)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderPageAnimation.entries) { value -> FilterChip(s.pageAnimation == value, { actions.onSettingsChanged(s.copy(pageAnimation = value)) }, label = { Text(stringResource(if (value == ReaderPageAnimation.NONE) R.string.reader_animation_none else R.string.reader_animation_slide)) }) } } }
-    Section(stringResource(R.string.auto_page)) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderAutoPageMode.entries) { value -> FilterChip(s.autoPageMode == value, { actions.onSettingsChanged(s.copy(autoPageMode = value)) }, label = { Text(stringResource(if (value == ReaderAutoPageMode.ADAPTIVE) R.string.reader_auto_page_adaptive else R.string.reader_auto_page_fixed)) }) } }
-        if (s.autoPageMode == ReaderAutoPageMode.ADAPTIVE) SettingSlider(stringResource(R.string.reader_auto_page_pace), s.autoPagePaceMultiplier, 0.5f..2f, "%.1f×".format(s.autoPagePaceMultiplier)) { actions.onSettingsChanged(s.copy(autoPagePaceMultiplier = it)) }
-        else SettingSlider(stringResource(R.string.interval), s.autoPageDelayMs.toFloat(), 2_000f..120_000f, "%.1fs".format(s.autoPageDelayMs / 1000f)) { actions.onSettingsChanged(s.copy(autoPageDelayMs = it.toLong())) }
+    if (s.readingMode == ReaderMode.PAGED) {
+        Section(stringResource(R.string.reader_page_animation)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ReaderPageAnimation.entries) { value ->
+                    FilterChip(
+                        s.pageAnimation == value,
+                        { actions.onSettingsChanged(s.copy(pageAnimation = value)) },
+                        label = { Text(stringResource(if (value == ReaderPageAnimation.NONE) R.string.reader_animation_none else R.string.reader_animation_slide)) },
+                    )
+                }
+            }
+        }
+        Section(stringResource(R.string.auto_page)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ReaderAutoPageMode.entries) { value ->
+                    FilterChip(
+                        s.autoPageMode == value,
+                        { actions.onSettingsChanged(s.copy(autoPageMode = value)) },
+                        label = { Text(stringResource(if (value == ReaderAutoPageMode.ADAPTIVE) R.string.reader_auto_page_adaptive else R.string.reader_auto_page_fixed)) },
+                    )
+                }
+            }
+            if (s.autoPageMode == ReaderAutoPageMode.ADAPTIVE) {
+                SettingSlider(
+                    stringResource(R.string.reader_auto_page_pace),
+                    s.autoPagePaceMultiplier,
+                    0.5f..2f,
+                    "%.1f×".format(s.autoPagePaceMultiplier),
+                ) { actions.onSettingsChanged(s.copy(autoPagePaceMultiplier = it)) }
+            } else {
+                SettingSlider(
+                    stringResource(R.string.interval),
+                    s.autoPageDelayMs.toFloat(),
+                    3_000f..30_000f,
+                    "%.1fs".format(s.autoPageDelayMs / 1000f),
+                ) { actions.onSettingsChanged(s.copy(autoPageDelayMs = it.toLong())) }
+            }
+        }
+    } else {
+        Section(stringResource(R.string.reader_scroll_speed)) {
+            SettingSlider(
+                stringResource(R.string.reader_scroll_speed),
+                s.autoScrollSpeedDpPerSecond,
+                12f..320f,
+                "${s.autoScrollSpeedDpPerSecond.roundToInt()} dp/s",
+            ) { actions.onSettingsChanged(s.copy(autoScrollSpeedDpPerSecond = it)) }
+        }
     }
-    SettingSlider(stringResource(R.string.reader_scroll_speed), s.autoScrollSpeedDpPerSecond, 12f..320f, "${s.autoScrollSpeedDpPerSecond.roundToInt()} dp/s") { actions.onSettingsChanged(s.copy(autoScrollSpeedDpPerSecond = it)) }
-    Section(stringResource(R.string.sleep_timer)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(listOf(0, 15, 30, 60)) { minutes -> FilterChip(state.sleepMinutes == minutes, { actions.onSleepTimer(minutes) }, label = { Text(if (minutes == 0) stringResource(R.string.off) else stringResource(R.string.minutes_value, minutes)) }) } } }
+    Section(stringResource(R.string.sleep_timer)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(listOf(0, 15, 30, 60)) { minutes ->
+                FilterChip(
+                    state.sleepMinutes == minutes,
+                    { actions.onSleepTimer(minutes) },
+                    label = { Text(if (minutes == 0) stringResource(R.string.off) else stringResource(R.string.minutes_value, minutes)) },
+                )
+            }
+        }
+    }
 }
 
 @Composable
