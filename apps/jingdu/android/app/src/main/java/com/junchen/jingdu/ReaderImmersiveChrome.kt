@@ -237,6 +237,11 @@ private fun ReaderDockActions(
     onAutoPage: () -> Unit,
 ) {
     var moreOpen by remember { mutableStateOf(false) }
+    val continuous = ReaderMotionUiRuntime.readingMode == ReaderMode.CONTINUOUS
+    val automaticActive = if (continuous) ReaderMotionUiRuntime.motion == ReaderMotionState.AUTO_SCROLL else autoPaging
+    val startAutomaticLabel = stringResource(if (continuous) R.string.reader_start_auto_scroll else R.string.start_auto_page)
+    val stopAutomaticLabel = stringResource(if (continuous) R.string.reader_stop_auto_scroll else R.string.stop_auto_page)
+
     IconButton(onBookmarks, Modifier.size(48.dp)) {
         Icon(Icons.Outlined.Bookmarks, stringResource(R.string.bookmarks), Modifier.size(21.dp))
     }
@@ -249,9 +254,9 @@ private fun ReaderDockActions(
             Icon(Icons.Default.PlayArrow, stringResource(R.string.start_read_aloud), Modifier.size(21.dp))
         }
     }
-    if (autoPaging) {
+    if (automaticActive) {
         FilledTonalIconButton(onAutoPage, Modifier.size(48.dp)) {
-            Icon(Icons.Default.Pause, stringResource(R.string.stop_auto_page), Modifier.size(21.dp))
+            Icon(Icons.Default.Pause, stopAutomaticLabel, Modifier.size(21.dp))
         }
     } else {
         Box {
@@ -260,7 +265,7 @@ private fun ReaderDockActions(
             }
             DropdownMenu(moreOpen, onDismissRequest = { moreOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.start_auto_page)) },
+                    text = { Text(startAutomaticLabel) },
                     onClick = { moreOpen = false; onAutoPage() },
                     leadingIcon = { Icon(Icons.Outlined.Timer, null) },
                 )
