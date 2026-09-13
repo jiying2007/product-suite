@@ -7,6 +7,12 @@ import java.util.ArrayDeque
  * this class owns the currently-open book/revision and all transient page navigation state.
  */
 internal class ReaderSession {
+    init {
+        // ReaderReadingSessionRuntime is process-local while MainActivity/ReaderSession is not.
+        // A new Activity/session must never inherit a stale Clean Preview flag from a destroyed one.
+        ReaderReadingSessionRuntime.publishCleanPreview(false)
+    }
+
     var reader: ReaderController = ReaderController()
         internal set
     var book: BookRepository.Book? = null
