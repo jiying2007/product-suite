@@ -16,6 +16,9 @@
     <string name="reader_annotation_added">Saved locally</string>
     <string name="reader_bookmark_marker">Bookmark</string>
     <string name="reader_current_position">Current position</string>
+    <string name="reader_jump_to_chapter">Jump to chapter</string>
+    <string name="reader_start_auto_scroll">Start auto scroll</string>
+    <string name="reader_stop_auto_scroll">Stop auto scroll</string>
     <string name="reader_auto_scroll_slow">Slower</string>
     <string name="reader_auto_scroll_fast">Faster</string>
     <string name="reader_auto_scroll_speed_value">%1$d · auto scroll</string>
