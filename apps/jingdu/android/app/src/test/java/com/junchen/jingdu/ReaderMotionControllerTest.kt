@@ -1,6 +1,7 @@
 package com.junchen.jingdu
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,9 +17,11 @@ class ReaderMotionControllerTest {
             }
             if (target == ReaderMotionState.IDLE) controller.stop() else controller.start(target)
             assertEquals(target, controller.state)
+            assertEquals(target, ReaderMotionRuntime.state)
         }
         controller.stop()
         assertEquals(ReaderMotionState.IDLE, controller.state)
+        assertEquals(ReaderMotionState.IDLE, ReaderMotionRuntime.state)
     }
 
     @Test fun automaticChromeProjectionTracksModeAndMotion() {
@@ -32,6 +35,18 @@ class ReaderMotionControllerTest {
         } finally {
             ReaderMotionUiRuntime.publish(ReaderMode.PAGED, ReaderMotionState.IDLE)
         }
+    }
+
+    @Test fun paceLearningAcceptsOnlyIdlePageSizedForwardMovement() {
+        assertTrue(readerShouldLearnPace(ReaderMotionState.IDLE, 64L))
+        assertTrue(readerShouldLearnPace(ReaderMotionState.IDLE, 800L))
+        assertTrue(readerShouldLearnPace(ReaderMotionState.IDLE, ReaderController.WINDOW_CHARS))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.IDLE, 63L))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.IDLE, -800L))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.IDLE, ReaderController.WINDOW_CHARS + 1L))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.AUTO_PAGE, 800L))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.AUTO_SCROLL, 800L))
+        assertFalse(readerShouldLearnPace(ReaderMotionState.TTS, 800L))
     }
 
     @Test fun adaptiveAutoPageRemainsResponsiveAndBounded() {
