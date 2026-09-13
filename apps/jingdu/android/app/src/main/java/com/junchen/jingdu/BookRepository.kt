@@ -166,7 +166,10 @@ internal class BookRepository(context: Context) {
         book ?: return
         book.progress = progress.coerceAtLeast(0)
         book.touchedAt = System.currentTimeMillis()
-        upsert(book)
+        // saveProgress is dispatched by MainActivity's dedicated progress worker. Commit there so
+        // SharedPreferences does not enqueue a second asynchronous write/message that can contend
+        // with the Reader frame thread during rapid page turns.
+        write(list().filterNot { it.id == book.id } + book, synchronous = true)
     }
 
     @Synchronized
@@ -312,7 +315,7 @@ internal class BookRepository(context: Context) {
         write(list().filterNot { it.id == book.id } + book)
     }
 
-    private fun write(books: List<Book>) {
+    private fun write(books: List<Book>, synchronous: Boolean = false) {
         val array = JSONArray()
         books.forEach { book ->
             array.put(
@@ -328,7 +331,8 @@ internal class BookRepository(context: Context) {
                     .put("touchedAt", book.touchedAt),
             )
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
+        val editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString())
+        if (synchronous) editor.commit() else editor.apply()
     }
 
     private fun displayName(uri: Uri): String {
