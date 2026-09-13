@@ -4,6 +4,19 @@ import kotlin.math.roundToLong
 
 enum class ReaderMotionState { IDLE, AUTO_SCROLL, AUTO_PAGE, TTS }
 
+/** Lightweight read-only projection used by Reader chrome to label the active automatic motion. */
+internal object ReaderMotionUiRuntime {
+    @Volatile var readingMode: ReaderMode = ReaderMode.PAGED
+        private set
+    @Volatile var motion: ReaderMotionState = ReaderMotionState.IDLE
+        private set
+
+    fun publish(mode: ReaderMode, nextMotion: ReaderMotionState) {
+        readingMode = mode
+        motion = nextMotion
+    }
+}
+
 /**
  * Single authority for mutually-exclusive reader motion. Runtime motion is deliberately not
  * persisted: reopening a reader always starts idle and requires explicit user intent.
