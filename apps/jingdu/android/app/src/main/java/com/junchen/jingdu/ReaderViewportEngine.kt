@@ -89,8 +89,9 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         val windowChars = if (continuous) CONTINUOUS_WINDOW_CHARS else ReaderController.WINDOW_CHARS
         readAround(position, settings)
         if (continuous) {
-            // Continuous reading is forward-heavy. Keep two future aligned windows hot so a long
-            // swipe or auto-scroll does not repeatedly stop at the edge of the current text island.
+            // Keep the verified 4 KiB window, but warm the next aligned neighborhoods before the
+            // viewport reaches their boundary. Continuity is solved by earlier handoff, not by
+            // increasing the authoritative window and its layout/raster cost.
             readAround((position + windowChars / 3).coerceAtMost(length - 1), settings)
             readAround((position + windowChars * 2 / 3).coerceAtMost(length - 1), settings)
             readAround((position - windowChars / 3).coerceAtLeast(0), settings)
@@ -121,13 +122,11 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         const val MAX_WINDOWS = 8
         const val PAGE_ALIGN_CHARS = 512L
         const val PAGE_BACK_BUFFER_CHARS = 384L
-        // The original 4 KiB window was tuned for a synthetic steady-state scroll benchmark, but it
-        // made real reading feel like a short isolated strip because the viewport had to recycle too
-        // frequently. Keep the renderer bounded while providing roughly three times the reading
-        // runway; hosted continuous performance remains the authority for accepting this tradeoff.
-        const val CONTINUOUS_WINDOW_CHARS = 12_288L
-        const val CONTINUOUS_ALIGN_CHARS = 3_072L
-        const val CONTINUOUS_BACK_BUFFER_CHARS = 3_072L
+        // Hosted #642 established the 4 KiB window as the continuous steady-state performance
+        // baseline. Preserve that bounded cost; UX continuity is handled by prefetch/handoff policy.
+        const val CONTINUOUS_WINDOW_CHARS = 4096L
+        const val CONTINUOUS_ALIGN_CHARS = 1024L
+        const val CONTINUOUS_BACK_BUFFER_CHARS = 1024L
     }
 }
 
