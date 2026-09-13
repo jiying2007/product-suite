@@ -7,6 +7,16 @@ import kotlin.math.roundToLong
 
 enum class ReaderMotionState { IDLE, AUTO_SCROLL, AUTO_PAGE, TTS }
 
+/** Non-Compose process-local motion state used by hot-path correctness logic. */
+internal object ReaderMotionRuntime {
+    @Volatile var state: ReaderMotionState = ReaderMotionState.IDLE
+        private set
+
+    fun publish(next: ReaderMotionState) {
+        state = next
+    }
+}
+
 /** Observable projection used by Reader chrome to label the active automatic motion. */
 internal object ReaderMotionUiRuntime {
     var readingMode by mutableStateOf(ReaderMode.PAGED)
@@ -21,16 +31,14 @@ internal object ReaderMotionUiRuntime {
 }
 
 /**
- * Pace learning is intentionally narrower than session tracking. Only an idle paged Reader moving
- * forward by at most one source window is a trustworthy human-reading sample. Automatic motion,
- * TTS, continuous scrolling, reverse navigation and larger seek/search jumps must not train CPM.
+ * Pace learning is intentionally narrower than session tracking. Only idle forward movement within
+ * one source window is a trustworthy human-reading sample. Automatic motion, TTS, reverse
+ * navigation and larger seek/search jumps must not train CPM.
  */
 internal fun readerShouldLearnPace(
-    mode: ReaderMode,
     motion: ReaderMotionState,
     sourceDelta: Long,
-): Boolean = mode == ReaderMode.PAGED &&
-    motion == ReaderMotionState.IDLE &&
+): Boolean = motion == ReaderMotionState.IDLE &&
     sourceDelta in 64L..ReaderController.WINDOW_CHARS
 
 /**
@@ -43,11 +51,13 @@ internal class ReaderMotionController {
 
     fun start(target: ReaderMotionState): ReaderMotionState {
         state = target
+        ReaderMotionRuntime.publish(state)
         return state
     }
 
     fun stop(expected: ReaderMotionState? = null): ReaderMotionState {
         if (expected == null || state == expected) state = ReaderMotionState.IDLE
+        ReaderMotionRuntime.publish(state)
         return state
     }
 
