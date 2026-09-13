@@ -10,6 +10,8 @@ import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 enum class ReaderAnnotationKind { BOOKMARK, HIGHLIGHT, NOTE }
@@ -33,33 +35,62 @@ data class ReaderAnnotation(
 )
 
 /**
- * Room-backed source-range annotations. Anchors are captured from the normalized source so display
- * conversion and typography can never invalidate them. Re-decode/re-normalization first performs a
- * bounded contextual re-anchor and uses proportional mapping only as the final fallback.
+ * Room-backed source-range annotations. The process-local snapshot makes normal Reader CRUD
+ * immediate while one serialized background writer performs Room I/O and source-anchor capture.
+ * Re-decode/backup paths explicitly drain queued mutations before operations that require a durable
+ * point-in-time view.
  */
 class ReaderAnnotationStore(private val context: Context) {
     private val dao = ReaderDatabaseProvider.get(context).annotationDao()
     private val repository = BookRepository(context.applicationContext)
 
+    init { prewarmCache() }
+
     fun observe(bookId: String): Flow<List<ReaderAnnotation>> = dao.observe(bookId).map { values -> values.map(::fromEntity) }
     suspend fun listAsync(bookId: String): List<ReaderAnnotation> = dao.list(bookId).map(::fromEntity)
-    fun list(bookId: String): List<ReaderAnnotation> = io { listAsync(bookId) }
+    fun list(bookId: String): List<ReaderAnnotation> {
+        cachedSnapshot(bookId)?.let { return it }
+        if (prewarmComplete.get()) {
+            storeSnapshot(bookId, emptyList())
+            return emptyList()
+        }
+        return io { listAsync(bookId) }.also { storeSnapshot(bookId, it) }
+    }
     fun bookmarks(bookId: String): List<ReaderAnnotation> = list(bookId).filter { it.kind == ReaderAnnotationKind.BOOKMARK }
 
-    suspend fun addBookmarkAsync(bookId: String, offset: Long): ReaderAnnotation {
+    suspend fun addBookmarkAsync(bookId: String, offset: Long, id: String? = null): ReaderAnnotation {
         val normalized = offset.coerceAtLeast(0)
         val existing = dao.list(bookId).firstOrNull { it.kind == ReaderAnnotationKind.BOOKMARK.name && abs(it.sourceStart - normalized) <= 1 }
-        if (existing != null) return fromEntity(existing)
+        if (existing != null) return fromEntity(existing).also { reconcilePersisted(bookId, id, it) }
         val anchor = captureAnchor(bookId, normalized, normalized, bookmark = true)
         val value = ReaderAnnotation(
-            id = UUID.randomUUID().toString(), bookId = bookId,
+            id = id ?: UUID.randomUUID().toString(), bookId = bookId,
             sourceStart = normalized, sourceEnd = normalized, kind = ReaderAnnotationKind.BOOKMARK,
             anchorBefore = anchor.before, anchorSelected = anchor.selected, anchorAfter = anchor.after, anchorHash = anchor.hash,
         )
         dao.upsert(value.toEntity())
+        reconcilePersisted(bookId, id, value)
         return value
     }
-    fun addBookmark(bookId: String, offset: Long): ReaderAnnotation = io { addBookmarkAsync(bookId, offset) }
+
+    fun addBookmark(bookId: String, offset: Long): ReaderAnnotation {
+        val normalized = offset.coerceAtLeast(0)
+        val current = list(bookId)
+        current.firstOrNull { it.kind == ReaderAnnotationKind.BOOKMARK && abs(it.sourceStart - normalized) <= 1 }?.let { return it }
+        val optimistic = ReaderAnnotation(
+            id = UUID.randomUUID().toString(),
+            bookId = bookId,
+            sourceStart = normalized,
+            sourceEnd = normalized,
+            kind = ReaderAnnotationKind.BOOKMARK,
+        )
+        storeSnapshot(bookId, current + optimistic)
+        persistence.execute {
+            runCatching { io { addBookmarkAsync(bookId, normalized, optimistic.id) } }
+                .onFailure { reloadCacheFromDatabase(bookId) }
+        }
+        return optimistic
+    }
 
     suspend fun upsertRangeAsync(
         bookId: String,
@@ -78,30 +109,98 @@ class ReaderAnnotationStore(private val context: Context) {
         val now = System.currentTimeMillis()
         val anchor = captureAnchor(bookId, from, to, bookmark = false)
         val value = ReaderAnnotation(
-            id = previous?.id ?: UUID.randomUUID().toString(), bookId = bookId,
+            id = previous?.id ?: id ?: UUID.randomUUID().toString(), bookId = bookId,
             sourceStart = from, sourceEnd = to, kind = kind, style = style,
             note = note.take(MAX_NOTE_CHARS), excerpt = excerpt.take(MAX_EXCERPT_CHARS),
             anchorBefore = anchor.before, anchorSelected = anchor.selected, anchorAfter = anchor.after, anchorHash = anchor.hash,
             createdAt = previous?.createdAt ?: now, updatedAt = now,
         )
         dao.upsert(value.toEntity())
+        reconcilePersisted(bookId, id, value)
         return value
     }
 
-    fun upsertRange(bookId: String, start: Long, end: Long, kind: ReaderAnnotationKind, style: ReaderHighlightStyle = ReaderHighlightStyle.YELLOW, note: String = "", excerpt: String = "", id: String? = null): ReaderAnnotation =
-        io { upsertRangeAsync(bookId, start, end, kind, style, note, excerpt, id) }
+    fun upsertRange(
+        bookId: String,
+        start: Long,
+        end: Long,
+        kind: ReaderAnnotationKind,
+        style: ReaderHighlightStyle = ReaderHighlightStyle.YELLOW,
+        note: String = "",
+        excerpt: String = "",
+        id: String? = null,
+    ): ReaderAnnotation {
+        require(kind != ReaderAnnotationKind.BOOKMARK) { "range annotation required" }
+        val from = minOf(start, end).coerceAtLeast(0)
+        val to = maxOf(start, end).coerceAtLeast(from + 1)
+        val current = list(bookId)
+        val previous = id?.let { target -> current.firstOrNull { it.id == target } }
+        val now = System.currentTimeMillis()
+        val optimistic = ReaderAnnotation(
+            id = previous?.id ?: id ?: UUID.randomUUID().toString(),
+            bookId = bookId,
+            sourceStart = from,
+            sourceEnd = to,
+            kind = kind,
+            style = style,
+            note = note.take(MAX_NOTE_CHARS),
+            excerpt = excerpt.take(MAX_EXCERPT_CHARS),
+            anchorBefore = previous?.anchorBefore.orEmpty(),
+            anchorSelected = previous?.anchorSelected.orEmpty(),
+            anchorAfter = previous?.anchorAfter.orEmpty(),
+            anchorHash = previous?.anchorHash.orEmpty(),
+            createdAt = previous?.createdAt ?: now,
+            updatedAt = now,
+        )
+        storeSnapshot(bookId, current.filterNot { it.id == optimistic.id } + optimistic)
+        persistence.execute {
+            runCatching { io { upsertRangeAsync(bookId, from, to, kind, style, note, excerpt, optimistic.id) } }
+                .onFailure { reloadCacheFromDatabase(bookId) }
+        }
+        return optimistic
+    }
 
-    suspend fun deleteAsync(bookId: String, id: String) = dao.delete(bookId, id)
-    fun delete(bookId: String, id: String) = io { deleteAsync(bookId, id) }
+    suspend fun deleteAsync(bookId: String, id: String) {
+        dao.delete(bookId, id)
+        storeSnapshot(bookId, (cachedSnapshot(bookId) ?: emptyList()).filterNot { it.id == id })
+    }
+    fun delete(bookId: String, id: String) {
+        storeSnapshot(bookId, list(bookId).filterNot { it.id == id })
+        persistence.execute {
+            runCatching { io { deleteAsync(bookId, id) } }
+                .onFailure { reloadCacheFromDatabase(bookId) }
+        }
+    }
 
     suspend fun deleteBookmarkAsync(bookId: String, offset: Long) {
-        dao.list(bookId).filter { it.kind == ReaderAnnotationKind.BOOKMARK.name && abs(it.sourceStart - offset) <= 1 }
-            .forEach { dao.delete(bookId, it.id) }
+        val matching = dao.list(bookId).filter { it.kind == ReaderAnnotationKind.BOOKMARK.name && abs(it.sourceStart - offset) <= 1 }
+        matching.forEach { dao.delete(bookId, it.id) }
+        if (matching.isNotEmpty()) {
+            val ids = matching.mapTo(HashSet()) { it.id }
+            storeSnapshot(bookId, (cachedSnapshot(bookId) ?: emptyList()).filterNot { it.id in ids })
+        }
     }
-    fun deleteBookmark(bookId: String, offset: Long) = io { deleteBookmarkAsync(bookId, offset) }
+    fun deleteBookmark(bookId: String, offset: Long) {
+        storeSnapshot(bookId, list(bookId).filterNot { it.kind == ReaderAnnotationKind.BOOKMARK && abs(it.sourceStart - offset) <= 1 })
+        persistence.execute {
+            runCatching { io { deleteBookmarkAsync(bookId, offset) } }
+                .onFailure { reloadCacheFromDatabase(bookId) }
+        }
+    }
 
-    suspend fun clearBookAsync(bookId: String) = dao.clearBook(bookId)
-    fun clearBook(bookId: String) = io { clearBookAsync(bookId) }
+    suspend fun clearBookAsync(bookId: String) {
+        dao.clearBook(bookId)
+        storeSnapshot(bookId, emptyList())
+    }
+    fun clearBook(bookId: String) {
+        storeSnapshot(bookId, emptyList())
+        // The shared single writer guarantees any already-queued add/update completes before this
+        // clear, so deleting a book cannot be followed by an older mutation resurrecting data.
+        persistence.execute {
+            runCatching { io { clearBookAsync(bookId) } }
+                .onFailure { reloadCacheFromDatabase(bookId) }
+        }
+    }
 
     suspend fun remapBookAsync(bookId: String, oldLength: Long, newLength: Long) {
         if (oldLength <= 0 || newLength <= 0) return
@@ -110,8 +209,9 @@ class ReaderAnnotationStore(private val context: Context) {
         try {
             reader.open(repository.normalizedFile(book), 0)
             val values = dao.list(bookId).map(::fromEntity)
-            val remapped = values.map { item -> reanchor(item, reader, oldLength, newLength).toEntity() }
-            dao.upsertAll(remapped)
+            val remapped = values.map { item -> reanchor(item, reader, oldLength, newLength) }
+            dao.upsertAll(remapped.map(ReaderAnnotation::toEntity))
+            storeSnapshot(bookId, remapped)
         } finally { reader.close() }
     }
 
@@ -121,6 +221,7 @@ class ReaderAnnotationStore(private val context: Context) {
      * while a process restart can never leave a stale persisted skip marker behind.
      */
     fun remapBookForRedecode(bookId: String, oldLength: Long, newLength: Long) {
+        awaitPendingWrites()
         io { remapBookAsync(bookId, oldLength, newLength) }
         preparedRemaps[bookId] = remapSignature(oldLength, newLength)
     }
@@ -128,19 +229,91 @@ class ReaderAnnotationStore(private val context: Context) {
     fun remapBook(bookId: String, oldLength: Long, newLength: Long) {
         val signature = remapSignature(oldLength, newLength)
         if (preparedRemaps.remove(bookId, signature)) return
+        awaitPendingWrites()
         io { remapBookAsync(bookId, oldLength, newLength) }
     }
 
     suspend fun exportJsonAsync(): JSONArray = JSONArray().also { array -> dao.listAll().map(::fromEntity).forEach { array.put(toJson(it)) } }
-    fun exportJson(): JSONArray = io { exportJsonAsync() }
+    fun exportJson(): JSONArray {
+        awaitPendingWrites()
+        return io { exportJsonAsync() }
+    }
 
     suspend fun importJsonAsync(array: JSONArray) {
         val parsed = ArrayList<ReaderAnnotation>()
         for (index in 0 until minOf(array.length(), MAX_ANNOTATIONS)) runCatching { parsed += fromJson(array.getJSONObject(index)) }
+        val normalized = parsed.distinctBy { it.id }
         dao.clearAll()
-        dao.upsertAll(parsed.distinctBy { it.id }.map(ReaderAnnotation::toEntity))
+        dao.upsertAll(normalized.map(ReaderAnnotation::toEntity))
+        replaceWholeCache(normalized)
     }
-    fun importJson(array: JSONArray) = io { importJsonAsync(array) }
+    fun importJson(array: JSONArray) {
+        awaitPendingWrites()
+        io { importJsonAsync(array) }
+    }
+
+    private fun prewarmCache() {
+        if (!prewarmStarted.compareAndSet(false, true)) return
+        persistence.execute {
+            val loaded = runCatching { io { dao.listAll().map(::fromEntity) } }
+            loaded.onSuccess { values ->
+                val grouped = values.groupBy { it.bookId }
+                synchronized(cacheLock) {
+                    grouped.forEach { (bookId, items) ->
+                        if (bookId !in loadedBooks) {
+                            cache[bookId] = normalizedSnapshot(items)
+                            loadedBooks += bookId
+                        }
+                    }
+                    prewarmComplete.set(true)
+                }
+            }.onFailure {
+                prewarmStarted.set(false)
+            }
+        }
+    }
+
+    private fun cachedSnapshot(bookId: String): List<ReaderAnnotation>? = synchronized(cacheLock) {
+        if (bookId in loadedBooks) cache[bookId].orEmpty() else null
+    }
+
+    private fun storeSnapshot(bookId: String, values: List<ReaderAnnotation>) {
+        synchronized(cacheLock) {
+            cache[bookId] = normalizedSnapshot(values)
+            loadedBooks += bookId
+        }
+    }
+
+    private fun replaceWholeCache(values: List<ReaderAnnotation>) {
+        val grouped = values.groupBy { it.bookId }
+        synchronized(cacheLock) {
+            cache.clear()
+            loadedBooks.clear()
+            grouped.forEach { (bookId, items) ->
+                cache[bookId] = normalizedSnapshot(items)
+                loadedBooks += bookId
+            }
+            prewarmComplete.set(true)
+            prewarmStarted.set(true)
+        }
+    }
+
+    private fun reconcilePersisted(bookId: String, optimisticId: String?, persisted: ReaderAnnotation) {
+        val current = cachedSnapshot(bookId) ?: emptyList()
+        storeSnapshot(bookId, current.filterNot { it.id == persisted.id || (optimisticId != null && it.id == optimisticId) } + persisted)
+    }
+
+    private fun reloadCacheFromDatabase(bookId: String) {
+        runCatching { io { listAsync(bookId) } }.onSuccess { storeSnapshot(bookId, it) }
+    }
+
+    private fun normalizedSnapshot(values: List<ReaderAnnotation>): List<ReaderAnnotation> =
+        values.distinctBy { it.id }.sortedWith(compareBy<ReaderAnnotation> { it.sourceStart }.thenBy { it.createdAt })
+
+    private fun awaitPendingWrites() {
+        if (Thread.currentThread().name == PERSISTENCE_THREAD) return
+        runCatching { persistence.submit { Unit }.get() }
+    }
 
     private fun captureAnchor(bookId: String, start: Long, end: Long, bookmark: Boolean): Anchor {
         val book = repository.list().firstOrNull { it.id == bookId } ?: return Anchor.EMPTY
@@ -237,6 +410,15 @@ class ReaderAnnotationStore(private val context: Context) {
     }
 
     private companion object {
+        const val PERSISTENCE_THREAD = "jingdu-annotations"
+        val persistence = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, PERSISTENCE_THREAD).apply { isDaemon = true }
+        }
+        val cache = ConcurrentHashMap<String, List<ReaderAnnotation>>()
+        val loadedBooks = ConcurrentHashMap.newKeySet<String>()
+        val cacheLock = Any()
+        val prewarmStarted = AtomicBoolean(false)
+        val prewarmComplete = AtomicBoolean(false)
         val preparedRemaps = ConcurrentHashMap<String, String>()
         const val MAX_ANNOTATIONS = 20_000
         const val MAX_NOTE_CHARS = 8 * 1024
