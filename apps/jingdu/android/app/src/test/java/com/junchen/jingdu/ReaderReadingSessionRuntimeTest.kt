@@ -19,4 +19,17 @@ class ReaderReadingSessionRuntimeTest {
             ReaderReadingSessionRuntime.publishCleanPreview(false)
         }
     }
+
+    @Test fun newReaderSessionClearsStalePreviewRuntimeFromDestroyedActivity() {
+        try {
+            ReaderReadingSessionRuntime.publishCleanPreview(true)
+            assertTrue(ReaderReadingSessionRuntime.cleanPreviewActive)
+
+            ReaderSession()
+
+            assertFalse(ReaderReadingSessionRuntime.cleanPreviewActive)
+        } finally {
+            ReaderReadingSessionRuntime.publishCleanPreview(false)
+        }
+    }
 }
