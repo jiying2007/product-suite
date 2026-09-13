@@ -23,12 +23,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
 @Composable
@@ -126,7 +131,7 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
     val chapters = state.chapters
     val stats = remember(context) { ReaderStatsStore(context) }
     val pace = stats.charsPerMinute()
-    val activeChapterIndex = remember(chapters, state.position) { chapters.indexOfLast { it.offset <= state.position } }
+    val activeChapterIndex = remember(chapters, state.position) { readerFindActiveChapterIndex(chapters, state.position) }
     val activeChapter = chapters.getOrNull(activeChapterIndex)
     val bookPercent = if (state.length <= 0L) 0 else ((state.position.coerceIn(0L, state.length).toDouble() / state.length.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
     val bookRemaining = remember(state.position, state.length, pace) { readerRemainingMinutes(state.position, state.length, pace) }
@@ -230,9 +235,9 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                                     LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp))
                                     if (counts.total > 0) {
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                                            if (counts.bookmarks > 0) MapCount(Icons.Outlined.Bookmark, counts.bookmarks)
-                                            if (counts.highlights > 0) MapCount(Icons.Outlined.FormatColorFill, counts.highlights)
-                                            if (counts.notes > 0) MapCount(Icons.Outlined.EditNote, counts.notes)
+                                            if (counts.bookmarks > 0) MapCount(Icons.Outlined.Bookmark, counts.bookmarks, stringResource(R.string.reader_map_bookmark))
+                                            if (counts.highlights > 0) MapCount(Icons.Outlined.FormatColorFill, counts.highlights, stringResource(R.string.reader_map_highlight))
+                                            if (counts.notes > 0) MapCount(Icons.Outlined.EditNote, counts.notes, stringResource(R.string.reader_map_note))
                                         }
                                     }
                                     TextButton(
@@ -256,21 +261,24 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
 @Composable
 internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val days by produceState<List<ReaderDayModel>>(initialValue = state.readingDays, state.currentBook?.id) {
         value = withContext(Dispatchers.IO) { ReaderStatsStore(context).days(84).map { ReaderDayModel(it.dayEpoch, it.durationMs, it.charsRead) } }
     }
     val byDay = remember(days) { days.associateBy { it.dayEpoch } }
     val today = remember { LocalDate.now().toEpochDay() }
-    val cells = remember(today, days) { (83L downTo 0L).map { today - it } }
+    val cells = remember(today) { (83L downTo 0L).map { today - it } }
     val maxMinutes = remember(days) { days.maxOfOrNull { (it.durationMs / 60_000L).coerceAtLeast(1) }?.toFloat() ?: 1f }
+    val locale = resources.configuration.locales[0]
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
     ModalBottomSheet(onDismissRequest = actions.onClosePanel) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.90f).padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.reader_reading_history), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
             if (days.isEmpty()) Text(stringResource(R.string.reader_history_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(12),
-                modifier = Modifier.fillMaxWidth().height(190.dp),
+                modifier = Modifier.fillMaxWidth().height(190.dp).clearAndSetSemantics { },
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -280,13 +288,16 @@ internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions
                     Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primary.copy(alpha = intensity), RoundedCornerShape(3.dp)))
                 }
             }
-            days.take(7).forEach { day ->
-                val date = LocalDate.ofEpochDay(day.dayEpoch)
-                ListItem(
-                    headlineContent = { Text(date.toString()) },
-                    supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
-                    trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
-                )
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(days.take(7), key = { it.dayEpoch }) { day ->
+                    val date = LocalDate.ofEpochDay(day.dayEpoch)
+                    ListItem(
+                        headlineContent = { Text(date.format(dateFormatter)) },
+                        supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
+                        trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
+                    )
+                }
             }
         }
     }
@@ -300,8 +311,11 @@ internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions
     }
 }
 
-@Composable private fun MapCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun MapCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int, label: String) {
+    Row(
+        Modifier.semantics { contentDescription = "$label $count" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(icon, null, Modifier.size(16.dp))
         Text("$count", style = MaterialTheme.typography.labelSmall)
     }
