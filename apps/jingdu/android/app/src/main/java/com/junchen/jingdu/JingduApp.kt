@@ -18,7 +18,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -35,9 +34,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.StateFlow
 
@@ -149,7 +145,6 @@ fun JingduApp(
     val scheme = jingduColorScheme(state.settings.palette)
     MaterialTheme(colorScheme = scheme) {
         val snackbar = remember { SnackbarHostState() }
-        val lifecycleOwner = LocalLifecycleOwner.current
         LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); actions.onMessageConsumed() } }
 
         val latestPosition = rememberUpdatedState(state.position)
@@ -162,7 +157,9 @@ fun JingduApp(
         val currentReaderPosition = remember { { latestPosition.value } }
         val stableLocationBack = remember { { latestLocationBack.value() } }
         val stableLocationForward = remember { { latestLocationForward.value() } }
-        ReaderMotionUiRuntime.publish(state.settings.readingMode, state.motion)
+        LaunchedEffect(state.settings.readingMode, state.motion) {
+            ReaderMotionUiRuntime.publish(state.settings.readingMode, state.motion)
+        }
         val trackedActions = remember(actions) {
             actions.copy(
                 onJump = { target ->
@@ -206,19 +203,6 @@ fun JingduApp(
                     ReaderChromeRuntime.markPanelClosedAndWake()
                 },
             )
-        }
-        DisposableEffect(lifecycleOwner, actions) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_PAUSE) {
-                    when (latestMotion.value) {
-                        ReaderMotionState.AUTO_PAGE -> actions.onToggleAutoPaging()
-                        ReaderMotionState.AUTO_SCROLL -> actions.onSettingsChanged(latestSettings.value.copy(autoScrollEnabled = false))
-                        else -> Unit
-                    }
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
         val readerState = remember(
             state.currentBook,
