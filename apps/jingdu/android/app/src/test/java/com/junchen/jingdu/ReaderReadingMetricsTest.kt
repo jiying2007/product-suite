@@ -20,10 +20,10 @@ class ReaderReadingMetricsTest {
             ChapterModel(2_000, "C"),
         )
         val annotations = listOf(
-            ReaderAnnotation("a", "book", 50, 50, ReaderAnnotationKind.BOOKMARK, ReaderHighlightStyle.YELLOW, "", "", 0),
-            ReaderAnnotation("b", "book", 1_100, 1_150, ReaderAnnotationKind.HIGHLIGHT, ReaderHighlightStyle.YELLOW, "", "", 0),
-            ReaderAnnotation("c", "book", 1_900, 1_910, ReaderAnnotationKind.NOTE, ReaderHighlightStyle.YELLOW, "note", "", 0),
-            ReaderAnnotation("d", "book", 2_500, 2_500, ReaderAnnotationKind.BOOKMARK, ReaderHighlightStyle.YELLOW, "", "", 0),
+            ReaderAnnotation(id = "a", bookId = "book", sourceStart = 50, sourceEnd = 50, kind = ReaderAnnotationKind.BOOKMARK),
+            ReaderAnnotation(id = "b", bookId = "book", sourceStart = 1_100, sourceEnd = 1_150, kind = ReaderAnnotationKind.HIGHLIGHT),
+            ReaderAnnotation(id = "c", bookId = "book", sourceStart = 1_900, sourceEnd = 1_910, kind = ReaderAnnotationKind.NOTE, note = "note"),
+            ReaderAnnotation(id = "d", bookId = "book", sourceStart = 2_500, sourceEnd = 2_500, kind = ReaderAnnotationKind.BOOKMARK),
         )
 
         val counts = readerMapAnnotationCounts(chapters, annotations)
