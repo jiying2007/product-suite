@@ -149,12 +149,15 @@ fun JingduApp(
 
         val latestPosition = rememberUpdatedState(state.position)
         val latestLength = rememberUpdatedState(state.length)
+        val latestSettings = rememberUpdatedState(state.settings)
+        val latestMotion = rememberUpdatedState(state.motion)
         val latestTrackLocation = rememberUpdatedState(onTrackLocation)
         val latestLocationBack = rememberUpdatedState(onLocationBack)
         val latestLocationForward = rememberUpdatedState(onLocationForward)
         val currentReaderPosition = remember { { latestPosition.value } }
         val stableLocationBack = remember { { latestLocationBack.value() } }
         val stableLocationForward = remember { { latestLocationForward.value() } }
+        ReaderMotionUiRuntime.publish(state.settings.readingMode, state.motion)
         val trackedActions = remember(actions) {
             actions.copy(
                 onJump = { target ->
@@ -166,6 +169,23 @@ fun JingduApp(
                     val target = (length.toDouble() * fraction.coerceIn(0f, 1f)).toLong()
                     latestTrackLocation.value(latestPosition.value, target, length)
                     actions.onSeekFraction(fraction)
+                },
+                onSettingsChanged = { requested ->
+                    val current = latestSettings.value
+                    val motion = latestMotion.value
+                    if (current.readingMode == ReaderMode.PAGED && requested.readingMode == ReaderMode.CONTINUOUS && motion == ReaderMotionState.AUTO_PAGE) {
+                        actions.onToggleAutoPaging()
+                    }
+                    val normalized = if (requested.readingMode == ReaderMode.PAGED) requested.copy(autoScrollEnabled = false) else requested
+                    actions.onSettingsChanged(normalized)
+                },
+                onToggleAutoPaging = {
+                    val current = latestSettings.value
+                    if (current.readingMode == ReaderMode.CONTINUOUS) {
+                        actions.onSettingsChanged(current.copy(autoScrollEnabled = latestMotion.value != ReaderMotionState.AUTO_SCROLL))
+                    } else {
+                        actions.onToggleAutoPaging()
+                    }
                 },
                 onOpenPanel = { panel ->
                     ReaderChromeRuntime.markPanelOpen()
