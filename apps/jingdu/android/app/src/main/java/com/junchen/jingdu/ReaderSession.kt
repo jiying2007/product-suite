@@ -12,7 +12,10 @@ internal class ReaderSession {
     var book: BookRepository.Book? = null
         internal set
     var cleanMode: Boolean = false
-        internal set
+        internal set(value) {
+            field = value
+            ReaderReadingSessionRuntime.publishCleanPreview(value)
+        }
     var visiblePageChars: Long = ReaderController.DEFAULT_PAGE_CHARS
     internal val pageHistory = ArrayDeque<Long>()
 
