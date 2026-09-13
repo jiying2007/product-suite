@@ -16,6 +16,9 @@
     <string name="reader_annotation_added">已儲存至本機</string>
     <string name="reader_bookmark_marker">書籤</string>
     <string name="reader_current_position">目前位置</string>
+    <string name="reader_jump_to_chapter">跳至章節</string>
+    <string name="reader_start_auto_scroll">開始自動捲動</string>
+    <string name="reader_stop_auto_scroll">停止自動捲動</string>
     <string name="reader_auto_scroll_slow">減速</string>
     <string name="reader_auto_scroll_fast">加速</string>
     <string name="reader_auto_scroll_speed_value">%1$d · 自動捲動</string>
