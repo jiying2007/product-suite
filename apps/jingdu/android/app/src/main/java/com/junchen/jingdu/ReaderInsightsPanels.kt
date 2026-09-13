@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -250,7 +251,7 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                                         },
                                         modifier = Modifier.align(Alignment.End),
                                     ) {
-                                        Icon(Icons.Outlined.ArrowForward, null, Modifier.size(17.dp))
+                                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(17.dp))
                                         Spacer(Modifier.width(5.dp))
                                         Text(if (active) stringResource(R.string.continue_reading) else stringResource(R.string.reader_jump_to_chapter))
                                     }
