@@ -21,6 +21,19 @@ internal object ReaderMotionUiRuntime {
 }
 
 /**
+ * Pace learning is intentionally narrower than session tracking. Only an idle paged Reader moving
+ * forward by at most one source window is a trustworthy human-reading sample. Automatic motion,
+ * TTS, continuous scrolling, reverse navigation and larger seek/search jumps must not train CPM.
+ */
+internal fun readerShouldLearnPace(
+    mode: ReaderMode,
+    motion: ReaderMotionState,
+    sourceDelta: Long,
+): Boolean = mode == ReaderMode.PAGED &&
+    motion == ReaderMotionState.IDLE &&
+    sourceDelta in 64L..ReaderController.WINDOW_CHARS
+
+/**
  * Single authority for mutually-exclusive reader motion. Runtime motion is deliberately not
  * persisted: reopening a reader always starts idle and requires explicit user intent.
  */
