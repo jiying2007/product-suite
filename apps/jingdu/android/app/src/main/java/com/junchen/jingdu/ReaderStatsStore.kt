@@ -17,6 +17,16 @@ private const val DEFAULT_READER_CPM = 500.0
 private const val MIN_READER_CPM = 120.0
 private const val MAX_READER_CPM = 1800.0
 
+/** Main-thread Reader mode projection used to keep preview-only activity out of reading stats. */
+internal object ReaderReadingSessionRuntime {
+    var cleanPreviewActive: Boolean = false
+        private set
+
+    fun publishCleanPreview(active: Boolean) {
+        cleanPreviewActive = active
+    }
+}
+
 /** Process-local hot-path pace cache shared by every ReaderStatsStore instance. */
 private object ReaderPaceRuntime {
     @Volatile var charsPerMinute = DEFAULT_READER_CPM
@@ -81,24 +91,27 @@ internal class ReaderStatsStore(context: Context) {
     }
 
     fun begin(bookId: String, position: Long) {
-        if (sessionBook == bookId) return
-        finish()
-        val now = SystemClock.elapsedRealtime()
-        sessionBook = bookId
-        sessionStartedElapsed = now
-        sessionStartedWall = System.currentTimeMillis()
-        sessionStartPosition = position
-        lastPosition = position
-        lastAt = now
+        if (ReaderReadingSessionRuntime.cleanPreviewActive) {
+            finish()
+            return
+        }
+        beginNormalSession(bookId, position)
     }
 
     /**
-     * Always records the latest session position. Pace learning is additionally gated by the
-     * authoritative non-Compose motion runtime and a page-sized forward delta, preventing Auto
-     * Page, Auto Scroll or TTS from training the model on navigation speed instead of reading speed.
+     * Always records the latest normal-reading session position. Pace learning is additionally gated
+     * by the authoritative non-Compose motion runtime and a page-sized forward delta. Clean Preview
+     * never creates a reading session or trains CPM, so preview dwell time and repaired offsets cannot
+     * leak into Reading History or remaining-time estimates.
      */
     fun mark(bookId: String, position: Long, learnPace: Boolean = true) {
-        begin(bookId, position)
+        if (ReaderReadingSessionRuntime.cleanPreviewActive) {
+            finish()
+            return
+        }
+        // mark() is the page/scroll hot path. It has already established normal-reading mode above,
+        // so do not repeat the preview-state branch through public begin().
+        beginNormalSession(bookId, position)
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastAt
         val chars = position - lastPosition
@@ -145,7 +158,7 @@ internal class ReaderStatsStore(context: Context) {
 
     fun charsPerMinute(): Double = ReaderPaceRuntime.charsPerMinute.coerceIn(MIN_READER_CPM, MAX_READER_CPM)
 
-    fun sessionMinutes(): Int = if (sessionBook == null) 0 else
+    fun sessionMinutes(): Int = if (ReaderReadingSessionRuntime.cleanPreviewActive || sessionBook == null) 0 else
         ceil((SystemClock.elapsedRealtime() - sessionStartedElapsed).coerceAtLeast(0) / 60_000.0).toInt()
 
     fun remainingMinutes(position: Long, length: Long): Int? {
@@ -161,6 +174,18 @@ internal class ReaderStatsStore(context: Context) {
     fun observeDays(limit: Int = 365): Flow<List<ReaderDayAggregate>> = dao.observeDays(limit.coerceIn(7, 730))
     fun days(limit: Int = 365): List<ReaderDayAggregate> = runBlocking(Dispatchers.IO) { dao.days(limit.coerceIn(7, 730)) }
     fun totalBookDuration(bookId: String): Long = runBlocking(Dispatchers.IO) { dao.totalBookDuration(bookId) }
+
+    private fun beginNormalSession(bookId: String, position: Long) {
+        if (sessionBook == bookId) return
+        finish()
+        val now = SystemClock.elapsedRealtime()
+        sessionBook = bookId
+        sessionStartedElapsed = now
+        sessionStartedWall = System.currentTimeMillis()
+        sessionStartPosition = position
+        lastPosition = position
+        lastAt = now
+    }
 
     private fun persistPaceAsync() {
         val pace = ReaderPaceRuntime.charsPerMinute.coerceIn(MIN_READER_CPM, MAX_READER_CPM)
