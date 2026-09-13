@@ -83,11 +83,21 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
 
     @Synchronized
     fun prefetch(position: Long, settings: ReaderSettings) {
-        if (reader.length() <= 0) return
-        val windowChars = if (settings.readingMode == ReaderMode.CONTINUOUS) CONTINUOUS_WINDOW_CHARS else ReaderController.WINDOW_CHARS
+        val length = reader.length()
+        if (length <= 0) return
+        val continuous = settings.readingMode == ReaderMode.CONTINUOUS
+        val windowChars = if (continuous) CONTINUOUS_WINDOW_CHARS else ReaderController.WINDOW_CHARS
         readAround(position, settings)
-        readAround((position + windowChars / 2).coerceAtMost(reader.length() - 1), settings)
-        readAround((position - windowChars / 2).coerceAtLeast(0), settings)
+        if (continuous) {
+            // Continuous reading is forward-heavy. Keep two future aligned windows hot so a long
+            // swipe or auto-scroll does not repeatedly stop at the edge of the current text island.
+            readAround((position + windowChars / 3).coerceAtMost(length - 1), settings)
+            readAround((position + windowChars * 2 / 3).coerceAtMost(length - 1), settings)
+            readAround((position - windowChars / 3).coerceAtLeast(0), settings)
+        } else {
+            readAround((position + windowChars / 2).coerceAtMost(length - 1), settings)
+            readAround((position - windowChars / 2).coerceAtLeast(0), settings)
+        }
     }
 
     @Synchronized fun clear() = cache.clear()
@@ -111,12 +121,13 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         const val MAX_WINDOWS = 8
         const val PAGE_ALIGN_CHARS = 512L
         const val PAGE_BACK_BUFFER_CHARS = 384L
-        // Hosted #642 measured the best continuous steady state with the original 4 KiB
-        // window (P95 55.1 ms versus 70+ ms after 3/2 KiB experiments). Keep multiple screens of
-        // headroom so real swipes do not churn window boundaries while remaining strictly bounded.
-        const val CONTINUOUS_WINDOW_CHARS = 4096L
-        const val CONTINUOUS_ALIGN_CHARS = 1024L
-        const val CONTINUOUS_BACK_BUFFER_CHARS = 1024L
+        // The original 4 KiB window was tuned for a synthetic steady-state scroll benchmark, but it
+        // made real reading feel like a short isolated strip because the viewport had to recycle too
+        // frequently. Keep the renderer bounded while providing roughly three times the reading
+        // runway; hosted continuous performance remains the authority for accepting this tradeoff.
+        const val CONTINUOUS_WINDOW_CHARS = 12_288L
+        const val CONTINUOUS_ALIGN_CHARS = 3_072L
+        const val CONTINUOUS_BACK_BUFFER_CHARS = 3_072L
     }
 }
 
