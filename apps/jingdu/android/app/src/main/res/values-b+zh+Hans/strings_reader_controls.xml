@@ -17,8 +17,6 @@
     <string name="reader_bookmark_marker">书签</string>
     <string name="reader_current_position">当前位置</string>
     <string name="reader_jump_to_chapter">跳到章节</string>
-    <string name="reader_start_auto_scroll">开始自动滚动</string>
-    <string name="reader_stop_auto_scroll">停止自动滚动</string>
     <string name="reader_auto_scroll_slow">减速</string>
     <string name="reader_auto_scroll_fast">加速</string>
     <string name="reader_auto_scroll_speed_value">%1$d · 自动滚动</string>
