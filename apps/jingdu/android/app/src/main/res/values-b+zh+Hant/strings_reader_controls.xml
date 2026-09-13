@@ -61,5 +61,8 @@
     <string name="reader_highlight_pink">粉紅色</string>
     <string name="reader_screen_on_motion">自動閱讀時保持螢幕常亮</string>
     <string name="reader_no_chapters">未辨識到章節標記。</string>
+    <string name="reader_tts_voice_section">無需網路的系統聲音</string>
+    <string name="reader_tts_voice_privacy">淨讀只列出系統標記為無需網路的聲音。實際朗讀由你選擇的系統 TTS 引擎提供，其連線與隱私行為由該引擎決定；淨讀不會把書籍正文傳送到淨讀營運的伺服器。</string>
+    <string name="reader_empty_body_truthful">自動辨識常見中文編碼，支援大檔案、搜尋、目錄、智慧淨讀和系統朗讀。來源檔案始終保持不變，淨讀不會把書籍正文上傳到淨讀營運的伺服器。</string>
     <string name="ok">儲存</string>
 </resources>
