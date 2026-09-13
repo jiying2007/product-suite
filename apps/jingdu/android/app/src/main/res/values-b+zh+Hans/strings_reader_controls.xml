@@ -16,6 +16,7 @@
     <string name="reader_annotation_added">已保存到本地</string>
     <string name="reader_bookmark_marker">书签</string>
     <string name="reader_current_position">当前位置</string>
+    <string name="reader_jump_to_chapter">跳到章节</string>
     <string name="reader_auto_scroll_slow">减速</string>
     <string name="reader_auto_scroll_fast">加速</string>
     <string name="reader_auto_scroll_speed_value">%1$d · 自动滚动</string>
@@ -60,5 +61,6 @@
     <string name="reader_highlight_pink">粉色</string>
     <string name="reader_screen_on_motion">自动阅读时保持屏幕常亮</string>
     <string name="reader_no_chapters">未识别到章节标记。</string>
+    <string name="reader_tts_voice_privacy">净读只列出系统标记为无需网络的声音。实际朗读由你选择的系统 TTS 引擎提供，其联网与隐私行为由该引擎决定；净读不会把书籍正文发送到净读运营的服务器。</string>
     <string name="ok">保存</string>
 </resources>

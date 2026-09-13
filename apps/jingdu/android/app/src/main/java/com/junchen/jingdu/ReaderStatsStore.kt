@@ -92,12 +92,18 @@ internal class ReaderStatsStore(context: Context) {
         lastAt = now
     }
 
-    fun mark(bookId: String, position: Long) {
+    /**
+     * Always records the latest session position. Pace learning is additionally gated by the
+     * authoritative non-Compose motion runtime and a page-sized forward delta, preventing Auto
+     * Page, Auto Scroll or TTS from training the model on navigation speed instead of reading speed.
+     */
+    fun mark(bookId: String, position: Long, learnPace: Boolean = true) {
         begin(bookId, position)
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastAt
         val chars = position - lastPosition
-        if (elapsed in 2_000L..180_000L && chars in 64L..20_000L) {
+        val trustedPaceSample = learnPace && readerShouldLearnPace(ReaderMotionRuntime.state, chars)
+        if (trustedPaceSample && elapsed in 2_000L..180_000L) {
             val sample = (chars.toDouble() * 60_000.0 / elapsed.toDouble()).coerceIn(MIN_READER_CPM, MAX_READER_CPM)
             val currentSamples = ReaderPaceRuntime.samples
             val weight = if (currentSamples < 5) 0.35 else 0.15

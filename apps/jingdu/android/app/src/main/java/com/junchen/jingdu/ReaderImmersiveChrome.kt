@@ -237,6 +237,11 @@ private fun ReaderDockActions(
     onAutoPage: () -> Unit,
 ) {
     var moreOpen by remember { mutableStateOf(false) }
+    val continuous = ReaderMotionUiRuntime.readingMode == ReaderMode.CONTINUOUS
+    val automaticActive = if (continuous) ReaderMotionUiRuntime.motion == ReaderMotionState.AUTO_SCROLL else autoPaging
+    val startAutomaticLabel = stringResource(if (continuous) R.string.reader_start_auto_scroll else R.string.start_auto_page)
+    val stopAutomaticLabel = stringResource(if (continuous) R.string.reader_stop_auto_scroll else R.string.stop_auto_page)
+
     IconButton(onBookmarks, Modifier.size(48.dp)) {
         Icon(Icons.Outlined.Bookmarks, stringResource(R.string.bookmarks), Modifier.size(21.dp))
     }
@@ -249,9 +254,9 @@ private fun ReaderDockActions(
             Icon(Icons.Default.PlayArrow, stringResource(R.string.start_read_aloud), Modifier.size(21.dp))
         }
     }
-    if (autoPaging) {
+    if (automaticActive) {
         FilledTonalIconButton(onAutoPage, Modifier.size(48.dp)) {
-            Icon(Icons.Default.Pause, stringResource(R.string.stop_auto_page), Modifier.size(21.dp))
+            Icon(Icons.Default.Pause, stopAutomaticLabel, Modifier.size(21.dp))
         }
     } else {
         Box {
@@ -260,7 +265,7 @@ private fun ReaderDockActions(
             }
             DropdownMenu(moreOpen, onDismissRequest = { moreOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.start_auto_page)) },
+                    text = { Text(startAutomaticLabel) },
                     onClick = { moreOpen = false; onAutoPage() },
                     leadingIcon = { Icon(Icons.Outlined.Timer, null) },
                 )
@@ -272,7 +277,7 @@ private fun ReaderDockActions(
 @Composable
 private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, fraction: Float) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val bubbleWidth = 196.dp
+        val bubbleWidth = 224.dp
         val travel = (maxWidth - bubbleWidth).coerceAtLeast(0.dp)
         val x = travel * fraction.coerceIn(0f, 1f)
         Surface(
@@ -283,9 +288,9 @@ private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, 
             shadowElevation = 4.dp,
         ) {
             Row(
-                Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Text(
                     preview?.chapter ?: stringResource(R.string.reader_book_progress_value, preview?.bookProgressPercent ?: fallbackPercent),
@@ -294,8 +299,11 @@ private fun ReaderSkimBubble(preview: ReaderSkimPreview?, fallbackPercent: Int, 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                preview?.chapterRemainingMinutes?.let {
-                    Text(stringResource(R.string.reader_chapter_remaining, it), style = MaterialTheme.typography.labelSmall)
+                (preview?.chapterRemainingMinutes ?: preview?.bookRemainingMinutes)?.let { minutes ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(Icons.Outlined.Timer, null, Modifier.size(14.dp))
+                        Text(stringResource(R.string.minutes_value, minutes), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 if (preview?.chapter != null) {
                     Text(stringResource(R.string.reader_book_progress_value, preview.bookProgressPercent), style = MaterialTheme.typography.labelSmall)

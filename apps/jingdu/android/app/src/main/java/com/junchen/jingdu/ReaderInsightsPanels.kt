@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,12 +24,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
 @Composable
@@ -121,54 +127,137 @@ internal fun ReaderAnnotationsPanel(state: AppUiState, actions: JingduActions) {
 
 @Composable
 internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
+    val context = LocalContext.current
     LaunchedEffect(state.currentBook?.id, state.chaptersLoaded) { if (!state.chaptersLoaded) actions.onEnsureChapters() }
     val chapters = state.chapters
+    val stats = remember(context) { ReaderStatsStore(context) }
+    val pace = stats.charsPerMinute()
+    val activeChapterIndex = remember(chapters, state.position) { readerFindActiveChapterIndex(chapters, state.position) }
+    val activeChapter = chapters.getOrNull(activeChapterIndex)
+    val bookPercent = if (state.length <= 0L) 0 else ((state.position.coerceIn(0L, state.length).toDouble() / state.length.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
+    val bookRemaining = remember(state.position, state.length, pace) { readerRemainingMinutes(state.position, state.length, pace) }
+    val countsByChapter = remember(chapters, state.annotations) { readerMapAnnotationCounts(chapters, state.annotations) }
+
     ModalBottomSheet(onDismissRequest = actions.onClosePanel) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.90f).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Map, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.reader_reading_map), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                     Text(stringResource(R.string.reader_reading_map_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.height(12.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.reader_book_progress_value, bookPercent), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        activeChapter?.title?.let { title ->
+                            Text(
+                                ReaderTextPresentation.chapterTitle(title, state.settings),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    bookRemaining?.let { minutes ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(Icons.Outlined.Schedule, null, Modifier.size(17.dp))
+                            Text(stringResource(R.string.reader_book_remaining, minutes), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MapLegend(Color(MaterialTheme.colorScheme.primary.value), stringResource(R.string.reader_map_read))
-                MapLegend(Color(MaterialTheme.colorScheme.secondaryContainer.value), stringResource(R.string.reader_map_unread))
+                MapLegend(MaterialTheme.colorScheme.primary, stringResource(R.string.reader_map_read))
+                MapLegend(MaterialTheme.colorScheme.secondaryContainer, stringResource(R.string.reader_map_unread))
             }
             Spacer(Modifier.height(10.dp))
-            if (chapters.isEmpty()) {
-                Text(stringResource(R.string.reader_no_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                LazyColumn(Modifier.weight(1f)) {
-                    items(chapters.indices.toList(), key = { chapters[it].offset }) { index ->
-                        val chapter = chapters[index]
-                        val end = chapters.getOrNull(index + 1)?.offset ?: state.length
-                        val span = (end - chapter.offset).coerceAtLeast(1)
-                        val progress = ((state.position - chapter.offset).coerceIn(0, span).toFloat() / span.toFloat()).coerceIn(0f, 1f)
-                        val marks = state.annotations.filter { it.sourceStart in chapter.offset until end }
-                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(ReaderTextPresentation.chapterTitle(chapter.title, state.settings), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${(progress * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp))
-                            if (marks.isNotEmpty()) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 5.dp)) {
-                                    val bookmarks = marks.count { it.kind == ReaderAnnotationKind.BOOKMARK }
-                                    val highlights = marks.count { it.kind == ReaderAnnotationKind.HIGHLIGHT }
-                                    val notes = marks.count { it.kind == ReaderAnnotationKind.NOTE }
-                                    if (bookmarks > 0) MapCount(Icons.Outlined.Bookmark, bookmarks)
-                                    if (highlights > 0) MapCount(Icons.Outlined.FormatColorFill, highlights)
-                                    if (notes > 0) MapCount(Icons.Outlined.EditNote, notes)
+
+            when {
+                !state.chaptersLoaded -> {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(R.string.busy_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                chapters.isEmpty() -> {
+                    Text(stringResource(R.string.reader_no_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                else -> {
+                    LazyColumn(Modifier.weight(1f)) {
+                        items(chapters.indices.toList(), key = { chapters[it].offset }) { index ->
+                            val chapter = chapters[index]
+                            val end = chapters.getOrNull(index + 1)?.offset ?: state.length
+                            val span = (end - chapter.offset).coerceAtLeast(1)
+                            val progress = ((state.position - chapter.offset).coerceIn(0, span).toFloat() / span.toFloat()).coerceIn(0f, 1f)
+                            val counts = countsByChapter[chapter.offset] ?: ReaderMapAnnotationCounts()
+                            val active = index == activeChapterIndex
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f) else Color.Transparent,
+                            ) {
+                                Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (active) {
+                                            Icon(Icons.Outlined.MyLocation, null, Modifier.size(17.dp), tint = MaterialTheme.colorScheme.primary)
+                                            Spacer(Modifier.width(7.dp))
+                                        }
+                                        Text(
+                                            ReaderTextPresentation.chapterTitle(chapter.title, state.settings),
+                                            Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                        )
+                                        Text("${(progress * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp))
+                                    if (counts.total > 0) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                                            if (counts.bookmarks > 0) MapCount(Icons.Outlined.Bookmark, counts.bookmarks, stringResource(R.string.reader_map_bookmark))
+                                            if (counts.highlights > 0) MapCount(Icons.Outlined.FormatColorFill, counts.highlights, stringResource(R.string.reader_map_highlight))
+                                            if (counts.notes > 0) MapCount(Icons.Outlined.EditNote, counts.notes, stringResource(R.string.reader_map_note))
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            if (active) actions.onClosePanel()
+                                            else {
+                                                actions.onJump(chapter.offset)
+                                                actions.onClosePanel()
+                                            }
+                                        },
+                                        modifier = Modifier.align(Alignment.End),
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(17.dp))
+                                        Spacer(Modifier.width(5.dp))
+                                        Text(if (active) stringResource(R.string.continue_reading) else stringResource(R.string.reader_jump_to_chapter))
+                                    }
                                 }
                             }
-                            TextButton({ actions.onJump(chapter.offset); actions.onClosePanel() }) { Text(stringResource(R.string.reader_skim_preview)) }
                         }
-                        HorizontalDivider()
                     }
                 }
             }
@@ -179,37 +268,46 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
 @Composable
 internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val days by produceState<List<ReaderDayModel>>(initialValue = state.readingDays, state.currentBook?.id) {
         value = withContext(Dispatchers.IO) { ReaderStatsStore(context).days(84).map { ReaderDayModel(it.dayEpoch, it.durationMs, it.charsRead) } }
     }
     val byDay = remember(days) { days.associateBy { it.dayEpoch } }
     val today = remember { LocalDate.now().toEpochDay() }
-    val cells = remember(today, days) { (83L downTo 0L).map { today - it } }
+    val cells = remember(today) { (83L downTo 0L).map { today - it } }
     val maxMinutes = remember(days) { days.maxOfOrNull { (it.durationMs / 60_000L).coerceAtLeast(1) }?.toFloat() ?: 1f }
+    val locale = resources.configuration.locales[0]
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
     ModalBottomSheet(onDismissRequest = actions.onClosePanel) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.90f).padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.reader_reading_history), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
-            if (days.isEmpty()) Text(stringResource(R.string.reader_history_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(12),
-                modifier = Modifier.fillMaxWidth().height(190.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                gridItems(cells) { day ->
-                    val item = byDay[day]
-                    val intensity = if (item == null) 0.05f else ((item.durationMs / 60_000f) / maxMinutes).coerceIn(0.15f, 1f)
-                    Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primary.copy(alpha = intensity), RoundedCornerShape(3.dp)))
+            if (days.isEmpty()) {
+                Text(stringResource(R.string.reader_history_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(12),
+                    modifier = Modifier.fillMaxWidth().height(190.dp).clearAndSetSemantics { },
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    gridItems(cells) { day ->
+                        val item = byDay[day]
+                        val intensity = if (item == null) 0.05f else ((item.durationMs / 60_000f) / maxMinutes).coerceIn(0.15f, 1f)
+                        Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primary.copy(alpha = intensity), RoundedCornerShape(3.dp)))
+                    }
                 }
-            }
-            days.take(7).forEach { day ->
-                val date = LocalDate.ofEpochDay(day.dayEpoch)
-                ListItem(
-                    headlineContent = { Text(date.toString()) },
-                    supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
-                    trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
-                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.weight(1f)) {
+                    items(days.take(7), key = { it.dayEpoch }) { day ->
+                        val date = LocalDate.ofEpochDay(day.dayEpoch)
+                        ListItem(
+                            headlineContent = { Text(date.format(dateFormatter)) },
+                            supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
+                            trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -223,8 +321,11 @@ internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions
     }
 }
 
-@Composable private fun MapCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun MapCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int, label: String) {
+    Row(
+        Modifier.semantics { contentDescription = "$label $count" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(icon, null, Modifier.size(16.dp))
         Text("$count", style = MaterialTheme.typography.labelSmall)
     }
