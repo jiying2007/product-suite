@@ -40,6 +40,8 @@ data class ReaderAnnotation(
 /**
  * Room-backed source-range annotations. The process-local snapshot makes normal Reader CRUD
  * immediate while one serialized background writer performs Room I/O and source-anchor capture.
+ * The current book is loaded into that snapshot on first use instead of scanning the full annotation
+ * table at process start, keeping unrelated database work out of Reader interaction frames.
  * Re-decode/backup paths explicitly drain queued mutations before operations that require a durable
  * point-in-time view. The writer is also drained at the Activity pause boundary so a just-created
  * annotation is durable before Android is free to kill the background process.
@@ -50,17 +52,12 @@ class ReaderAnnotationStore(private val context: Context) {
 
     init {
         registerLifecycleFlush(context.applicationContext)
-        prewarmCache()
     }
 
     fun observe(bookId: String): Flow<List<ReaderAnnotation>> = dao.observe(bookId).map { values -> values.map(::fromEntity) }
     suspend fun listAsync(bookId: String): List<ReaderAnnotation> = dao.list(bookId).map(::fromEntity)
     fun list(bookId: String): List<ReaderAnnotation> {
         cachedSnapshot(bookId)?.let { return it }
-        if (prewarmComplete.get()) {
-            storeSnapshot(bookId, emptyList())
-            return emptyList()
-        }
         return io { listAsync(bookId) }.also { storeSnapshot(bookId, it) }
     }
     fun bookmarks(bookId: String): List<ReaderAnnotation> = list(bookId).filter { it.kind == ReaderAnnotationKind.BOOKMARK }
@@ -259,27 +256,6 @@ class ReaderAnnotationStore(private val context: Context) {
         io { importJsonAsync(array) }
     }
 
-    private fun prewarmCache() {
-        if (!prewarmStarted.compareAndSet(false, true)) return
-        persistence.execute {
-            val loaded = runCatching { io { dao.listAll().map(::fromEntity) } }
-            loaded.onSuccess { values ->
-                val grouped = values.groupBy { it.bookId }
-                synchronized(cacheLock) {
-                    grouped.forEach { (bookId, items) ->
-                        if (bookId !in loadedBooks) {
-                            cache[bookId] = normalizedSnapshot(items)
-                            loadedBooks += bookId
-                        }
-                    }
-                    prewarmComplete.set(true)
-                }
-            }.onFailure {
-                prewarmStarted.set(false)
-            }
-        }
-    }
-
     private fun cachedSnapshot(bookId: String): List<ReaderAnnotation>? = synchronized(cacheLock) {
         if (bookId in loadedBooks) cache[bookId].orEmpty() else null
     }
@@ -300,8 +276,6 @@ class ReaderAnnotationStore(private val context: Context) {
                 cache[bookId] = normalizedSnapshot(items)
                 loadedBooks += bookId
             }
-            prewarmComplete.set(true)
-            prewarmStarted.set(true)
         }
     }
 
@@ -424,8 +398,6 @@ class ReaderAnnotationStore(private val context: Context) {
         val cache = ConcurrentHashMap<String, List<ReaderAnnotation>>()
         val loadedBooks = ConcurrentHashMap.newKeySet<String>()
         val cacheLock = Any()
-        val prewarmStarted = AtomicBoolean(false)
-        val prewarmComplete = AtomicBoolean(false)
         val lifecycleFlushRegistered = AtomicBoolean(false)
         val preparedRemaps = ConcurrentHashMap<String, String>()
         const val MAX_ANNOTATIONS = 20_000
