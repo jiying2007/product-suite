@@ -92,12 +92,17 @@ internal class ReaderStatsStore(context: Context) {
         lastAt = now
     }
 
-    fun mark(bookId: String, position: Long) {
+    /**
+     * Always records the latest session position, but only explicit human-paced reading actions are
+     * allowed to train the CPM model. Automatic page/scroll motion, TTS synchronization and jumps
+     * would otherwise create a feedback loop where the system learns its own navigation speed.
+     */
+    fun mark(bookId: String, position: Long, learnPace: Boolean = true) {
         begin(bookId, position)
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastAt
         val chars = position - lastPosition
-        if (elapsed in 2_000L..180_000L && chars in 64L..20_000L) {
+        if (learnPace && elapsed in 2_000L..180_000L && chars in 64L..20_000L) {
             val sample = (chars.toDouble() * 60_000.0 / elapsed.toDouble()).coerceIn(MIN_READER_CPM, MAX_READER_CPM)
             val currentSamples = ReaderPaceRuntime.samples
             val weight = if (currentSamples < 5) 0.35 else 0.15
