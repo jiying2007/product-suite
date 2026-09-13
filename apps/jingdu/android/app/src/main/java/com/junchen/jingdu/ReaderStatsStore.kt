@@ -17,6 +17,16 @@ private const val DEFAULT_READER_CPM = 500.0
 private const val MIN_READER_CPM = 120.0
 private const val MAX_READER_CPM = 1800.0
 
+/** Process-local Reader mode projection used to keep preview-only activity out of reading stats. */
+internal object ReaderReadingSessionRuntime {
+    @Volatile var cleanPreviewActive: Boolean = false
+        private set
+
+    fun publishCleanPreview(active: Boolean) {
+        cleanPreviewActive = active
+    }
+}
+
 /** Process-local hot-path pace cache shared by every ReaderStatsStore instance. */
 private object ReaderPaceRuntime {
     @Volatile var charsPerMinute = DEFAULT_READER_CPM
@@ -81,6 +91,10 @@ internal class ReaderStatsStore(context: Context) {
     }
 
     fun begin(bookId: String, position: Long) {
+        if (ReaderReadingSessionRuntime.cleanPreviewActive) {
+            finish()
+            return
+        }
         if (sessionBook == bookId) return
         finish()
         val now = SystemClock.elapsedRealtime()
@@ -93,11 +107,16 @@ internal class ReaderStatsStore(context: Context) {
     }
 
     /**
-     * Always records the latest session position. Pace learning is additionally gated by the
-     * authoritative non-Compose motion runtime and a page-sized forward delta, preventing Auto
-     * Page, Auto Scroll or TTS from training the model on navigation speed instead of reading speed.
+     * Always records the latest normal-reading session position. Pace learning is additionally gated
+     * by the authoritative non-Compose motion runtime and a page-sized forward delta. Clean Preview
+     * never creates a reading session or trains CPM, so preview dwell time and repaired offsets cannot
+     * leak into Reading History or remaining-time estimates.
      */
     fun mark(bookId: String, position: Long, learnPace: Boolean = true) {
+        if (ReaderReadingSessionRuntime.cleanPreviewActive) {
+            finish()
+            return
+        }
         begin(bookId, position)
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastAt
@@ -145,7 +164,7 @@ internal class ReaderStatsStore(context: Context) {
 
     fun charsPerMinute(): Double = ReaderPaceRuntime.charsPerMinute.coerceIn(MIN_READER_CPM, MAX_READER_CPM)
 
-    fun sessionMinutes(): Int = if (sessionBook == null) 0 else
+    fun sessionMinutes(): Int = if (ReaderReadingSessionRuntime.cleanPreviewActive || sessionBook == null) 0 else
         ceil((SystemClock.elapsedRealtime() - sessionStartedElapsed).coerceAtLeast(0) / 60_000.0).toInt()
 
     fun remainingMinutes(position: Long, length: Long): Int? {
