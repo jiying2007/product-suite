@@ -21,14 +21,33 @@ class ReaderMotionControllerTest {
         assertEquals(ReaderMotionState.IDLE, controller.state)
     }
 
-    @Test fun adaptiveAutoPageRemainsBounded() {
+    @Test fun adaptiveAutoPageRemainsResponsiveAndBounded() {
         val controller = ReaderMotionController()
         val settings = ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 1f)
         val fast = controller.adaptivePageDelayMs(300, 1_800.0, settings)
+        val dense = controller.adaptivePageDelayMs(1_500, 500.0, settings)
         val slow = controller.adaptivePageDelayMs(5_000, 120.0, settings)
-        assertTrue(fast >= 2_500L)
-        assertTrue(slow <= 120_000L)
+        assertTrue(fast >= ReaderMotionController.MIN_ADAPTIVE_PAGE_DELAY_MS)
+        assertTrue(dense <= ReaderMotionController.MAX_ADAPTIVE_PAGE_DELAY_MS)
+        assertTrue(slow <= ReaderMotionController.MAX_ADAPTIVE_PAGE_DELAY_MS)
         assertTrue(slow >= fast)
+    }
+
+    @Test fun adaptivePaceMultiplierStillChangesCadenceWithinHumanScaleBounds() {
+        val controller = ReaderMotionController()
+        val slower = controller.adaptivePageDelayMs(
+            800,
+            600.0,
+            ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 0.5f),
+        )
+        val faster = controller.adaptivePageDelayMs(
+            800,
+            600.0,
+            ReaderSettings(autoPageMode = ReaderAutoPageMode.ADAPTIVE, autoPagePaceMultiplier = 2f),
+        )
+        assertTrue(faster < slower)
+        assertTrue(faster >= ReaderMotionController.MIN_ADAPTIVE_PAGE_DELAY_MS)
+        assertTrue(slower <= ReaderMotionController.MAX_ADAPTIVE_PAGE_DELAY_MS)
     }
 
     @Test fun fixedAutoPageUsesExplicitInterval() {
