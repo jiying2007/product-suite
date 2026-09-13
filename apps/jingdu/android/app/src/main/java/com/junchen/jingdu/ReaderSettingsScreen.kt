@@ -302,7 +302,7 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
     var pronunciationDraft by rememberSaveable { mutableStateOf(pronunciationStore.raw()) }
     SettingSlider(stringResource(R.string.speech_rate), s.ttsRate, 0.5f..2f, "%.1f×".format(s.ttsRate)) { actions.onSettingsChanged(s.copy(ttsRate = it)) }
     SettingSlider(stringResource(R.string.speech_pitch), s.ttsPitch, 0.6f..1.6f, "%.1f×".format(s.ttsPitch)) { actions.onSettingsChanged(s.copy(ttsPitch = it)) }
-    Section(stringResource(R.string.reader_tts_voice_section)) {
+    Section(stringResource(R.string.offline_voice)) {
         Text(
             stringResource(R.string.reader_tts_voice_privacy),
             style = MaterialTheme.typography.bodySmall,
