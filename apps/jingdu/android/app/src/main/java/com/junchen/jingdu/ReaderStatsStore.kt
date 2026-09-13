@@ -17,9 +17,9 @@ private const val DEFAULT_READER_CPM = 500.0
 private const val MIN_READER_CPM = 120.0
 private const val MAX_READER_CPM = 1800.0
 
-/** Process-local Reader mode projection used to keep preview-only activity out of reading stats. */
+/** Main-thread Reader mode projection used to keep preview-only activity out of reading stats. */
 internal object ReaderReadingSessionRuntime {
-    @Volatile var cleanPreviewActive: Boolean = false
+    var cleanPreviewActive: Boolean = false
         private set
 
     fun publishCleanPreview(active: Boolean) {
@@ -95,15 +95,7 @@ internal class ReaderStatsStore(context: Context) {
             finish()
             return
         }
-        if (sessionBook == bookId) return
-        finish()
-        val now = SystemClock.elapsedRealtime()
-        sessionBook = bookId
-        sessionStartedElapsed = now
-        sessionStartedWall = System.currentTimeMillis()
-        sessionStartPosition = position
-        lastPosition = position
-        lastAt = now
+        beginNormalSession(bookId, position)
     }
 
     /**
@@ -117,7 +109,9 @@ internal class ReaderStatsStore(context: Context) {
             finish()
             return
         }
-        begin(bookId, position)
+        // mark() is the page/scroll hot path. It has already established normal-reading mode above,
+        // so do not repeat the preview-state branch through public begin().
+        beginNormalSession(bookId, position)
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastAt
         val chars = position - lastPosition
@@ -180,6 +174,18 @@ internal class ReaderStatsStore(context: Context) {
     fun observeDays(limit: Int = 365): Flow<List<ReaderDayAggregate>> = dao.observeDays(limit.coerceIn(7, 730))
     fun days(limit: Int = 365): List<ReaderDayAggregate> = runBlocking(Dispatchers.IO) { dao.days(limit.coerceIn(7, 730)) }
     fun totalBookDuration(bookId: String): Long = runBlocking(Dispatchers.IO) { dao.totalBookDuration(bookId) }
+
+    private fun beginNormalSession(bookId: String, position: Long) {
+        if (sessionBook == bookId) return
+        finish()
+        val now = SystemClock.elapsedRealtime()
+        sessionBook = bookId
+        sessionStartedElapsed = now
+        sessionStartedWall = System.currentTimeMillis()
+        sessionStartPosition = position
+        lastPosition = position
+        lastAt = now
+    }
 
     private fun persistPaceAsync() {
         val pace = ReaderPaceRuntime.charsPerMinute.coerceIn(MIN_READER_CPM, MAX_READER_CPM)
