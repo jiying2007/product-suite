@@ -174,7 +174,7 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                     bookRemaining?.let { minutes ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             Icon(Icons.Outlined.Schedule, null, Modifier.size(17.dp))
-                            Text(stringResource(R.string.minutes_value, minutes), style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.reader_book_remaining, minutes), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -241,7 +241,13 @@ internal fun ReaderReadingMapPanel(state: AppUiState, actions: JingduActions) {
                                         }
                                     }
                                     TextButton(
-                                        onClick = { actions.onJump(chapter.offset); actions.onClosePanel() },
+                                        onClick = {
+                                            if (active) actions.onClosePanel()
+                                            else {
+                                                actions.onJump(chapter.offset)
+                                                actions.onClosePanel()
+                                            }
+                                        },
                                         modifier = Modifier.align(Alignment.End),
                                     ) {
                                         Icon(Icons.Outlined.ArrowForward, null, Modifier.size(17.dp))
@@ -275,28 +281,31 @@ internal fun ReaderReadingHistoryPanel(state: AppUiState, actions: JingduActions
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.90f).padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.reader_reading_history), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
-            if (days.isEmpty()) Text(stringResource(R.string.reader_history_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(12),
-                modifier = Modifier.fillMaxWidth().height(190.dp).clearAndSetSemantics { },
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                gridItems(cells) { day ->
-                    val item = byDay[day]
-                    val intensity = if (item == null) 0.05f else ((item.durationMs / 60_000f) / maxMinutes).coerceIn(0.15f, 1f)
-                    Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primary.copy(alpha = intensity), RoundedCornerShape(3.dp)))
+            if (days.isEmpty()) {
+                Text(stringResource(R.string.reader_history_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(12),
+                    modifier = Modifier.fillMaxWidth().height(190.dp).clearAndSetSemantics { },
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    gridItems(cells) { day ->
+                        val item = byDay[day]
+                        val intensity = if (item == null) 0.05f else ((item.durationMs / 60_000f) / maxMinutes).coerceIn(0.15f, 1f)
+                        Box(Modifier.aspectRatio(1f).background(MaterialTheme.colorScheme.primary.copy(alpha = intensity), RoundedCornerShape(3.dp)))
+                    }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(Modifier.weight(1f)) {
-                items(days.take(7), key = { it.dayEpoch }) { day ->
-                    val date = LocalDate.ofEpochDay(day.dayEpoch)
-                    ListItem(
-                        headlineContent = { Text(date.format(dateFormatter)) },
-                        supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
-                        trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
-                    )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.weight(1f)) {
+                    items(days.take(7), key = { it.dayEpoch }) { day ->
+                        val date = LocalDate.ofEpochDay(day.dayEpoch)
+                        ListItem(
+                            headlineContent = { Text(date.format(dateFormatter)) },
+                            supportingContent = { Text(stringResource(R.string.reader_history_chars, day.charsRead.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())) },
+                            trailingContent = { Text(stringResource(R.string.reader_history_minutes, (day.durationMs / 60_000L).coerceAtLeast(1).toInt())) },
+                        )
+                    }
                 }
             }
         }
