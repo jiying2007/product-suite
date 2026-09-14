@@ -36,6 +36,10 @@ Gradle accepts either the local untracked properties file or the corresponding `
 
 Once a `pose-studio-v<semver>` tag/release exists, that semver is frozen. Later `main` commits may temporarily retain the same development version, but the candidate workflow must no-op rather than moving the tag or reporting a false release failure. A new release candidate requires incrementing `versionName`/`versionCode` and adding its matching release manifest first.
 
+Candidate validation is version-driven: CI derives the active `versionName`/`versionCode` from the Android build and validates the matching `apps/pose-studio/releases/pose-studio-v<semver>.md` manifest instead of hard-coding the currently published beta version into workflow contracts.
+
+The installable GitHub commercial-beta publisher is separately pinned by `apps/pose-studio/releases/commercial-beta.lock.env`. That lock records the exact tag, candidate SHA, manifest digest, Android version, debug-keystore digest, certificate digest and expected APK filename. Update the lock only in a distribution-lock change after a new immutable candidate has been frozen and verified. Published immutable releases remain no-op targets: the Beta Release workflow performs a lightweight release/asset preflight and skips Java/Gradle entirely when the locked prerelease is already immutable and complete.
+
 The 0.2.1 line is a patch commercial-beta hardening release. It preserves the 0.2 project format and product scope while carrying the repository-side commercial-readiness, accessibility, project-I/O and release-topology fixes validated after 0.2.0. It is not a v1 production declaration.
 
 ## Required v1 evidence
