@@ -46,12 +46,20 @@ jobs:
           set -euo pipefail
           workflow=.github/workflows/pose-studio-candidate-release.yml
           publisher=apps/pose-studio/scripts/publish-candidate-release.py
-          manifest=apps/pose-studio/releases/pose-studio-v0.2.1.md
+          build=apps/pose-studio/android/app/build.gradle
 
           test -f "$workflow"
           test -f "$publisher"
-          test -f "$manifest"
+          test -f "$build"
           python3 -m py_compile "$publisher"
+
+          version="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' "$build" | head -n 1)"
+          version_code="$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\).*/\1/p' "$build" | head -n 1)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$version_code" =~ ^[0-9]+$ ]]
+          tag="pose-studio-v${version}"
+          manifest="apps/pose-studio/releases/${tag}.md"
+          test -f "$manifest"
 
           grep -Fq -- 'workflows: ["CI", "Pose Studio", "CI Contracts"]' "$workflow"
           grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
@@ -71,32 +79,59 @@ jobs:
           grep -Fq -- 'production-signing-proven: false' "$publisher"
           grep -Fq -- 'google-play-production: false' "$publisher"
 
-          grep -Fq -- 'version: pose-studio-v0.2.1' "$manifest"
-          grep -Fq -- 'android_version_name: 0.2.1' "$manifest"
-          grep -Fq -- 'android_version_code: 3' "$manifest"
-          grep -Fq -- 'production_v1: false' "$manifest"
-          grep -Fq -- 'production_signing_proven: false' "$manifest"
-          grep -Fq -- 'google_play_production: false' "$manifest"
+          grep -Fxq -- "version: $tag" "$manifest"
+          grep -Fxq -- "android_version_name: $version" "$manifest"
+          grep -Fxq -- "android_version_code: $version_code" "$manifest"
+          grep -Fxq -- 'production_v1: false' "$manifest"
+          grep -Fxq -- 'production_signing_proven: false' "$manifest"
+          grep -Fxq -- 'google_play_production: false' "$manifest"
 
       - name: Verify Pose Studio commercial-beta distribution contract
         shell: bash
         run: |
           set -euo pipefail
           workflow=.github/workflows/pose-studio-beta-release.yml
+          lock=apps/pose-studio/releases/commercial-beta.lock.env
           test -f "$workflow"
+          test -f "$lock"
+
+          expected_keys="APK_NAME EXPECTED_CANDIDATE_SHA EXPECTED_CERT_SHA256 EXPECTED_KEYSTORE_SHA256 EXPECTED_MANIFEST_SHA256 TAG VERSION_CODE VERSION_NAME"
+          actual_keys="$(grep -Ev '^[[:space:]]*(#|$)' "$lock" | cut -d= -f1 | sort | xargs)"
+          test "$actual_keys" = "$expected_keys"
+
+          set -a
+          # shellcheck disable=SC1090
+          source "$lock"
+          set +a
+
+          [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]
+          [[ "$EXPECTED_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_KEYSTORE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$TAG" = "pose-studio-v$VERSION_NAME"
+          test "$APK_NAME" = "PoseStudio-v${VERSION_NAME}-commercial-beta-debug-signed.apk"
+
+          manifest="apps/pose-studio/releases/${TAG}.md"
+          test -f "$manifest"
+          test "$(sha256sum "$manifest" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256"
+          grep -Fxq -- "version: $TAG" "$manifest"
+          grep -Fxq -- "android_version_name: $VERSION_NAME" "$manifest"
+          grep -Fxq -- "android_version_code: $VERSION_CODE" "$manifest"
+          grep -Fxq -- 'production_v1: false' "$manifest"
+          grep -Fxq -- 'production_signing_proven: false' "$manifest"
+          grep -Fxq -- 'google_play_production: false' "$manifest"
 
           grep -Fq -- 'workflows: ["CI Contracts"]' "$workflow"
           grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
           grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
           grep -Fq -- "github.event.workflow_run.conclusion == 'success'" "$workflow"
           grep -Fq -- 'contents: write' "$workflow"
-          grep -Fq -- 'TAG: pose-studio-v0.2.1' "$workflow"
-          grep -Fq -- 'EXPECTED_CANDIDATE_SHA: da999c8432bcc447d12123e55bdbb84d24e9583b' "$workflow"
-          grep -Fq -- 'EXPECTED_MANIFEST_SHA256: 6ec5c4b3589735933155042764f492abfa663aa7d3fb652afdcffb21c65c657f' "$workflow"
-          grep -Fq -- 'EXPECTED_KEYSTORE_SHA256: b327cb3fd3bf5eeaeb3958737335180f5b8c664d47429fd1b9eb08d32e178a56' "$workflow"
-          grep -Fq -- 'EXPECTED_CERT_SHA256: 2618e7889486adea5fc083f7cb5155f2ec629baf5dae2a74dabc3abe5cd02a94' "$workflow"
+          grep -Fq -- 'LOCK: apps/pose-studio/releases/commercial-beta.lock.env' "$workflow"
+          grep -Fq -- "source \"\$LOCK\"" "$workflow"
+          grep -Fq -- "if: steps.preflight.outputs.needs_publish == 'true'" "$workflow"
           grep -Fq -- 'validatePoseReleaseSigning assembleRelease' "$workflow"
-          grep -Fq -- 'PoseStudio-v0.2.1-commercial-beta-debug-signed.apk' "$workflow"
           grep -Fq -- 'production_signing_proven: false' "$workflow"
           grep -Fq -- 'google_play_production: false' "$workflow"
           grep -Fq -- 'pre-production commercial-beta distribution only' "$workflow"
@@ -107,5 +142,10 @@ jobs:
 
           if grep -Fq -- 'bundleRelease' "$workflow"; then
             echo 'Commercial-beta GitHub distribution must not publish a Play-style AAB' >&2
+            exit 1
+          fi
+
+          if grep -Eq -- 'TAG: pose-studio-v[0-9]|EXPECTED_CANDIDATE_SHA: [0-9a-f]{40}|EXPECTED_MANIFEST_SHA256: [0-9a-f]{64}' "$workflow"; then
+            echo 'Version-specific beta provenance belongs in commercial-beta.lock.env, not workflow YAML' >&2
             exit 1
           fi
