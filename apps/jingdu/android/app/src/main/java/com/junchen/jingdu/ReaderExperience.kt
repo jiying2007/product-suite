@@ -12,6 +12,9 @@ internal object ReaderInteractionRuntime {
     @Volatile var backgroundTtsPlaying: Boolean = false
     @Volatile var foregroundPosition: Long = -1L
     @Volatile var continuousReady: Boolean = false
+    @Volatile var pagedLayoutGeneration: Long = 0L
+        private set
+    @Volatile private var pagedLayoutReadyPosition: Long = -1L
     @Volatile var volumeEligibilityChecks: Long = 0L
     @Volatile var lastVolumeForegroundTtsPlaying: Boolean = false
     @Volatile var lastVolumeEligible: Boolean = false
@@ -22,6 +25,24 @@ internal object ReaderInteractionRuntime {
     @Volatile var lastPagedGestureDurationMs: Long = -1L
     @Volatile var lastPagedGestureDistancePx: Float = -1f
     @Volatile var lastPagedGestureConsumedByChild: Boolean = false
+
+    @Synchronized
+    fun resetPagedLayoutReadiness() {
+        pagedLayoutGeneration = 0L
+        pagedLayoutReadyPosition = -1L
+    }
+
+    /**
+     * Publishes one readiness generation for the currently authoritative paged source position.
+     * Callers must only invoke this after exact page layout and its reusable raster are available.
+     * A stale worker is ignored if navigation has already advanced foregroundPosition.
+     */
+    @Synchronized
+    fun publishPagedLayoutReady(position: Long) {
+        if (position < 0L || foregroundPosition != position || pagedLayoutReadyPosition == position) return
+        pagedLayoutReadyPosition = position
+        pagedLayoutGeneration += 1L
+    }
 
     fun resetPagedGestureDiagnostics() {
         controlsVisible = true

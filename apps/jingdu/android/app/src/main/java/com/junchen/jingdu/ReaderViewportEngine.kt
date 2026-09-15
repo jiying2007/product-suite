@@ -284,6 +284,29 @@ internal object ReaderPageLayoutCache {
         return null
     }
 
+    private fun rasterMatches(
+        raster: ReaderPageRaster,
+        visibleText: String,
+        widthPx: Int,
+        heightPx: Int,
+        hasHeadingStyle: Boolean,
+    ): Boolean =
+        raster.widthPx == widthPx &&
+            raster.heightPx == heightPx &&
+            raster.visibleText == visibleText &&
+            raster.hasHeadingStyle == hasHeadingStyle
+
+    @Synchronized
+    private fun hasPublishedRaster(
+        visibleText: String,
+        widthPx: Int,
+        heightPx: Int,
+        hasHeadingStyle: Boolean,
+    ): Boolean =
+        mostRecentRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true ||
+            previousRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true ||
+            olderRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true
+
     @Synchronized
     private fun publishRaster(
         visibleText: String,
@@ -292,6 +315,9 @@ internal object ReaderPageLayoutCache {
         hasHeadingStyle: Boolean,
         layout: StaticLayout,
     ) {
+        // A concurrent cache hit may have rebuilt this exact raster while another worker was still
+        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page.
+        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) return
         olderRaster = previousRaster
         previousRaster = mostRecentRaster
         mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
@@ -336,6 +362,10 @@ internal object ReaderPageLayoutCache {
         typeface: Typeface? = null,
         map: SourceDisplayMap? = null,
     ): PageLayoutSnapshot {
+        // Capture the authoritative page before worker measurement begins. Publication below is
+        // rejected if navigation has already moved on, so an outgoing worker cannot satisfy a newer
+        // page's benchmark readiness generation.
+        val pagedPosition = ReaderInteractionRuntime.foregroundPosition
         val safeColumns = columns.coerceIn(1, 2)
         val maxContentWidth = with(density) { (if (safeColumns == 2) 1200.dp else 760.dp).toPx() }.roundToInt()
         val horizontalPadding = with(density) { settings.horizontalPaddingDp.dp.toPx() }.roundToInt() * 2
@@ -354,7 +384,30 @@ internal object ReaderPageLayoutCache {
             typographyFingerprint = 31 * spec.fingerprint + settings.emphasizeHeadings.hashCode(),
             columns = safeColumns,
         )
-        get(key)?.let { return it }
+        get(key)?.let { cached ->
+            val reusableLayout = cached.reusableLayout
+            if (reusableLayout != null && cached.reusableVisibleText.isNotEmpty()) {
+                if (!hasPublishedRaster(
+                        cached.reusableVisibleText,
+                        cached.reusableWidthPx,
+                        cached.reusableHeightPx,
+                        cached.reusableHasHeadingStyle,
+                    )
+                ) {
+                    publishRaster(
+                        cached.reusableVisibleText,
+                        cached.reusableWidthPx,
+                        cached.reusableHeightPx,
+                        cached.reusableHasHeadingStyle,
+                        rasterizedRenderLayout(reusableLayout, cached.reusableWidthPx, cached.reusableHeightPx),
+                    )
+                }
+                // Readiness is published only after the matching reusable raster is resident, even
+                // when the exact measurement came from the longer-lived layout snapshot LRU.
+                ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
+            }
+            return cached
+        }
 
         val cjk = ReaderCjkTypography.containsCjk(displayText)
         val paint = TextPaint(TextPaint.ANTI_ALIAS_FLAG or TextPaint.SUBPIXEL_TEXT_FLAG).apply {
@@ -433,6 +486,7 @@ internal object ReaderPageLayoutCache {
                 reusableHasHeadingStyle,
                 rasterizedRenderLayout(reusable, columnWidth, contentHeight),
             )
+            ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
         }
         return snapshot
     }
