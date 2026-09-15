@@ -41,11 +41,14 @@ class ReaderJourneyBenchmark {
         prepareBlock = { setReaderMode("paged") },
         afterOpenPrepareBlock = { waitForPagedLayoutReady() },
     ) {
-        val before = pagedReaderState()
-        var previous = before
-        check(previous.position >= 0L && previous.layoutGeneration > 0L) {
-            "Reader page-turn journey has no fully prepared starting page: $previous"
+        // Preserve the long-standing authoritative-position contract while pairing it with the
+        // visual generation that proves this exact starting page has completed worker preparation.
+        val before = readerPosition()
+        val initial = pagedReaderState()
+        check(initial.position == before && initial.layoutGeneration > 0L) {
+            "Reader page-turn journey has no fully prepared authoritative starting page: before=$before state=$initial"
         }
+        var previous = initial
         val physicalVolume = usePhysicalVolumePageTurn()
         // Hosted API 35 software-emulator input policy consumes injected VOLUME_DOWN before the
         // foreground Activity even though MainActivity is RESUMED. Hosted therefore uses the real
@@ -65,9 +68,10 @@ class ReaderJourneyBenchmark {
             }
             previous = waitForReaderAdvance(previous, physicalVolume)
         }
-        val after = pagedReaderState()
-        check(after.position > before.position && after.layoutGeneration > before.layoutGeneration) {
-            "Reader page-turn journey did not complete prepared page turns overall: before=$before after=$after"
+        val afterState = pagedReaderState()
+        val after = afterState.position
+        check(after > before && afterState.layoutGeneration > initial.layoutGeneration) {
+            "Reader page-turn journey did not complete prepared page turns overall: before=$before initial=$initial after=$afterState"
         }
     }
 
