@@ -336,6 +336,10 @@ internal object ReaderPageLayoutCache {
         typeface: Typeface? = null,
         map: SourceDisplayMap? = null,
     ): PageLayoutSnapshot {
+        // Capture the authoritative page before worker measurement begins. Publication below is
+        // rejected if navigation has already moved on, so an outgoing worker cannot satisfy a newer
+        // page's benchmark readiness generation.
+        val pagedPosition = ReaderInteractionRuntime.foregroundPosition
         val safeColumns = columns.coerceIn(1, 2)
         val maxContentWidth = with(density) { (if (safeColumns == 2) 1200.dp else 760.dp).toPx() }.roundToInt()
         val horizontalPadding = with(density) { settings.horizontalPaddingDp.dp.toPx() }.roundToInt() * 2
@@ -354,7 +358,12 @@ internal object ReaderPageLayoutCache {
             typographyFingerprint = 31 * spec.fingerprint + settings.emphasizeHeadings.hashCode(),
             columns = safeColumns,
         )
-        get(key)?.let { return it }
+        get(key)?.let { cached ->
+            if (cached.reusableLayout != null && cached.reusableVisibleText.isNotEmpty()) {
+                ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
+            }
+            return cached
+        }
 
         val cjk = ReaderCjkTypography.containsCjk(displayText)
         val paint = TextPaint(TextPaint.ANTI_ALIAS_FLAG or TextPaint.SUBPIXEL_TEXT_FLAG).apply {
@@ -433,6 +442,7 @@ internal object ReaderPageLayoutCache {
                 reusableHasHeadingStyle,
                 rasterizedRenderLayout(reusable, columnWidth, contentHeight),
             )
+            ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
         }
         return snapshot
     }

@@ -41,6 +41,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 ReaderInteractionRuntime.foregroundPosition = -1L
                 ReaderInteractionRuntime.backgroundTtsPlaying = false
                 ReaderInteractionRuntime.continuousReady = false
+                ReaderInteractionRuntime.resetPagedLayoutReadiness()
                 ReaderInteractionRuntime.resetVolumeDiagnostics()
                 ReaderInteractionRuntime.resetPagedGestureDiagnostics()
                 val preferences = ReaderPreferences(context)
@@ -70,6 +71,10 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 Bundle.EMPTY
             }
             "position" -> Bundle().apply { putLong("position", ReaderInteractionRuntime.foregroundPosition) }
+            "pageState" -> Bundle().apply {
+                putLong("position", ReaderInteractionRuntime.foregroundPosition)
+                putLong("layoutGeneration", ReaderInteractionRuntime.pagedLayoutGeneration)
+            }
             "continuousReady" -> Bundle().apply { putLong("ready", if (ReaderInteractionRuntime.continuousReady) 1L else 0L) }
             "inputState" -> {
                 // Read-only benchmark diagnostics. This exposes no navigation action and cannot alter
@@ -78,6 +83,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 val settings = ReaderPreferences(context).load()
                 Bundle().apply {
                     putLong("position", ReaderInteractionRuntime.foregroundPosition)
+                    putLong("pagedLayoutGeneration", ReaderInteractionRuntime.pagedLayoutGeneration)
                     putString("readingMode", settings.readingMode.name)
                     putString("volumeKeyMode", settings.volumeKeyMode.name)
                     putBoolean("reverseVolumeKeys", settings.reverseVolumeKeys)

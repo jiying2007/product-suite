@@ -20,6 +20,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
 
+private data class PagedReaderState(
+    val position: Long,
+    val layoutGeneration: Long,
+)
+
 @RunWith(AndroidJUnit4::class)
 class ReaderJourneyBenchmark {
     @get:Rule val rule = MacrobenchmarkRule()
@@ -34,10 +39,13 @@ class ReaderJourneyBenchmark {
         name = "page-turn",
         fixtureMiB = 10,
         prepareBlock = { setReaderMode("paged") },
+        afterOpenPrepareBlock = { waitForPagedLayoutReady() },
     ) {
-        val before = readerPosition()
+        val before = pagedReaderState()
         var previous = before
-        check(previous >= 0) { "Reader page-turn journey has no authoritative starting position: $previous" }
+        check(previous.position >= 0L && previous.layoutGeneration > 0L) {
+            "Reader page-turn journey has no fully prepared starting page: $previous"
+        }
         val physicalVolume = usePhysicalVolumePageTurn()
         // Hosted API 35 software-emulator input policy consumes injected VOLUME_DOWN before the
         // foreground Activity even though MainActivity is RESUMED. Hosted therefore uses the real
@@ -57,9 +65,9 @@ class ReaderJourneyBenchmark {
             }
             previous = waitForReaderAdvance(previous, physicalVolume)
         }
-        val after = readerPosition()
-        check(after > before) {
-            "Reader page-turn journey did not advance overall: before=$before after=$after"
+        val after = pagedReaderState()
+        check(after.position > before.position && after.layoutGeneration > before.layoutGeneration) {
+            "Reader page-turn journey did not complete prepared page turns overall: before=$before after=$after"
         }
     }
 
@@ -176,6 +184,17 @@ class ReaderJourneyBenchmark {
             ?: error("Reader benchmark position query failed: $result")
     }
 
+    private fun MacrobenchmarkScope.pagedReaderState(): PagedReaderState {
+        val result = device.executeShellCommand(
+            "content call --uri content://com.junchen.jingdu.benchmarkfixture --method pageState",
+        )
+        val position = Regex("""position=(-?\d+)""").find(result)?.groupValues?.get(1)?.toLongOrNull()
+            ?: error("Reader benchmark paged position query failed: $result")
+        val generation = Regex("""layoutGeneration=(\d+)""").find(result)?.groupValues?.get(1)?.toLongOrNull()
+            ?: error("Reader benchmark paged layout generation query failed: $result")
+        return PagedReaderState(position, generation)
+    }
+
     private fun MacrobenchmarkScope.readerInputState(): String = device.executeShellCommand(
         "content call --uri content://com.junchen.jingdu.benchmarkfixture --method inputState",
     ).trim().ifEmpty { "<unavailable>" }
@@ -197,13 +216,30 @@ class ReaderJourneyBenchmark {
         error("Reader did not publish an authoritative rendered position before interaction: $position")
     }
 
-    private fun MacrobenchmarkScope.waitForReaderAdvance(before: Long, physicalVolume: Boolean): Long {
+    private fun MacrobenchmarkScope.waitForPagedLayoutReady() {
+        val deadline = System.nanoTime() + PAGED_READY_TIMEOUT_NS
+        var state = PagedReaderState(-1L, 0L)
+        while (System.nanoTime() < deadline) {
+            state = pagedReaderState()
+            if (state.position >= 0L && state.layoutGeneration > 0L) {
+                device.waitForIdle()
+                return
+            }
+            Thread.sleep(INPUT_POLL_MS)
+        }
+        error("Reader paged viewport did not publish initial layout/raster readiness: $state")
+    }
+
+    private fun MacrobenchmarkScope.waitForReaderAdvance(
+        before: PagedReaderState,
+        physicalVolume: Boolean,
+    ): PagedReaderState {
         val deadline = System.nanoTime() + INPUT_STATE_TIMEOUT_NS
         var after = before
         while (System.nanoTime() < deadline) {
             device.waitForIdle()
-            after = readerPosition()
-            if (after > before) return after
+            after = pagedReaderState()
+            if (after.position > before.position && after.layoutGeneration > before.layoutGeneration) return after
             Thread.sleep(INPUT_POLL_MS)
         }
         val focus = device.executeShellCommand(
@@ -211,7 +247,7 @@ class ReaderJourneyBenchmark {
         ).trim()
         val input = if (physicalVolume) " inputState=${readerInputState()}" else ""
         error(
-            "Reader ${if (physicalVolume) "physical volume key" else "page tap"} did not advance the authoritative reader position: " +
+            "Reader ${if (physicalVolume) "physical volume key" else "page tap"} did not complete the next paged layout/raster: " +
                 "before=$before after=$after$input focus=${focus.ifEmpty { "<unknown>" }}",
         )
     }
@@ -381,6 +417,7 @@ class ReaderJourneyBenchmark {
         const val READER_POST_RENDER_SETTLE_MS = 350L
         const val INPUT_STATE_TIMEOUT_NS = 2_500_000_000L
         const val READER_READY_TIMEOUT_NS = 12_000_000_000L
+        const val PAGED_READY_TIMEOUT_NS = 12_000_000_000L
         const val CONTINUOUS_READY_TIMEOUT_NS = 12_000_000_000L
         const val PAGE_FORWARD_TAP_X = 0.86f
         const val PAGE_FORWARD_TAP_Y = 0.52f
