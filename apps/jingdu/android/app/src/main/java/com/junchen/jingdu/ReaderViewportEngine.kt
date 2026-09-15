@@ -284,6 +284,29 @@ internal object ReaderPageLayoutCache {
         return null
     }
 
+    private fun rasterMatches(
+        raster: ReaderPageRaster,
+        visibleText: String,
+        widthPx: Int,
+        heightPx: Int,
+        hasHeadingStyle: Boolean,
+    ): Boolean =
+        raster.widthPx == widthPx &&
+            raster.heightPx == heightPx &&
+            raster.visibleText == visibleText &&
+            raster.hasHeadingStyle == hasHeadingStyle
+
+    @Synchronized
+    private fun hasPublishedRaster(
+        visibleText: String,
+        widthPx: Int,
+        heightPx: Int,
+        hasHeadingStyle: Boolean,
+    ): Boolean =
+        mostRecentRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true ||
+            previousRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true ||
+            olderRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true
+
     @Synchronized
     private fun publishRaster(
         visibleText: String,
@@ -292,6 +315,9 @@ internal object ReaderPageLayoutCache {
         hasHeadingStyle: Boolean,
         layout: StaticLayout,
     ) {
+        // A concurrent cache hit may have rebuilt this exact raster while another worker was still
+        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page.
+        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) return
         olderRaster = previousRaster
         previousRaster = mostRecentRaster
         mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
@@ -359,7 +385,25 @@ internal object ReaderPageLayoutCache {
             columns = safeColumns,
         )
         get(key)?.let { cached ->
-            if (cached.reusableLayout != null && cached.reusableVisibleText.isNotEmpty()) {
+            val reusableLayout = cached.reusableLayout
+            if (reusableLayout != null && cached.reusableVisibleText.isNotEmpty()) {
+                if (!hasPublishedRaster(
+                        cached.reusableVisibleText,
+                        cached.reusableWidthPx,
+                        cached.reusableHeightPx,
+                        cached.reusableHasHeadingStyle,
+                    )
+                ) {
+                    publishRaster(
+                        cached.reusableVisibleText,
+                        cached.reusableWidthPx,
+                        cached.reusableHeightPx,
+                        cached.reusableHasHeadingStyle,
+                        rasterizedRenderLayout(reusableLayout, cached.reusableWidthPx, cached.reusableHeightPx),
+                    )
+                }
+                // Readiness is published only after the matching reusable raster is resident, even
+                // when the exact measurement came from the longer-lived layout snapshot LRU.
                 ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
             }
             return cached
