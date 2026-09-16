@@ -1,10 +1,12 @@
 package com.junchen.posestudio.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -66,105 +68,108 @@ fun PoseScene(
     val bodyColor = MaterialTheme.colorScheme.onSurface
     val selectionColor = MaterialTheme.colorScheme.primary
 
-    Canvas(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged { canvasSize = it }
-            .semantics {
-                contentDescription = sceneDescription
-                selectedJointLabel?.let { stateDescription = it }
-            }
-            .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val startModel = currentModel
-                    var activeJoint = startModel?.projected?.let { projected ->
-                        JointPicker.pick(
-                            projected = projected,
-                            touchX = down.position.x,
-                            touchY = down.position.y,
-                            hitRadiusPx = hitRadiusPx,
-                            overlapSlopPx = overlapSlopPx,
-                        )
-                    }
-                    var activeDepth = activeJoint?.let { startModel?.projected?.get(it)?.depth } ?: currentCamera.distance
-                    var poseStarted = activeJoint != null
-                    onSelect(activeJoint)
-                    if (poseStarted) onPoseStart()
+    Box(modifier = modifier.background(background)) {
+        ReferenceImageOverlay(Modifier.fillMaxSize())
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .onSizeChanged { canvasSize = it }
+                .semantics {
+                    contentDescription = sceneDescription
+                    selectedJointLabel?.let { stateDescription = it }
+                }
+                .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startModel = currentModel
+                        var activeJoint = startModel?.projected?.let { projected ->
+                            JointPicker.pick(
+                                projected = projected,
+                                touchX = down.position.x,
+                                touchY = down.position.y,
+                                hitRadiusPx = hitRadiusPx,
+                                overlapSlopPx = overlapSlopPx,
+                            )
+                        }
+                        var activeDepth = activeJoint?.let { startModel?.projected?.get(it)?.depth }
+                            ?: currentCamera.distance
+                        var poseStarted = activeJoint != null
+                        onSelect(activeJoint)
+                        if (poseStarted) onPoseStart()
 
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val pressed = event.changes.filter { it.pressed }
-                        if (pressed.isEmpty()) break
-                        if (pressed.size >= 2) {
-                            if (poseStarted) {
-                                onPoseEnd()
-                                poseStarted = false
-                            }
-                            activeJoint = null
-                            onSelect(null)
-                            val zoom = event.calculateZoom()
-                            val pan = event.calculatePan()
-                            if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
-                            if (pan.getDistance() > 0.01f && canvasSize.width > 0) {
-                                onPan(pan.x, pan.y, canvasSize.width.toFloat())
-                            }
-                            event.changes.forEach { it.consume() }
-                        } else {
-                            val change = pressed.first()
-                            val delta = change.positionChange()
-                            if (delta.getDistance() > 0f) {
-                                val joint = activeJoint
-                                if (joint != null) {
-                                    activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
-                                    onDragJoint(
-                                        joint,
-                                        SceneProjection.screenDeltaToWorld(
-                                            delta.x,
-                                            delta.y,
-                                            currentCamera,
-                                            canvasSize.width.toFloat(),
-                                            activeDepth,
-                                        ),
-                                    )
-                                } else {
-                                    onOrbit(delta.x, delta.y)
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.isEmpty()) break
+                            if (pressed.size >= 2) {
+                                if (poseStarted) {
+                                    onPoseEnd()
+                                    poseStarted = false
                                 }
-                                change.consume()
+                                activeJoint = null
+                                onSelect(null)
+                                val zoom = event.calculateZoom()
+                                val pan = event.calculatePan()
+                                if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
+                                if (pan.getDistance() > 0.01f && canvasSize.width > 0) {
+                                    onPan(pan.x, pan.y, canvasSize.width.toFloat())
+                                }
+                                event.changes.forEach { it.consume() }
+                            } else {
+                                val change = pressed.first()
+                                val delta = change.positionChange()
+                                if (delta.getDistance() > 0f) {
+                                    val joint = activeJoint
+                                    if (joint != null) {
+                                        activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
+                                        onDragJoint(
+                                            joint,
+                                            SceneProjection.screenDeltaToWorld(
+                                                delta.x,
+                                                delta.y,
+                                                currentCamera,
+                                                canvasSize.width.toFloat(),
+                                                activeDepth,
+                                            ),
+                                        )
+                                    } else {
+                                        onOrbit(delta.x, delta.y)
+                                    }
+                                    change.consume()
+                                }
                             }
                         }
+                        if (poseStarted) onPoseEnd()
                     }
-                    if (poseStarted) onPoseEnd()
-                }
-            },
-    ) {
-        drawRect(background)
-        val renderModel = model ?: return@Canvas
-        renderModel.grid.forEach { line ->
-            drawLine(gridColor, Offset(line.x1, line.y1), Offset(line.x2, line.y2), strokeWidth = line.width)
-        }
-        renderModel.volumes.forEach { volume ->
-            drawOval(
-                color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
-                topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
-                size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
-            )
-        }
-        renderModel.bones.forEach { line ->
-            drawLine(
-                color = bodyColor.copy(alpha = (0.32f + line.luminance * 0.68f).coerceAtMost(0.98f)),
-                start = Offset(line.x1, line.y1),
-                end = Offset(line.x2, line.y2),
-                strokeWidth = line.width,
-                cap = StrokeCap.Round,
-            )
-        }
-        JointId.entries.sortedByDescending { renderModel.projected.getValue(it).depth }.forEach { id ->
-            val p = renderModel.projected.getValue(id)
-            val chosen = id == selectedJoint
-            val radius = (if (chosen) 9f else 5.5f) * (p.scale / 160f).coerceIn(0.75f, 1.7f)
-            if (chosen) drawCircle(selectionColor.copy(alpha = 0.24f), radius * 2f, Offset(p.x, p.y))
-            drawCircle(if (chosen) selectionColor else bodyColor, radius, Offset(p.x, p.y))
+                },
+        ) {
+            val renderModel = model ?: return@Canvas
+            renderModel.grid.forEach { line ->
+                drawLine(gridColor, Offset(line.x1, line.y1), Offset(line.x2, line.y2), strokeWidth = line.width)
+            }
+            renderModel.volumes.forEach { volume ->
+                drawOval(
+                    color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
+                    topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
+                    size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
+                )
+            }
+            renderModel.bones.forEach { line ->
+                drawLine(
+                    color = bodyColor.copy(alpha = (0.32f + line.luminance * 0.68f).coerceAtMost(0.98f)),
+                    start = Offset(line.x1, line.y1),
+                    end = Offset(line.x2, line.y2),
+                    strokeWidth = line.width,
+                    cap = StrokeCap.Round,
+                )
+            }
+            JointId.entries.sortedByDescending { renderModel.projected.getValue(it).depth }.forEach { id ->
+                val p = renderModel.projected.getValue(id)
+                val chosen = id == selectedJoint
+                val radius = (if (chosen) 9f else 5.5f) * (p.scale / 160f).coerceIn(0.75f, 1.7f)
+                if (chosen) drawCircle(selectionColor.copy(alpha = 0.24f), radius * 2f, Offset(p.x, p.y))
+                drawCircle(if (chosen) selectionColor else bodyColor, radius, Offset(p.x, p.y))
+            }
         }
     }
 }
