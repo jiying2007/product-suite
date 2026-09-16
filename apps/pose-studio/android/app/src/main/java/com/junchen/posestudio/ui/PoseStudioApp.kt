@@ -506,30 +506,32 @@ private fun ControlArea(
                 )
             }
         }
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            when (panel) {
-                Panel.POSE -> PoseControls(viewModel)
-                Panel.SCENE -> {
-                    CameraControls(viewModel)
-                    HorizontalDivider()
-                    LightControls(viewModel)
+        androidx.compose.runtime.key(panel) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                when (panel) {
+                    Panel.POSE -> PoseControls(viewModel)
+                    Panel.SCENE -> {
+                        CameraControls(viewModel)
+                        HorizontalDivider()
+                        LightControls(viewModel)
+                    }
+                    Panel.EXPORT -> ProjectControls(
+                        viewModel = viewModel,
+                        onSave = onSave,
+                        onOpen = onOpen,
+                        onNew = onNew,
+                        onExportPng = onExportPng,
+                        onExportTransparentPng = onExportTransparentPng,
+                        onExportSilhouettePng = onExportSilhouettePng,
+                        onExportConstructionPng = onExportConstructionPng,
+                        onExportProject = onExportProject,
+                        onImportProject = onImportProject,
+                        onPrivacy = onPrivacy,
+                    )
                 }
-                Panel.EXPORT -> ProjectControls(
-                    viewModel = viewModel,
-                    onSave = onSave,
-                    onOpen = onOpen,
-                    onNew = onNew,
-                    onExportPng = onExportPng,
-                    onExportTransparentPng = onExportTransparentPng,
-                    onExportSilhouettePng = onExportSilhouettePng,
-                    onExportConstructionPng = onExportConstructionPng,
-                    onExportProject = onExportProject,
-                    onImportProject = onImportProject,
-                    onPrivacy = onPrivacy,
-                )
             }
         }
     }
