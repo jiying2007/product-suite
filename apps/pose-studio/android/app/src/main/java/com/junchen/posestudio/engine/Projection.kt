@@ -46,6 +46,25 @@ object SceneProjection {
         return right * (dx * unitsPerPixel) + up * (-dy * unitsPerPixel)
     }
 
+    fun screenDepthDeltaToWorld(
+        dy: Float,
+        camera: CameraState,
+        width: Float,
+        depth: Float = camera.distance,
+    ): Vec3 {
+        val yaw = radians(camera.yawDegrees)
+        val pitch = radians(camera.pitchDegrees)
+        // Positive camera-space Z is farther from the camera in project(). Dragging upward
+        // therefore moves the selected joint farther away; dragging downward brings it closer.
+        val forward = Vec3(
+            cos(pitch) * sin(yaw),
+            sin(pitch),
+            cos(pitch) * cos(yaw),
+        )
+        val unitsPerPixel = depth.coerceAtLeast(0.25f) / focalLength(width, camera)
+        return forward * (-dy * unitsPerPixel)
+    }
+
     fun panTargetDelta(dx: Float, dy: Float, camera: CameraState, width: Float): Vec3 =
         screenDeltaToWorld(-dx, -dy, camera, width, camera.distance)
 

@@ -54,6 +54,11 @@ class PoseStudioUiTest {
     }
 
     @Test
+    fun selectedJointExposesDirectDepthModeOnCanvas() {
+        rule.onNodeWithText("Depth").assertIsDisplayed().performClick().assertIsSelected()
+    }
+
+    @Test
     fun sceneAcceptsDirectOrbitGestureWithoutCrashing() {
         val description = "Pose canvas. Select and drag joints, drag empty space to orbit, or use two fingers to zoom and pan."
         rule.onNodeWithContentDescription(description).performTouchInput {

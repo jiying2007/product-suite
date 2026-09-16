@@ -8,13 +8,18 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -24,11 +29,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.junchen.posestudio.R
 import com.junchen.posestudio.engine.SceneProjection
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PoseProject
@@ -52,6 +59,9 @@ fun PoseScene(
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    var depthDragMode by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedJoint) { depthDragMode = false }
+
     val density = LocalDensity.current
     val hitRadiusPx = with(density) { 48.dp.toPx() }
     val overlapSlopPx = with(density) { 12.dp.toPx() }
@@ -64,6 +74,7 @@ fun PoseScene(
     }
     val currentModel by rememberUpdatedState(model)
     val currentCamera by rememberUpdatedState(project.camera)
+    val currentDepthDragMode by rememberUpdatedState(depthDragMode)
     val background = MaterialTheme.colorScheme.background
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val bodyColor = MaterialTheme.colorScheme.onSurface
@@ -123,16 +134,23 @@ fun PoseScene(
                                     val joint = activeJoint
                                     if (joint != null) {
                                         activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
-                                        onDragJoint(
-                                            joint,
+                                        val worldDelta = if (currentDepthDragMode) {
+                                            SceneProjection.screenDepthDeltaToWorld(
+                                                delta.y,
+                                                currentCamera,
+                                                canvasSize.width.toFloat(),
+                                                activeDepth,
+                                            )
+                                        } else {
                                             SceneProjection.screenDeltaToWorld(
                                                 delta.x,
                                                 delta.y,
                                                 currentCamera,
                                                 canvasSize.width.toFloat(),
                                                 activeDepth,
-                                            ),
-                                        )
+                                            )
+                                        }
+                                        onDragJoint(joint, worldDelta)
                                     } else {
                                         onOrbit(delta.x, delta.y)
                                     }
@@ -191,6 +209,14 @@ fun PoseScene(
                 if (chosen) drawCircle(selectionColor.copy(alpha = 0.24f), radius * 2f, Offset(p.x, p.y))
                 drawCircle(if (chosen) selectionColor else bodyColor, radius, Offset(p.x, p.y))
             }
+        }
+        if (selectedJoint != null) {
+            FilterChip(
+                selected = depthDragMode,
+                onClick = { depthDragMode = !depthDragMode },
+                label = { Text(stringResource(R.string.depth_drag)) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            )
         }
     }
 }
