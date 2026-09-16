@@ -61,16 +61,49 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     viewModel.selectedJoint?.let { joint ->
         Text(stringResource(R.string.selected_joint, jointLabel(joint)), style = MaterialTheme.typography.titleSmall)
         Text(stringResource(R.string.accessible_adjustment_help))
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(-0.06f, 0f, 0f)) }) { Text(stringResource(R.string.left)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0.06f, 0f, 0f)) }) { Text(stringResource(R.string.right)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0.06f, 0f)) }) { Text(stringResource(R.string.up)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, -0.06f, 0f)) }) { Text(stringResource(R.string.down)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) }) { Text(stringResource(R.string.forward)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) }) { Text(stringResource(R.string.back)) }
+        // Precision controls are a fallback path for touch, keyboard and switch users. Keep them
+        // in the outer vertical flow rather than another horizontal scroller so every direction
+        // is reliably bring-into-view on phones and under large font scale.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(-0.06f, 0f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.left)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0.06f, 0f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.right)) }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0.06f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.up)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, -0.06f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.down)) }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.forward)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.back)) }
+            }
         }
     }
 
