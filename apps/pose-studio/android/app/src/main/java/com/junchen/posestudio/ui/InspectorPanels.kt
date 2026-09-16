@@ -206,25 +206,44 @@ private fun ReferenceOverlayControls() {
         return
     }
 
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Button(onClick = { picker.launch(arrayOf("image/*")) }) {
-            Text(stringResource(R.string.choose_reference))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { picker.launch(arrayOf("image/*")) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.choose_reference))
+            }
+            OutlinedButton(
+                onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    stringResource(
+                        if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
+                    ),
+                )
+            }
         }
-        OutlinedButton(onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible }) {
-            Text(
-                stringResource(
-                    if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
-                ),
-            )
-        }
-        OutlinedButton(onClick = ReferenceOverlaySession::resetTransform) {
-            Text(stringResource(R.string.reset_reference))
-        }
-        OutlinedButton(onClick = ReferenceOverlaySession::clear) {
-            Text(stringResource(R.string.clear_reference))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(
+                onClick = ReferenceOverlaySession::resetTransform,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.reset_reference))
+            }
+            OutlinedButton(
+                onClick = ReferenceOverlaySession::clear,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.clear_reference))
+            }
         }
     }
     LabeledSlider(stringResource(R.string.reference_opacity), ReferenceOverlaySession.opacity, 0.1f..0.95f) {
