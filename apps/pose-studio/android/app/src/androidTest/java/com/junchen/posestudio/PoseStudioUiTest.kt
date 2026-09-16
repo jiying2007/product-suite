@@ -27,14 +27,16 @@ class PoseStudioUiTest {
         rule.onNodeWithText("Undo").performScrollTo().assertIsDisplayed().performClick()
         rule.onNodeWithText("Reference overlay").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Choose image").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Camera").performClick()
+
+        rule.onNodeWithText("Scene").performClick()
         rule.onNodeWithText("Front").assertIsDisplayed()
-        rule.onNodeWithText("Light").performClick()
-        rule.onNodeWithText("Directional light").assertIsDisplayed()
-        rule.onNodeWithText("Project").performClick()
+        rule.onNodeWithText("Directional light").performScrollTo().assertIsDisplayed()
+
+        rule.onNodeWithText("Export").performClick()
         rule.onNodeWithText("Transparent PNG").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Silhouette PNG").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Construction PNG").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Project").performScrollTo().assertIsDisplayed()
     }
 
     @Test
