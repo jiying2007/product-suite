@@ -1,10 +1,10 @@
 # Pose Studio reference-product benchmark
 
-This document is the current product-development gate for Pose Studio 0.3. It deliberately uses observable competitor capabilities, established interaction patterns and executable product tasks before requiring recruitment of external artists.
+This document is the product-development benchmark for Pose Studio. It deliberately uses observable competitor capabilities, established interaction patterns and executable product tasks before requiring recruitment of external artists.
 
 ## Decision boundary
 
-Real-artist studies are **not a blocker for 0.3 product development**. They remain useful later for subjective workflow validation and for any comparative speed/quality marketing claim.
+Real-artist studies are **not a blocker for product development**. They remain useful for subjective workflow validation and are required before making comparative speed, preference or quality claims about named alternatives.
 
 The repository may make implementation decisions from reproducible desk research when the evidence is observable, for example:
 
@@ -39,7 +39,7 @@ Observable reference capabilities include drag-and-pose interaction, a large bod
 
 ## What Pose Studio should compete on
 
-Pose Studio should **not** attempt to win by model/asset count. The current differentiated direction is:
+Pose Studio should **not** attempt to win by model/asset count. The differentiated direction is:
 
 1. get from an existing visual reference or an imagined action to a usable construction reference with minimal interaction;
 2. keep the workflow offline and account-free;
@@ -47,22 +47,35 @@ Pose Studio should **not** attempt to win by model/asset count. The current diff
 4. provide clean exports that fit directly into a drawing workflow;
 5. keep the UI closer to a physical drawing mannequin than a mobile 3D editor.
 
-## Current capability gaps
+## 0.3 benchmarked gaps — closed in source
 
-Against the reference set, the highest-value gaps are:
+The six highest-value single-figure gaps identified for 0.3 are now represented in source main:
 
-1. **Reference matching** — import a local reference image, align it behind the mannequin, adjust opacity/scale/position, then pose against it.
-2. **Readable mannequin volume** — stronger chest/pelvis/head and limb volume cues so the result is useful beyond a stick-figure gesture.
-3. **Hand/foot direction** — visible orientation and useful presets, backed by the existing schema-v2 roll semantics.
-4. **Depth manipulation** — reduce reliance on Forward/Back buttons for normal 3D posing.
-5. **Pose reuse** — a focused local pose library and user-saved poses before any marketplace concept.
-6. **Drawing-oriented output** — transparent PNG first, then silhouette/construction-line modes if they preserve a simple workflow.
+1. **Reference matching — #109.** Local reference image, bounded decode, behind-mannequin rendering, opacity/scale/position controls and no export/project leakage.
+2. **Readable mannequin volume — #111.** Procedural limb capsules plus oriented torso masses shared between interactive and PNG rendering.
+3. **Hand/foot direction — #117.** Visible endpoint orientation backed by schema-v2 roll semantics and explicit wrist/foot roll controls.
+4. **Depth manipulation — #118.** Explicit selected-joint camera-axis Depth mode alongside normal camera-plane dragging.
+5. **Pose reuse — #119.** Focused local pose library with save/apply/delete, preserved project/camera/light identity and normal Undo integration.
+6. **Drawing-oriented output — #120.** Shaded, transparent, silhouette and construction PNG modes from the same deterministic geometry.
 
-Multi-character scenes and props are secondary until the single-figure workflow is materially deeper.
+#121 then reorganized the product shell around **Pose / Scene / Export**, making the creation sequence more task-oriented and preventing workspace scroll state from leaking between tasks, including at 200% font scale.
 
-## 0.3 acceptance method
+These changes close the specific 0.3 capability sequence. They do **not** establish a comparative claim that Pose Studio is faster or preferred versus the reference products.
 
-A 0.3 increment is justified when it closes one or more gaps above and passes all applicable deterministic checks:
+## Post-0.3 decision boundary
+
+Multi-character scenes and props remain observable competitor capabilities, but they are still secondary. Adding them now would increase scene complexity before there is evidence that they improve the primary `time_to_reference_pose` task enough to justify the interaction cost.
+
+The next evaluation should therefore prioritize single-figure workflow cost:
+
+1. reference alignment with fewer parameter-hunting steps while pose gestures remain authoritative;
+2. configurable artistic body proportions without anatomical/medical claims;
+3. saved camera/grid helpers where they remove repeated setup;
+4. only then re-evaluate multiple mannequins/basic props against concrete drawing-reference tasks.
+
+## Increment acceptance method
+
+A product increment is justified when it closes an observable workflow gap and passes all applicable deterministic checks:
 
 - the primary task is reachable without adding account/network requirements;
 - the interaction does not make direct posing harder;
@@ -72,13 +85,4 @@ A 0.3 increment is justified when it closes one or more gaps above and passes al
 - phone/tablet and 200% font layouts keep primary actions reachable;
 - existing API/instrumentation/performance regression gates remain green.
 
-## Current 0.3 sequence
-
-1. local reference-image overlay;
-2. stronger procedural mannequin volume and explicit hand/foot orientation;
-3. depth-aware direct manipulation improvements;
-4. local pose library / saved poses;
-5. silhouette/construction export modes;
-6. only then consider multiple mannequins/props.
-
-External artist sessions may be added at any point, but they are advisory for this phase rather than a source-control merge gate. Comparative speed/preference claims remain blocked until suitable human evidence exists.
+External artist sessions may be added at any point, but they are advisory for source development rather than a merge gate. Comparative speed/preference claims remain blocked until suitable human evidence exists.
