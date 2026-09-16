@@ -4,9 +4,9 @@ import com.junchen.posestudio.model.Mannequin
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.PoseProject
 import com.junchen.posestudio.render.PoseRenderBuilder
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class RenderModelTest {
     @Test
