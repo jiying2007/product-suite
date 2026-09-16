@@ -34,6 +34,20 @@ data class CameraState(
     val target: Vec3 = Vec3.ZERO,
 )
 
+internal fun CameraState.withDefaultFraming(
+    yawDegrees: Float = this.yawDegrees,
+    pitchDegrees: Float = this.pitchDegrees,
+): CameraState {
+    val defaults = CameraState()
+    return copy(
+        yawDegrees = yawDegrees,
+        pitchDegrees = pitchDegrees,
+        distance = defaults.distance,
+        fovDegrees = defaults.fovDegrees,
+        target = defaults.target,
+    )
+}
+
 data class LightState(
     val azimuthDegrees: Float = -35f,
     val elevationDegrees: Float = 48f,

@@ -35,6 +35,7 @@ import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.Vec3
+import com.junchen.posestudio.model.withDefaultFraming
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.launch
@@ -269,13 +270,13 @@ internal fun CameraControls(viewModel: PoseStudioViewModel) {
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OutlinedButton(onClick = { viewModel.updateCamera { it.copy(yawDegrees = 0f, pitchDegrees = 0f) } }) {
+        OutlinedButton(onClick = { viewModel.updateCamera { it.withDefaultFraming(0f, 0f) } }) {
             Text(stringResource(R.string.front))
         }
-        OutlinedButton(onClick = { viewModel.updateCamera { it.copy(yawDegrees = 45f, pitchDegrees = -4f) } }) {
+        OutlinedButton(onClick = { viewModel.updateCamera { it.withDefaultFraming(45f, -4f) } }) {
             Text(stringResource(R.string.three_quarter))
         }
-        OutlinedButton(onClick = { viewModel.updateCamera { it.copy(yawDegrees = 90f, pitchDegrees = 0f) } }) {
+        OutlinedButton(onClick = { viewModel.updateCamera { it.withDefaultFraming(90f, 0f) } }) {
             Text(stringResource(R.string.side))
         }
     }
