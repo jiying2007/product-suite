@@ -39,6 +39,27 @@ class ProjectionTest {
     }
 
     @Test
+    fun directDepthDragMovesAlongCameraDepthAxis() {
+        val camera = CameraState(yawDegrees = 42f, pitchDegrees = 24f, fovDegrees = 40f)
+        val point = Vec3(0.3f, 0.8f, -0.2f)
+        val before = SceneProjection.project(point, camera, 1080f, 1920f)
+        val delta = SceneProjection.screenDepthDeltaToWorld(-80f, camera, 1080f, before.depth)
+        val after = SceneProjection.project(point + delta, camera, 1080f, 1920f)
+
+        assertTrue(delta.isFinite())
+        assertTrue(delta.length() > 0f)
+        assertTrue(after.depth > before.depth)
+    }
+
+    @Test
+    fun directDepthDragScaleUsesSelectedDepth() {
+        val camera = CameraState(yawDegrees = -25f, pitchDegrees = 18f)
+        val near = SceneProjection.screenDepthDeltaToWorld(-60f, camera, 1080f, depth = 4f).length()
+        val far = SceneProjection.screenDepthDeltaToWorld(-60f, camera, 1080f, depth = 8f).length()
+        assertTrue(far > near * 1.9f)
+    }
+
+    @Test
     fun cameraTargetOffsetsCompositionWithoutMovingPose() {
         val base = CameraState(yawDegrees = 0f, pitchDegrees = 0f)
         val centered = SceneProjection.project(Vec3.ZERO, base, 1000f, 800f)
