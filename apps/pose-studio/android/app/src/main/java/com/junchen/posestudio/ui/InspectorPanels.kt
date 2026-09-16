@@ -37,6 +37,13 @@ import com.junchen.posestudio.model.Vec3
 import java.text.DateFormat
 import java.util.Date
 
+private val ORIENTABLE_ENDPOINTS = setOf(
+    JointId.LEFT_WRIST,
+    JointId.RIGHT_WRIST,
+    JointId.LEFT_FOOT,
+    JointId.RIGHT_FOOT,
+)
+
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
     // Reference matching is now a primary 0.3 workflow, so keep its entry point ahead of
@@ -103,6 +110,21 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
                     onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) },
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.back)) }
+            }
+            if (joint in ORIENTABLE_ENDPOINTS) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.updateSelectedRoll(-15f) },
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(R.string.roll_minus)) }
+                    OutlinedButton(
+                        onClick = { viewModel.updateSelectedRoll(15f) },
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(R.string.roll_plus)) }
+                }
             }
         }
     }

@@ -30,14 +30,14 @@ The 0.2.1 prerelease remains the frozen commercial-beta artifact. Production-v1 
 
 Development is guided by `REFERENCE_BENCHMARK.md`. Real-artist recruitment is optional during this phase and does not block repository changes.
 
-Priority order:
+Implementation progress:
 
-1. **Local reference overlay** — choose an image, align it behind the mannequin, tune opacity/scale/offset, and keep pose gestures authoritative.
-2. **Readable mannequin volume** — stronger capsule/skinned-style procedural silhouette and anatomical landmarks while preserving project semantics.
-3. **Hand/foot orientation** — visible hand/foot direction and useful presets using schema-v2 roll state.
-4. **Depth manipulation** — reduce normal dependence on Forward/Back buttons with a direct depth gesture or local manipulator.
-5. **Local pose reuse** — focused pose library, user-saved poses and simple pose blending.
-6. **Drawing output modes** — high-resolution transparent, silhouette and construction-line export where deterministic.
+1. **Local reference overlay — landed in #109.** Choose a local image, align it behind the mannequin, tune opacity/scale/offset, and keep pose gestures authoritative.
+2. **Readable mannequin volume — landed in #111.** Procedural capsule body segments plus oriented chest/pelvis construction masses now share one screen/export render model.
+3. **Hand/foot orientation — current in #112.** Make schema-v2 roll visible through procedural wrist/foot orientation paddles and expose roll controls only where renderer feedback exists.
+4. **Depth manipulation — queued in #113.** Reduce normal dependence on Forward/Back buttons with an explicit on-canvas camera-axis depth mode.
+5. **Local pose reuse — queued in #114.** Focused user-owned local pose snapshots with save/apply/delete and preserved camera/light/project identity.
+6. **Drawing output modes — queued in #115.** Keep shaded/transparent output and add deterministic silhouette/construction PNG handoff modes.
 
 Secondary, only after the single-figure workflow is substantially deeper:
 - configurable artistic body proportions without medical claims;

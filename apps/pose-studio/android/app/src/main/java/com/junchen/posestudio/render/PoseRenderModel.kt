@@ -42,12 +42,24 @@ data class RenderOval(
     val rotationDegrees: Float = 0f,
 )
 
+data class RenderEndpoint(
+    val joint: JointId,
+    val centerX: Float,
+    val centerY: Float,
+    val radiusX: Float,
+    val radiusY: Float,
+    val depth: Float,
+    val luminance: Float,
+    val rotationDegrees: Float,
+)
+
 data class PoseRenderModel(
     val projected: Map<JointId, ProjectedPoint>,
     val grid: List<RenderLine>,
     val bodySegments: List<RenderCapsule>,
     val bones: List<RenderLine>,
     val volumes: List<RenderOval>,
+    val endpoints: List<RenderEndpoint>,
 )
 
 object PoseRenderBuilder {
@@ -140,7 +152,38 @@ object PoseRenderBuilder {
                 pelvisRotation,
             ),
         ).sortedByDescending { it.depth }
-        return PoseRenderModel(projected, grid, bodySegments, bones, volumes)
+        val endpoints = listOf(
+            endpoint(project, projected, JointId.LEFT_ELBOW, JointId.LEFT_WRIST, hand = true),
+            endpoint(project, projected, JointId.RIGHT_ELBOW, JointId.RIGHT_WRIST, hand = true),
+            endpoint(project, projected, JointId.LEFT_ANKLE, JointId.LEFT_FOOT, hand = false),
+            endpoint(project, projected, JointId.RIGHT_ANKLE, JointId.RIGHT_FOOT, hand = false),
+        ).sortedByDescending { it.depth }
+        return PoseRenderModel(projected, grid, bodySegments, bones, volumes, endpoints)
+    }
+
+    private fun endpoint(
+        project: PoseProject,
+        projected: Map<JointId, ProjectedPoint>,
+        parent: JointId,
+        joint: JointId,
+        hand: Boolean,
+    ): RenderEndpoint {
+        val parentPoint = projected.getValue(parent)
+        val point = projected.getValue(joint)
+        val baseAngle = screenAngle(parentPoint, point)
+        val roll = project.jointRollDegrees[joint] ?: 0f
+        val radiusX = point.scale * if (hand) 0.14f else 0.17f
+        val radiusY = point.scale * if (hand) 0.07f else 0.075f
+        return RenderEndpoint(
+            joint = joint,
+            centerX = point.x,
+            centerY = point.y,
+            radiusX = radiusX,
+            radiusY = radiusY,
+            depth = point.depth,
+            luminance = if (hand) 0.58f else 0.52f,
+            rotationDegrees = normalizeDegrees(baseAngle + roll),
+        )
     }
 
     private fun bodyWidthMultiplier(child: JointId): Float = when (child) {
@@ -157,6 +200,13 @@ object PoseRenderBuilder {
 
     private fun screenAngle(a: ProjectedPoint, b: ProjectedPoint): Float =
         atan2(b.y - a.y, b.x - a.x) * 180f / PI.toFloat()
+
+    private fun normalizeDegrees(value: Float): Float {
+        var normalized = value % 360f
+        if (normalized > 180f) normalized -= 360f
+        if (normalized < -180f) normalized += 360f
+        return normalized
+    }
 
     private fun lightDirection(project: PoseProject): Vec3 {
         val az = project.light.azimuthDegrees * PI.toFloat() / 180f

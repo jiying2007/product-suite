@@ -1,9 +1,11 @@
 package com.junchen.posestudio
 
+import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.Mannequin
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.PoseProject
 import com.junchen.posestudio.render.PoseRenderBuilder
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -35,5 +37,30 @@ class RenderModelTest {
                 assertTrue(volume.radiusY > 0f)
             }
         }
+    }
+
+    @Test
+    fun endpointRollChangesVisibleHandOrientationWithoutChangingSchema() {
+        val base = PoseProject()
+        val rotated = base.copy(
+            jointRollDegrees = base.jointRollDegrees.toMutableMap().apply {
+                this[JointId.RIGHT_WRIST] = 45f
+            },
+        )
+        val baseModel = PoseRenderBuilder.build(base, width = 1080f, height = 1920f)
+        val rotatedModel = PoseRenderBuilder.build(rotated, width = 1080f, height = 1920f)
+
+        assertEquals(4, baseModel.endpoints.size)
+        val before = baseModel.endpoints.single { it.joint == JointId.RIGHT_WRIST }
+        val after = rotatedModel.endpoints.single { it.joint == JointId.RIGHT_WRIST }
+        assertTrue(before.radiusX > before.radiusY)
+        assertTrue(abs(normalizedDelta(before.rotationDegrees, after.rotationDegrees) - 45f) < 0.01f)
+        assertEquals(PoseProject.CURRENT_SCHEMA_VERSION, rotated.schemaVersion)
+    }
+
+    private fun normalizedDelta(before: Float, after: Float): Float {
+        var delta = (after - before) % 360f
+        if (delta < 0f) delta += 360f
+        return delta
     }
 }
