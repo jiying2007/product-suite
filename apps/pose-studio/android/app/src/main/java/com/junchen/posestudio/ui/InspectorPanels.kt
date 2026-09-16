@@ -1,5 +1,8 @@
 package com.junchen.posestudio.ui
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,9 +39,11 @@ import java.util.Date
 
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
-    // Joint selection and precise adjustment are first-class Pose actions. Keep the picker compact
-    // so the alternate manipulation path and the speed tools remain reachable in the bounded phone
-    // inspector without forcing a vertical scroll before the user can start editing.
+    // Reference matching is now a primary 0.3 workflow, so keep its entry point ahead of
+    // lower-level joint precision controls in the bounded phone inspector.
+    ReferenceOverlayControls()
+    HorizontalDivider()
+
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -55,16 +61,49 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     viewModel.selectedJoint?.let { joint ->
         Text(stringResource(R.string.selected_joint, jointLabel(joint)), style = MaterialTheme.typography.titleSmall)
         Text(stringResource(R.string.accessible_adjustment_help))
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(-0.06f, 0f, 0f)) }) { Text(stringResource(R.string.left)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0.06f, 0f, 0f)) }) { Text(stringResource(R.string.right)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0.06f, 0f)) }) { Text(stringResource(R.string.up)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, -0.06f, 0f)) }) { Text(stringResource(R.string.down)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) }) { Text(stringResource(R.string.forward)) }
-            OutlinedButton(onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) }) { Text(stringResource(R.string.back)) }
+        // Precision controls are a fallback path for touch, keyboard and switch users. Keep them
+        // in the outer vertical flow rather than another horizontal scroller so every direction
+        // is reliably bring-into-view on phones and under large font scale.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(-0.06f, 0f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.left)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0.06f, 0f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.right)) }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0.06f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.up)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, -0.06f, 0f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.down)) }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, 0.06f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.forward)) }
+                OutlinedButton(
+                    onClick = { viewModel.nudgeSelected(Vec3(0f, 0f, -0.06f)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.back)) }
+            }
         }
     }
 
@@ -86,6 +125,66 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
         OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
         OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
     }
+}
+
+@Composable
+private fun ReferenceOverlayControls() {
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            ReferenceOverlaySession.use(uri)
+        }
+    }
+
+    Text(stringResource(R.string.reference_overlay), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.reference_overlay_help))
+
+    if (ReferenceOverlaySession.uri == null) {
+        // A single primary action should participate in the outer vertical scroll directly.
+        // Wrapping it in an inner horizontal scroller makes bring-into-view unreliable on phones.
+        Button(onClick = { picker.launch(arrayOf("image/*")) }) {
+            Text(stringResource(R.string.choose_reference))
+        }
+        return
+    }
+
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = { picker.launch(arrayOf("image/*")) }) {
+            Text(stringResource(R.string.choose_reference))
+        }
+        OutlinedButton(onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible }) {
+            Text(
+                stringResource(
+                    if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
+                ),
+            )
+        }
+        OutlinedButton(onClick = ReferenceOverlaySession::resetTransform) {
+            Text(stringResource(R.string.reset_reference))
+        }
+        OutlinedButton(onClick = ReferenceOverlaySession::clear) {
+            Text(stringResource(R.string.clear_reference))
+        }
+    }
+    LabeledSlider(stringResource(R.string.reference_opacity), ReferenceOverlaySession.opacity, 0.1f..0.95f) {
+        ReferenceOverlaySession.opacity = it
+    }
+    LabeledSlider(stringResource(R.string.reference_scale), ReferenceOverlaySession.scale, 0.5f..2.5f) {
+        ReferenceOverlaySession.scale = it
+    }
+    LabeledSlider(stringResource(R.string.reference_horizontal), ReferenceOverlaySession.offsetXDp, -220f..220f) {
+        ReferenceOverlaySession.offsetXDp = it
+    }
+    LabeledSlider(stringResource(R.string.reference_vertical), ReferenceOverlaySession.offsetYDp, -220f..220f) {
+        ReferenceOverlaySession.offsetYDp = it
+    }
+    Text(stringResource(R.string.reference_session_only), style = MaterialTheme.typography.labelSmall)
 }
 
 @Composable

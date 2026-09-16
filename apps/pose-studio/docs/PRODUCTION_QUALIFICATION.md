@@ -1,6 +1,8 @@
 # Pose Studio production qualification runbook
 
-This runbook turns issue #83 into an execution sequence. It does not let source control self-certify evidence that only a physical device, real artist, Play Console or production signing system can produce.
+This runbook turns issue #83 into an execution sequence. It does not let source control self-certify evidence that only a physical device, Play Console or production signing system can produce.
+
+Current product direction deliberately keeps this production track secondary to the 0.3 product-value work in `REFERENCE_BENCHMARK.md`.
 
 ## 1. Freeze a new immutable candidate
 
@@ -59,21 +61,17 @@ Use the final release candidate, not a development mock. Repeat the primary crea
 
 The Pose inspector must allow a user to select a joint and make left/right/up/down/forward/back adjustments without touching the canvas. Record any focus traps, unlabeled controls, clipped text or unreachable destructive confirmations as release blockers.
 
-## 5. Frozen real-artist benchmark
+## 5. Product-value evidence boundary
 
-Follow `BENCHMARK_PROTOCOL.md` without changing targets/exclusions after results are visible.
+Production qualification does not require recruiting real artists merely to prove that the app should exist. Current product-development direction comes from observable competitor/task evidence in `REFERENCE_BENCHMARK.md`.
 
-1. Freeze ten public-domain/original target references before timing starts.
-2. Recruit at least 8 practicing illustrators/comic/storyboard artists; 12+ is preferred before a marketing speed claim.
-3. Compare the exact Pose Studio candidate against at least two established Android pose/reference tools.
-4. Record one row per participant/tool/task using `BENCHMARK_RESULTS_TEMPLATE.csv`.
-5. Validate and summarize the raw data:
+The optional `BENCHMARK_PROTOCOL.md` is retained for cases where human evidence is actually needed, especially comparative claims such as:
 
-```bash
-python3 apps/pose-studio/scripts/analyze-artist-benchmark.py path/to/results.csv
-```
+- "faster than" a named alternative;
+- quantified preference or confidence claims;
+- drawing-quality claims attributed to artists.
 
-The analyzer checks study completeness and reports median/P95, abandonment, confidence, corrections, undo/mis-selection rates and paired participant-level differences. It intentionally does not emit an automatic marketing PASS. A speed claim requires a material and consistent advantage without materially worse confidence/abandonment.
+If release/store copy does not make those claims, the real-artist study is not a production-v1 checkbox.
 
 ## 6. Privacy and Play policy
 
@@ -105,4 +103,4 @@ Define rollback/version handling before production. Use staged rollout and recor
 
 ## 8. Closure rule
 
-Issue #83 is the authority for v1 commercial-production qualification. Check a row only when its real evidence exists and is bound to the exact candidate. Repository CI, documentation, emulator runs or a commercial-beta APK cannot close physical-device, production-signing, real-artist, Play Console, manual-accessibility or staged-rollout rows on their own.
+Issue #83 is the authority for v1 commercial-production qualification. Check a row only when its real evidence exists and is bound to the exact candidate. Repository CI, documentation, emulator runs or a commercial-beta APK cannot close physical-device, production-signing, Play Console, manual-accessibility or staged-rollout rows on their own.

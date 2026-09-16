@@ -6,50 +6,52 @@ This roadmap is evidence-gated and describes remaining work, not a promise to sh
 
 Established independent Android identity/CI, 19-joint procedural mannequin, fixed bone lengths, wrist/ankle IK, direct manipulation, four presets, camera/light, local save/open, undo/redo, versioned JSON and PNG export.
 
-## 0.2 — commercial-beta foundation — implemented in current development line
+## 0.2 — commercial-beta foundation — complete
 
 - mirror/copy/ground speed tools;
 - depth-aware camera-plane joint dragging;
 - pinch zoom/true two-finger camera-target pan;
-- shared render model with stronger procedural volume cues;
+- shared render model with procedural volume cues;
 - schema-v2 roll semantics plus v1 migration fixtures;
 - rollback-safe atomic save plus conflated/debounced autosave recovery;
 - dirty-work confirmation for New/Open/Import, duplicate/delete and corruption visibility;
-- explicit delete confirmation;
 - bounded/defensive project import;
 - responsive phone/landscape/tablet inspector;
 - interactive first-run guide and accessible precise joint controls;
 - en-US/zh-CN/zh-TW/zh-HK resources and product launcher icon;
 - Unicode-safe export filenames and clean transparent PNG export;
 - light/dark workspace and system-chrome alignment;
-- release APK/AAB compilation, executable API-36 instrumentation, 200% font check and physical qualification workflow;
-- release-like AndroidX Macrobenchmark target for physical startup/frame evidence;
+- release APK/AAB compilation, API-36 instrumentation, 200% font checks and release-like performance tooling;
 - product-specific release/signing/privacy/Data Safety/store-source contracts.
 
-This is still not a v1 production claim until external evidence is complete.
+The 0.2.1 prerelease remains the frozen commercial-beta artifact. Production-v1 work is intentionally secondary to product-value depth.
 
-## 0.3 — artist workflow depth — evidence-gated
+## 0.3 — drawing-reference workflow depth — current
 
-Only after real artist sessions validate direct manipulation:
-- capsule/skinned mannequin with stronger silhouette/anatomical landmarks while preserving released project semantics;
+Development is guided by `REFERENCE_BENCHMARK.md`. Real-artist recruitment is optional during this phase and does not block repository changes.
+
+Priority order:
+
+1. **Local reference overlay** — choose an image, align it behind the mannequin, tune opacity/scale/offset, and keep pose gestures authoritative.
+2. **Readable mannequin volume** — stronger capsule/skinned-style procedural silhouette and anatomical landmarks while preserving project semantics.
+3. **Hand/foot orientation** — visible hand/foot direction and useful presets using schema-v2 roll state.
+4. **Depth manipulation** — reduce normal dependence on Forward/Back buttons with a direct depth gesture or local manipulator.
+5. **Local pose reuse** — focused pose library, user-saved poses and simple pose blending.
+6. **Drawing output modes** — high-resolution transparent, silhouette and construction-line export where deterministic.
+
+Secondary, only after the single-figure workflow is substantially deeper:
 - configurable artistic body proportions without medical claims;
-- hand-shape presets and visible hand/foot orientation using schema-v2 roll state;
-- local pose library and pose blending;
-- local reference-image overlay;
-- multiple mannequins and basic props only if they materially reduce artist workflow time;
-- higher-resolution and optional silhouette/line-art export modes.
+- multiple mannequins;
+- basic props;
+- additional scene/grid helpers.
+
+Explicitly avoid chasing competitor asset counts, cloud accounts, generative AI or a marketplace as substitutes for a strong posing workflow.
 
 ## v1.0 — production qualification
 
-Required:
-- exact-candidate product-specific signing/AAB provenance;
-- API 26 + API 36 physical compatibility and at least two OEM families;
-- physical frame/startup/save/export performance evidence;
-- released-schema migration fixtures;
-- manual TalkBack/switch/keyboard accessibility audit;
-- stable public privacy policy plus Play Data Safety/policy/store assets;
-- closed-track install and staged rollout/crash/ANR review;
-- frozen ten-pose study with real illustrators showing a material speed/clarity advantage against at least two established Android pose tools.
+Production qualification remains a separate operational decision. When resumed, it requires the normal release evidence appropriate to the exact candidate: signing/AAB provenance, supported-device compatibility, accessibility, physical performance, Play policy/store evidence and staged rollout.
+
+A real-artist study is **not required to compile or merge 0.3 product work**. It is required before publishing comparative claims such as "faster than" or quantified preference/quality claims about named alternatives.
 
 ## Commercial hypothesis
 
