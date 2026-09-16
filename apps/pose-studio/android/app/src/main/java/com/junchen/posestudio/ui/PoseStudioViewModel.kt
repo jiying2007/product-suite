@@ -20,6 +20,7 @@ import com.junchen.posestudio.model.LightState
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.PoseProject
 import com.junchen.posestudio.model.Vec3
+import com.junchen.posestudio.render.PoseBitmapMode
 import com.junchen.posestudio.render.PoseBitmapRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -336,7 +337,8 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         width: Int = 1440,
         height: Int = 1440,
         transparentBackground: Boolean = false,
-    ): Bitmap = PoseBitmapRenderer.render(snapshot, width, height, transparentBackground)
+        mode: PoseBitmapMode = PoseBitmapMode.SHADED,
+    ): Bitmap = PoseBitmapRenderer.render(snapshot, width, height, transparentBackground, mode)
 
     private fun completeOnboarding() {
         onboardingStep = -1
