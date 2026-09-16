@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Pose Studio</string>
     <string name="save">Save</string><string name="open">Open</string><string name="ok">OK</string><string name="cancel">Cancel</string><string name="close">Close</string><string name="discard">Discard</string>
-    <string name="pose">Pose</string><string name="camera">Camera</string><string name="light">Light</string><string name="project">Project</string>
+    <string name="pose">Pose</string><string name="camera">Camera</string><string name="light">Light</string><string name="project">Project</string><string name="scene_workspace">Scene</string><string name="export_workspace">Export</string>
     <string name="saved_locally">Saved locally</string><string name="save_failed">Save failed: %1$s</string><string name="png_exported">PNG exported</string><string name="silhouette_png_exported">Silhouette PNG exported</string><string name="construction_png_exported">Construction PNG exported</string><string name="png_export_failed">PNG export failed: %1$s</string><string name="project_exported">Project exported</string><string name="project_export_failed">Project export failed: %1$s</string><string name="project_imported">Project imported</string><string name="import_failed">Import failed: %1$s</string>
     <string name="unsaved_title">Unsaved changes</string><string name="unsaved_body">Save this pose before leaving it?</string><string name="save_continue">Save &amp; continue</string>
     <string name="recovery_title">Recover unsaved work</string><string name="recovery_body">A newer autosave for “%1$s” was found.</string><string name="restore">Restore</string>

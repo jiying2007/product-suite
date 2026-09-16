@@ -305,24 +305,8 @@ internal fun ProjectControls(
     onPrivacy: () -> Unit,
 ) {
     val enabled = !viewModel.projectBusy
-    Text(stringResource(R.string.project), style = MaterialTheme.typography.titleMedium)
-    OutlinedTextField(
-        value = viewModel.project.name,
-        onValueChange = viewModel::rename,
-        label = { Text(stringResource(R.string.name)) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Row(
-        Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Button(onClick = onSave, enabled = enabled) { Text(stringResource(R.string.save)) }
-        OutlinedButton(onClick = onOpen, enabled = enabled) { Text(stringResource(R.string.open)) }
-        OutlinedButton(onClick = onNew, enabled = enabled) { Text(stringResource(R.string.new_project)) }
-    }
-    HorizontalDivider()
-    Text(stringResource(R.string.drawing_exports), style = MaterialTheme.typography.titleSmall)
+
+    Text(stringResource(R.string.drawing_exports), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.drawing_exports_help))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -348,6 +332,27 @@ internal fun ProjectControls(
             }
         }
     }
+
+    HorizontalDivider()
+    Text(stringResource(R.string.project), style = MaterialTheme.typography.titleSmall)
+    OutlinedTextField(
+        value = viewModel.project.name,
+        onValueChange = viewModel::rename,
+        label = { Text(stringResource(R.string.name)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = onSave, enabled = enabled, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.save)) }
+        OutlinedButton(onClick = onOpen, enabled = enabled, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.open)) }
+    }
+    OutlinedButton(onClick = onNew, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.new_project))
+    }
+
     HorizontalDivider()
     Text(stringResource(R.string.portable_files), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(R.string.portable_files_help))

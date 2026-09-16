@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -51,7 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.Reader
 
-private enum class Panel { POSE, CAMERA, LIGHT, PROJECT }
+private enum class Panel { POSE, SCENE, EXPORT }
 private enum class PendingType { NEW, OPEN, IMPORT }
 private data class PendingProjectAction(
     val type: PendingType,
@@ -494,7 +495,7 @@ private fun ControlArea(
     onPrivacy: () -> Unit,
     modifier: Modifier,
 ) {
-    val labels = listOf(R.string.pose, R.string.camera, R.string.light, R.string.project)
+    val labels = listOf(R.string.pose, R.string.scene_workspace, R.string.export_workspace)
     Column(modifier) {
         PrimaryScrollableTabRow(selectedTabIndex = panel.ordinal) {
             Panel.entries.forEach { item ->
@@ -511,9 +512,12 @@ private fun ControlArea(
         ) {
             when (panel) {
                 Panel.POSE -> PoseControls(viewModel)
-                Panel.CAMERA -> CameraControls(viewModel)
-                Panel.LIGHT -> LightControls(viewModel)
-                Panel.PROJECT -> ProjectControls(
+                Panel.SCENE -> {
+                    CameraControls(viewModel)
+                    HorizontalDivider()
+                    LightControls(viewModel)
+                }
+                Panel.EXPORT -> ProjectControls(
                     viewModel = viewModel,
                     onSave = onSave,
                     onOpen = onOpen,
