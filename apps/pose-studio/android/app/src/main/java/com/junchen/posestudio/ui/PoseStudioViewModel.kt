@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.junchen.posestudio.data.PoseLibraryStore
 import com.junchen.posestudio.data.ProjectCodec
 import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.engine.PoseMath
@@ -39,6 +40,7 @@ private data class RecoveryRequest(val generation: Int, val project: PoseProject
 
 class PoseStudioViewModel(application: Application) : AndroidViewModel(application) {
     private val store = ProjectStore(application)
+    private val poseLibraryStore = PoseLibraryStore(application)
     private val prefs = application.getSharedPreferences("pose-studio", 0)
     private val undo = ArrayDeque<PoseSnapshot>()
     private val redo = ArrayDeque<PoseSnapshot>()
@@ -55,6 +57,8 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     var dirty by mutableStateOf(false)
         private set
     var savedProjects by mutableStateOf(emptyList<ProjectStore.SavedProject>())
+        private set
+    var savedPoses by mutableStateOf(emptyList<PoseLibraryStore.SavedPoseInfo>())
         private set
     var corruptProjects by mutableStateOf(emptyList<ProjectStore.CorruptProject>())
         private set
@@ -86,10 +90,11 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             runCatching {
-                runProjectIo { store.scan() to store.latestRecovery() }
-            }.onSuccess { (index, recovery) ->
+                runProjectIo { Triple(store.scan(), store.latestRecovery(), poseLibraryStore.list()) }
+            }.onSuccess { (index, recovery, library) ->
                 applyIndex(index)
                 recoveryCandidate = recovery
+                savedPoses = library
             }
         }
     }
@@ -142,6 +147,39 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
         pushUndo()
         val next = project.jointRollDegrees.toMutableMap().apply { this[joint] = updated }
         updateProject(project.copy(jointRollDegrees = next, modifiedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun saveCurrentPoseToLibrary() {
+        val snapshot = project
+        val library = runProjectIo {
+            poseLibraryStore.save(snapshot.name, snapshot.joints, snapshot.jointRollDegrees)
+            poseLibraryStore.list()
+        }
+        savedPoses = library
+    }
+
+    suspend fun applySavedPose(id: String) {
+        val saved = runProjectIo { poseLibraryStore.load(id) }
+        check(PoseMath.allFinite(saved.joints)) { "Saved pose contains invalid joints" }
+        val before = snapshot()
+        val after = PoseSnapshot(saved.joints, saved.jointRollDegrees)
+        if (before == after) return
+        pushUndo()
+        updateProject(
+            project.copy(
+                joints = saved.joints,
+                jointRollDegrees = saved.jointRollDegrees,
+                modifiedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    suspend fun deleteSavedPose(id: String): Boolean {
+        val (deleted, library) = runProjectIo {
+            poseLibraryStore.delete(id) to poseLibraryStore.list()
+        }
+        savedPoses = library
+        return deleted
     }
 
     fun undo() {
