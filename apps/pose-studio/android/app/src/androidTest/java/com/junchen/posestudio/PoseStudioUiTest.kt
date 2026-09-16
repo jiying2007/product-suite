@@ -32,7 +32,9 @@ class PoseStudioUiTest {
         rule.onNodeWithText("Light").performClick()
         rule.onNodeWithText("Directional light").assertIsDisplayed()
         rule.onNodeWithText("Project").performClick()
-        rule.onNodeWithText("Transparent PNG").fetchSemanticsNode()
+        rule.onNodeWithText("Transparent PNG").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Silhouette PNG").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Construction PNG").performScrollTo().assertIsDisplayed()
     }
 
     @Test

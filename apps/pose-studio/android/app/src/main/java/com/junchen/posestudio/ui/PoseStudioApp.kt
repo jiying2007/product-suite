@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.junchen.posestudio.R
 import com.junchen.posestudio.data.ProjectStore
+import com.junchen.posestudio.render.PoseBitmapMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -111,12 +112,20 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             .onFailure { message = resources.getString(R.string.privacy_open_failed) }
     }
 
-    fun writePng(uri: Uri, transparentBackground: Boolean) {
+    fun writePng(
+        uri: Uri,
+        transparentBackground: Boolean,
+        mode: PoseBitmapMode = PoseBitmapMode.SHADED,
+    ) {
         val snapshot = viewModel.project
         scope.launch {
             val result = runCatching {
                 val bitmap = withContext(Dispatchers.Default) {
-                    viewModel.renderPng(snapshot, transparentBackground = transparentBackground)
+                    viewModel.renderPng(
+                        snapshot,
+                        transparentBackground = transparentBackground,
+                        mode = mode,
+                    )
                 }
                 try {
                     withContext(Dispatchers.IO) {
@@ -130,7 +139,15 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
             }
             if (result.isSuccess) {
                 message = resources.getString(
-                    if (transparentBackground) R.string.transparent_png_exported else R.string.png_exported,
+                    when (mode) {
+                        PoseBitmapMode.SILHOUETTE -> R.string.silhouette_png_exported
+                        PoseBitmapMode.CONSTRUCTION -> R.string.construction_png_exported
+                        PoseBitmapMode.SHADED -> if (transparentBackground) {
+                            R.string.transparent_png_exported
+                        } else {
+                            R.string.png_exported
+                        }
+                    },
                 )
                 viewModel.recordExportSuccess()
             } else {
@@ -147,6 +164,12 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
     }
     val exportTransparentPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
         if (uri != null) writePng(uri, transparentBackground = true)
+    }
+    val exportSilhouettePng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri != null) writePng(uri, transparentBackground = true, mode = PoseBitmapMode.SILHOUETTE)
+    }
+    val exportConstructionPng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri != null) writePng(uri, transparentBackground = true, mode = PoseBitmapMode.CONSTRUCTION)
     }
     val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
@@ -227,6 +250,12 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                         onExportTransparentPng = {
                             exportTransparentPng.launch(exportFileName(viewModel.project.name + "-transparent", "png"))
                         },
+                        onExportSilhouettePng = {
+                            exportSilhouettePng.launch(exportFileName(viewModel.project.name + "-silhouette", "png"))
+                        },
+                        onExportConstructionPng = {
+                            exportConstructionPng.launch(exportFileName(viewModel.project.name + "-construction", "png"))
+                        },
                         onExportProject = { exportJson.launch(exportFileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
                         onPrivacy = ::openPrivacyPolicy,
@@ -246,6 +275,12 @@ fun PoseStudioApp(viewModel: PoseStudioViewModel) {
                         onExportPng = { exportPng.launch(exportFileName(viewModel.project.name, "png")) },
                         onExportTransparentPng = {
                             exportTransparentPng.launch(exportFileName(viewModel.project.name + "-transparent", "png"))
+                        },
+                        onExportSilhouettePng = {
+                            exportSilhouettePng.launch(exportFileName(viewModel.project.name + "-silhouette", "png"))
+                        },
+                        onExportConstructionPng = {
+                            exportConstructionPng.launch(exportFileName(viewModel.project.name + "-construction", "png"))
                         },
                         onExportProject = { exportJson.launch(exportFileName(viewModel.project.name, "pose.json")) },
                         onImportProject = { importJson.launch(arrayOf("application/json", "text/plain")) },
@@ -452,6 +487,8 @@ private fun ControlArea(
     onNew: () -> Unit,
     onExportPng: () -> Unit,
     onExportTransparentPng: () -> Unit,
+    onExportSilhouettePng: () -> Unit,
+    onExportConstructionPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
     onPrivacy: () -> Unit,
@@ -483,6 +520,8 @@ private fun ControlArea(
                     onNew = onNew,
                     onExportPng = onExportPng,
                     onExportTransparentPng = onExportTransparentPng,
+                    onExportSilhouettePng = onExportSilhouettePng,
+                    onExportConstructionPng = onExportConstructionPng,
                     onExportProject = onExportProject,
                     onImportProject = onImportProject,
                     onPrivacy = onPrivacy,
