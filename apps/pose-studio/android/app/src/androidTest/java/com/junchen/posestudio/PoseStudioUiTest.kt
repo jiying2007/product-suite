@@ -59,6 +59,12 @@ class PoseStudioUiTest {
     }
 
     @Test
+    fun localPoseLibraryIsReachableInPoseInspector() {
+        rule.onNodeWithText("Pose library").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Save current pose").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun sceneAcceptsDirectOrbitGestureWithoutCrashing() {
         val description = "Pose canvas. Select and drag joints, drag empty space to orbit, or use two fingers to zoom and pan."
         rule.onNodeWithContentDescription(description).performTouchInput {
