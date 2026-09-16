@@ -2,16 +2,17 @@
 
 ## North-star interaction
 
-The app should feel like picking up a digital drawing mannequin. The artist should spend time **posing**, not navigating property panels. Primary metric: `time_to_reference_pose`.
+The app should feel like picking up a digital drawing mannequin. The artist should spend time **posing and matching a reference**, not navigating property panels. Primary metric: `time_to_reference_pose`.
 
 ## Workspace hierarchy
 
 1. Scene — dominant visual surface.
-2. Integrated Speed tools — Neutral reset, mirror/copy/ground without leaving the scene.
-3. Pose — presets, undo/redo and precise accessible adjustments.
-4. Camera — composition controls.
-5. Light — form-clarity controls.
-6. Project — storage, recovery and export.
+2. Direct pose interaction — select/drag joints and use IK without leaving the scene.
+3. Reference matching — optional local image behind the mannequin with alignment controls.
+4. Integrated speed tools — Neutral reset, mirror/copy/ground without leaving the scene.
+5. Camera — composition controls.
+6. Light — secondary form-clarity controls, not a product headline.
+7. Project — storage, recovery and export.
 
 Project name and unsaved state remain visible in the top bar.
 
@@ -27,13 +28,25 @@ Project name and unsaved state remain visible in the top bar.
 - Screen-to-world drag respects camera pitch/FOV and selected-joint depth.
 - One continuous pose gesture creates one undo snapshot.
 
+Depth manipulation remains an explicit 0.3 improvement area: normal posing should progressively rely less on Forward/Back buttons.
+
+## Reference overlay
+
+- A local image may be chosen through Android's document picker.
+- The reference renders **behind** grid/mannequin controls and never intercepts pose gestures.
+- Opacity, scale and horizontal/vertical offset are adjustable.
+- Large images are downsampled to a bounded display size before decode.
+- Hide/show, reset and clear are always explicit.
+- The initial 0.3 implementation is session-local by design. It does not enter portable project JSON and does not appear in exported PNGs.
+- Persisting or packaging reference assets later requires a deliberate portable-asset contract rather than silently embedding device-specific URIs.
+
 ## Pose accelerators
 
-Current: four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground. These are evaluated by whether they lower time-to-pose; asset count is not a success metric.
+Current: four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground.
 
-Next accelerators require benchmark/user evidence: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and balance assistance.
+Next accelerators follow the observable capability gaps in `REFERENCE_BENCHMARK.md`: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and better depth manipulation.
 
-Schema-v2 roll state remains stored for forward compatibility, but roll controls are intentionally not exposed until the renderer can provide visible hand/foot/twist feedback. A control that changes invisible state is not considered usable functionality.
+Schema-v2 roll state remains stored for forward compatibility, but roll controls stay hidden until renderer feedback provides visible hand/foot/twist meaning. A control that changes invisible state is not considered usable functionality.
 
 ## Project safety and export
 
@@ -48,6 +61,7 @@ Schema-v2 roll state remains stored for forward compatibility, but roll controls
 - JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
 - Export filenames preserve Unicode project names while removing path/control characters and truncate by Unicode code point rather than splitting surrogate pairs.
 - Standard PNG keeps the workspace background/grid. Transparent PNG exports only the mannequin against alpha so artists can composite it directly in drawing software.
+- A reference overlay is an editing aid, not implicit export content.
 
 ## Responsive design
 
@@ -60,13 +74,18 @@ Light and dark modes keep Compose surfaces and Android status/navigation bars vi
 - Non-canvas controls use Material controls with minimum touch targets and visible labels.
 - Scene exposes descriptive and selected-joint state semantics.
 - The Pose inspector always exposes an explicit localized joint selector plus left/right/up/down/forward/back adjustments. A user must be able to choose and adjust a joint without touching the canvas, including after Open/Import/Recovery leaves the canvas selection empty.
+- Reference controls remain ordinary labeled Material controls; the decorative reference image itself stays out of the accessibility tree.
 - CI reruns primary-action reachability at 200% font scale and exercises non-canvas joint selection/adjustment.
-- Before v1, manual TalkBack/switch/keyboard audits on the final release build remain mandatory.
+- Before any production-v1 claim, manual TalkBack/switch/keyboard audits on the final release build remain appropriate.
 
 ## Onboarding
 
 First run is a four-step live workflow: drag the highlighted wrist, orbit empty space, apply a preset, then export. It may be skipped and never front-loads account/store concepts.
 
-## Kill test
+Reference matching may become part of onboarding only after the 0.3 flow is stable enough that it improves rather than lengthens first-run completion.
 
-Major model/asset investment is blocked until the frozen ten-pose benchmark shows a material median time advantage versus at least two established Android alternatives and artists understand direct manipulation without a long tutorial.
+## Product-development gate
+
+The current gate is `REFERENCE_BENCHMARK.md`: close observable workflow/capability gaps while preserving local-first ownership and direct manipulation. Real-artist studies are optional during 0.3 and do not block code merge.
+
+Human evidence remains necessary before comparative speed, preference or drawing-quality claims are published.
