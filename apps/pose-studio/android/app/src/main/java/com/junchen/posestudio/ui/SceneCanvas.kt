@@ -65,6 +65,8 @@ fun PoseScene(
     val referenceAlignmentActive = ReferenceOverlaySession.uri != null &&
         ReferenceOverlaySession.visible &&
         ReferenceOverlaySession.alignmentMode
+    val referenceAlignmentDescription = stringResource(R.string.reference_overlay_help)
+    val referenceAlignmentState = stringResource(R.string.done_aligning)
 
     LaunchedEffect(selectedJoint) { depthDragMode = false }
     LaunchedEffect(referenceAlignmentActive) {
@@ -101,8 +103,12 @@ fun PoseScene(
                 .fillMaxSize()
                 .onSizeChanged { canvasSize = it }
                 .semantics {
-                    contentDescription = sceneDescription
-                    selectedJointLabel?.let { stateDescription = it }
+                    contentDescription = if (referenceAlignmentActive) referenceAlignmentDescription else sceneDescription
+                    stateDescription = if (referenceAlignmentActive) {
+                        referenceAlignmentState
+                    } else {
+                        selectedJointLabel ?: ""
+                    }
                 }
                 .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx, densityScale) {
                     awaitEachGesture {

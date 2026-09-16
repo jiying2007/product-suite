@@ -34,8 +34,10 @@ class ReferenceAlignmentUiTest {
         }
 
         rule.onNodeWithText("Done aligning").assertIsDisplayed()
-        val description = "Pose canvas. Select and drag joints, drag empty space to orbit, or use two fingers to zoom and pan."
-        rule.onNodeWithContentDescription(description).performTouchInput {
+        val alignmentDescription =
+            "Choose a local image, then use Align reference on the canvas to drag and pinch it into place. " +
+                "Sliders remain available for precise adjustment."
+        rule.onNodeWithContentDescription(alignmentDescription).performTouchInput {
             swipe(center, center + Offset(120f, 48f), durationMillis = 350)
         }
         rule.runOnIdle {
