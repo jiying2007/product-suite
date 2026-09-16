@@ -6,15 +6,13 @@ The app should feel like picking up a digital drawing mannequin. The artist shou
 
 ## Workspace hierarchy
 
-1. Scene — dominant visual surface.
-2. Direct pose interaction — select/drag joints and use IK without leaving the scene.
-3. Reference matching — optional local image behind the mannequin with alignment controls.
-4. Integrated speed tools — Neutral reset, mirror/copy/ground without leaving the scene.
-5. Camera — composition controls.
-6. Light — secondary form-clarity controls, not a product headline.
-7. Project — storage, recovery and export.
+The top-level inspector uses three task workspaces rather than exposing implementation subsystems as peer tabs:
 
-Project name and unsaved state remain visible in the top bar.
+1. **Pose** — reference matching, joint selection/precision, presets, symmetry tools and local pose reuse.
+2. **Scene** — camera/composition first, with directional-light controls demoted to a secondary section below camera controls.
+3. **Export** — drawing handoff first, then secondary project naming/save/open/new, portable JSON and privacy/safety controls.
+
+The Scene canvas remains the dominant visual surface above or beside these workspaces. Project name and unsaved state remain visible in the top bar, with Save/Open kept as global shortcuts.
 
 ## Direct manipulation
 
@@ -26,9 +24,9 @@ Project name and unsaved state remain visible in the top bar.
 - Empty-scene drag orbits the camera.
 - Two-finger gestures pan the persistent camera target and pinch zoom without moving the mannequin itself.
 - Screen-to-world drag respects camera pitch/FOV and selected-joint depth.
+- A contextual **Depth** mode appears when a joint is selected; when enabled, vertical joint drag moves along the camera axis rather than the camera plane.
+- Forward/Back inspector buttons remain the explicit keyboard/switch-friendly precision fallback, not the primary depth workflow.
 - One continuous pose gesture creates one undo snapshot.
-
-Depth manipulation remains an explicit 0.3 improvement area: normal posing should progressively rely less on Forward/Back buttons.
 
 ## Reference overlay
 
@@ -40,15 +38,17 @@ Depth manipulation remains an explicit 0.3 improvement area: normal posing shoul
 - The initial 0.3 implementation is session-local by design. It does not enter portable project JSON and does not appear in exported PNGs.
 - Persisting or packaging reference assets later requires a deliberate portable-asset contract rather than silently embedding device-specific URIs.
 
-## Pose accelerators
+## Pose accelerators and orientation
 
-Current: four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground.
+Current acceleration includes four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground.
 
-Next accelerators follow the observable capability gaps in `REFERENCE_BENCHMARK.md`: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and better depth manipulation.
+A local user-owned Pose Library stores reusable joints + schema-v2 roll snapshots independently of project camera/light. Applying a saved pose keeps the current project identity, camera and light and participates in normal Undo history.
 
-Schema-v2 roll state remains stored for forward compatibility, but roll controls stay hidden until renderer feedback provides visible hand/foot/twist meaning. A control that changes invisible state is not considered usable functionality.
+Schema-v2 roll state has visible renderer feedback for left/right wrists and feet. Procedural hand/foot paddles expose endpoint orientation in both interactive rendering and PNG export, and ±15° roll controls appear only for these visible orientable endpoints.
 
-## Project safety and export
+Pose blending and richer hand shapes remain secondary follow-ons; they are not prerequisites for the current single-figure workflow.
+
+## Project safety and drawing export
 
 - Save/Open never requires sign-in.
 - Dirty work cannot be silently replaced by New, Open or JSON Import.
@@ -60,22 +60,24 @@ Schema-v2 roll state remains stored for forward compatibility, but roll controls
 - Corrupt saved files remain preserved and visible rather than silently disappearing.
 - JSON is versioned/human-inspectable; entitlement changes cannot make an existing project unreadable.
 - Export filenames preserve Unicode project names while removing path/control characters and truncate by Unicode code point rather than splitting surrogate pairs.
-- Standard PNG keeps the workspace background/grid. Transparent PNG exports only the mannequin against alpha so artists can composite it directly in drawing software.
+- Drawing handoff offers four clear PNG choices: shaded workspace PNG, transparent mannequin PNG, solid silhouette PNG and construction PNG.
+- Silhouette and construction outputs reuse the same procedural render model as the interactive scene rather than maintaining separate geometry.
 - A reference overlay is an editing aid, not implicit export content.
 
 ## Responsive design
 
-Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll instead of shrinking touch targets. Inspector tabs remain horizontally scrollable so 200% font scale does not force labels into undersized targets.
+Phone uses the remaining scene height above a bounded responsive inspector. Landscape/large screens keep scene and a roughly 360 dp inspector side-by-side. Horizontal tool rows scroll only where the content is naturally a browseable set such as joints/presets; primary action groups use vertical or grid layouts so bring-into-view remains reliable.
 
-Light and dark modes keep Compose surfaces and Android status/navigation bars visually aligned rather than leaving bright system chrome around a dark workspace.
+The three workspace tabs remain reachable at 200% font scale. Light and dark modes keep Compose surfaces and Android status/navigation bars visually aligned rather than leaving bright system chrome around a dark workspace.
 
 ## Accessibility
 
 - Non-canvas controls use Material controls with minimum touch targets and visible labels.
 - Scene exposes descriptive and selected-joint state semantics.
-- The Pose inspector always exposes an explicit localized joint selector plus left/right/up/down/forward/back adjustments. A user must be able to choose and adjust a joint without touching the canvas, including after Open/Import/Recovery leaves the canvas selection empty.
+- The Pose workspace always exposes an explicit localized joint selector plus left/right/up/down/forward/back adjustments. A user must be able to choose and adjust a joint without touching the canvas, including after Open/Import/Recovery leaves the canvas selection empty.
+- Visible wrist/foot roll controls remain ordinary labeled buttons and do not depend on canvas-only gestures.
 - Reference controls remain ordinary labeled Material controls; the decorative reference image itself stays out of the accessibility tree.
-- CI reruns primary-action reachability at 200% font scale and exercises non-canvas joint selection/adjustment.
+- CI reruns primary-action reachability at 200% font scale and exercises non-canvas joint selection/adjustment, orientation and drawing-export reachability.
 - Before any production-v1 claim, manual TalkBack/switch/keyboard audits on the final release build remain appropriate.
 
 ## Onboarding
