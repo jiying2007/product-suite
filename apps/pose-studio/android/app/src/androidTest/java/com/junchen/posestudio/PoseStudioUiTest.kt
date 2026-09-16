@@ -25,6 +25,8 @@ class PoseStudioUiTest {
         rule.onNodeWithTag("scene-neutral-preset").assertIsDisplayed().performClick()
         rule.onNodeWithText("Mirror").performClick()
         rule.onNodeWithText("Undo").performClick()
+        rule.onNodeWithText("Reference overlay").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Choose image").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Camera").performClick()
         rule.onNodeWithText("Front").assertIsDisplayed()
         rule.onNodeWithText("Light").performClick()
