@@ -55,7 +55,7 @@ fun PoseScene(
     val density = LocalDensity.current
     val hitRadiusPx = with(density) { 48.dp.toPx() }
     val overlapSlopPx = with(density) { 12.dp.toPx() }
-    val model = remember(project.joints, project.camera, project.light, canvasSize) {
+    val model = remember(project.joints, project.jointRollDegrees, project.camera, project.light, canvasSize) {
         if (canvasSize.width == 0) null else PoseRenderBuilder.build(
             project,
             canvasSize.width.toFloat(),
@@ -163,6 +163,15 @@ fun PoseScene(
                         color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
                         topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
                         size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
+                    )
+                }
+            }
+            renderModel.endpoints.forEach { endpoint ->
+                rotate(endpoint.rotationDegrees, pivot = Offset(endpoint.centerX, endpoint.centerY)) {
+                    drawOval(
+                        color = bodyColor.copy(alpha = (0.34f + endpoint.luminance * 0.56f).coerceAtMost(0.92f)),
+                        topLeft = Offset(endpoint.centerX - endpoint.radiusX, endpoint.centerY - endpoint.radiusY),
+                        size = Size(endpoint.radiusX * 2f, endpoint.radiusY * 2f),
                     )
                 }
             }

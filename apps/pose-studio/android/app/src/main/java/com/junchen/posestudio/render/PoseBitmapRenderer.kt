@@ -59,6 +59,25 @@ object PoseBitmapRenderer {
             canvas.restore()
         }
 
+        model.endpoints.forEach { endpoint ->
+            val shade = shade(endpoint.luminance)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(shade, shade, (shade + 7).coerceAtMost(255))
+            }
+            canvas.save()
+            canvas.rotate(endpoint.rotationDegrees, endpoint.centerX, endpoint.centerY)
+            canvas.drawOval(
+                RectF(
+                    endpoint.centerX - endpoint.radiusX,
+                    endpoint.centerY - endpoint.radiusY,
+                    endpoint.centerX + endpoint.radiusX,
+                    endpoint.centerY + endpoint.radiusY,
+                ),
+                paint,
+            )
+            canvas.restore()
+        }
+
         model.bones.forEach { line ->
             val shade = shade(line.luminance)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

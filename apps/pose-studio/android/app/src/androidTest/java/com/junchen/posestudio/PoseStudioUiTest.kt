@@ -45,6 +45,15 @@ class PoseStudioUiTest {
     }
 
     @Test
+    fun wristOrientationCanBeAdjustedWithoutCanvas() {
+        val wrist = rule.onNodeWithText("Right wrist")
+        wrist.performScrollTo().assertIsDisplayed().performClick()
+        wrist.assertIsSelected()
+        rule.onNodeWithText("Roll +15°").performScrollTo().assertIsDisplayed().performClick()
+        wrist.assertIsSelected()
+    }
+
+    @Test
     fun sceneAcceptsDirectOrbitGestureWithoutCrashing() {
         val description = "Pose canvas. Select and drag joints, drag empty space to orbit, or use two fingers to zoom and pan."
         rule.onNodeWithContentDescription(description).performTouchInput {

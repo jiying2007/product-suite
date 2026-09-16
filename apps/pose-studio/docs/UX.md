@@ -40,13 +40,13 @@ Depth manipulation remains an explicit 0.3 improvement area: normal posing shoul
 - The initial 0.3 implementation is session-local by design. It does not enter portable project JSON and does not appear in exported PNGs.
 - Persisting or packaging reference assets later requires a deliberate portable-asset contract rather than silently embedding device-specific URIs.
 
-## Pose accelerators
+## Pose accelerators and endpoint orientation
 
-Current: four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground.
+Current acceleration includes four starting presets, with Neutral also promoted to the always-visible scene Speed toolbar, plus full mirror, left/right arm copy, left/right leg copy and ground.
 
-Next accelerators follow the observable capability gaps in `REFERENCE_BENCHMARK.md`: local pose library, pose blending, hand-shape presets, explicit foot/hand orientation and better depth manipulation.
+Schema-v2 roll state now has visible meaning for the left/right wrists and feet: procedural endpoint paddles render their facing in both the interactive scene and PNG output, and ±15° roll controls appear only when one of these orientable endpoints is selected. Controls remain hidden for joints where roll still has no visible renderer meaning.
 
-Schema-v2 roll state remains stored for forward compatibility, but roll controls stay hidden until renderer feedback provides visible hand/foot/twist meaning. A control that changes invisible state is not considered usable functionality.
+This preserves the rule that invisible state is not considered usable functionality. Richer hand shapes, pose reuse/blending and direct depth manipulation remain separate 0.3 improvements rather than being coupled to endpoint orientation.
 
 ## Project safety and export
 
@@ -74,6 +74,7 @@ Light and dark modes keep Compose surfaces and Android status/navigation bars vi
 - Non-canvas controls use Material controls with minimum touch targets and visible labels.
 - Scene exposes descriptive and selected-joint state semantics.
 - The Pose inspector always exposes an explicit localized joint selector plus left/right/up/down/forward/back adjustments. A user must be able to choose and adjust a joint without touching the canvas, including after Open/Import/Recovery leaves the canvas selection empty.
+- Wrist/foot roll controls remain ordinary labeled Material buttons and are covered by API-36 UI reachability tests rather than depending on canvas-only manipulation.
 - Reference controls remain ordinary labeled Material controls; the decorative reference image itself stays out of the accessibility tree.
 - CI reruns primary-action reachability at 200% font scale and exercises non-canvas joint selection/adjustment.
 - Before any production-v1 claim, manual TalkBack/switch/keyboard audits on the final release build remain appropriate.
