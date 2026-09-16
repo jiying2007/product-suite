@@ -39,9 +39,11 @@ import java.util.Date
 
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
-    // Joint selection and precise adjustment are first-class Pose actions. Keep the picker compact
-    // so the alternate manipulation path and the speed tools remain reachable in the bounded phone
-    // inspector without forcing a vertical scroll before the user can start editing.
+    // Reference matching is now a primary 0.3 workflow, so keep its entry point ahead of
+    // lower-level joint precision controls in the bounded phone inspector.
+    ReferenceOverlayControls()
+    HorizontalDivider()
+
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -90,9 +92,6 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
         OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
         OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
     }
-
-    HorizontalDivider()
-    ReferenceOverlayControls()
 }
 
 @Composable
@@ -109,44 +108,50 @@ private fun ReferenceOverlayControls() {
 
     Text(stringResource(R.string.reference_overlay), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.reference_overlay_help))
+
+    if (ReferenceOverlaySession.uri == null) {
+        // A single primary action should participate in the outer vertical scroll directly.
+        // Wrapping it in an inner horizontal scroller makes bring-into-view unreliable on phones.
+        Button(onClick = { picker.launch(arrayOf("image/*")) }) {
+            Text(stringResource(R.string.choose_reference))
+        }
+        return
+    }
+
     Row(
-        Modifier.horizontalScroll(rememberScrollState()),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Button(onClick = { picker.launch(arrayOf("image/*")) }) {
             Text(stringResource(R.string.choose_reference))
         }
-        if (ReferenceOverlaySession.uri != null) {
-            OutlinedButton(onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible }) {
-                Text(
-                    stringResource(
-                        if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
-                    ),
-                )
-            }
-            OutlinedButton(onClick = ReferenceOverlaySession::resetTransform) {
-                Text(stringResource(R.string.reset_reference))
-            }
-            OutlinedButton(onClick = ReferenceOverlaySession::clear) {
-                Text(stringResource(R.string.clear_reference))
-            }
+        OutlinedButton(onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible }) {
+            Text(
+                stringResource(
+                    if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
+                ),
+            )
+        }
+        OutlinedButton(onClick = ReferenceOverlaySession::resetTransform) {
+            Text(stringResource(R.string.reset_reference))
+        }
+        OutlinedButton(onClick = ReferenceOverlaySession::clear) {
+            Text(stringResource(R.string.clear_reference))
         }
     }
-    if (ReferenceOverlaySession.uri != null) {
-        LabeledSlider(stringResource(R.string.reference_opacity), ReferenceOverlaySession.opacity, 0.1f..0.95f) {
-            ReferenceOverlaySession.opacity = it
-        }
-        LabeledSlider(stringResource(R.string.reference_scale), ReferenceOverlaySession.scale, 0.5f..2.5f) {
-            ReferenceOverlaySession.scale = it
-        }
-        LabeledSlider(stringResource(R.string.reference_horizontal), ReferenceOverlaySession.offsetXDp, -220f..220f) {
-            ReferenceOverlaySession.offsetXDp = it
-        }
-        LabeledSlider(stringResource(R.string.reference_vertical), ReferenceOverlaySession.offsetYDp, -220f..220f) {
-            ReferenceOverlaySession.offsetYDp = it
-        }
-        Text(stringResource(R.string.reference_session_only), style = MaterialTheme.typography.labelSmall)
+    LabeledSlider(stringResource(R.string.reference_opacity), ReferenceOverlaySession.opacity, 0.1f..0.95f) {
+        ReferenceOverlaySession.opacity = it
     }
+    LabeledSlider(stringResource(R.string.reference_scale), ReferenceOverlaySession.scale, 0.5f..2.5f) {
+        ReferenceOverlaySession.scale = it
+    }
+    LabeledSlider(stringResource(R.string.reference_horizontal), ReferenceOverlaySession.offsetXDp, -220f..220f) {
+        ReferenceOverlaySession.offsetXDp = it
+    }
+    LabeledSlider(stringResource(R.string.reference_vertical), ReferenceOverlaySession.offsetYDp, -220f..220f) {
+        ReferenceOverlaySession.offsetYDp = it
+    }
+    Text(stringResource(R.string.reference_session_only), style = MaterialTheme.typography.labelSmall)
 }
 
 @Composable
