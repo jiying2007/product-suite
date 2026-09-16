@@ -298,6 +298,8 @@ internal fun ProjectControls(
     onNew: () -> Unit,
     onExportPng: () -> Unit,
     onExportTransparentPng: () -> Unit,
+    onExportSilhouettePng: () -> Unit,
+    onExportConstructionPng: () -> Unit,
     onExportProject: () -> Unit,
     onImportProject: () -> Unit,
     onPrivacy: () -> Unit,
@@ -320,16 +322,45 @@ internal fun ProjectControls(
         OutlinedButton(onClick = onNew, enabled = enabled) { Text(stringResource(R.string.new_project)) }
     }
     HorizontalDivider()
+    Text(stringResource(R.string.drawing_exports), style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.drawing_exports_help))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(onClick = onExportPng, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.export_png))
+            }
+            OutlinedButton(onClick = onExportTransparentPng, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.export_transparent_png))
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(onClick = onExportSilhouettePng, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.export_silhouette_png))
+            }
+            OutlinedButton(onClick = onExportConstructionPng, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.export_construction_png))
+            }
+        }
+    }
+    HorizontalDivider()
     Text(stringResource(R.string.portable_files), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(R.string.portable_files_help))
     Row(
-        Modifier.horizontalScroll(rememberScrollState()),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OutlinedButton(onClick = onExportProject, enabled = enabled) { Text(stringResource(R.string.export_json)) }
-        OutlinedButton(onClick = onImportProject, enabled = enabled) { Text(stringResource(R.string.import_json)) }
-        OutlinedButton(onClick = onExportPng, enabled = enabled) { Text(stringResource(R.string.export_png)) }
-        OutlinedButton(onClick = onExportTransparentPng, enabled = enabled) { Text(stringResource(R.string.export_transparent_png)) }
+        OutlinedButton(onClick = onExportProject, enabled = enabled, modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.export_json))
+        }
+        OutlinedButton(onClick = onImportProject, enabled = enabled, modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.import_json))
+        }
     }
     HorizontalDivider()
     OutlinedButton(onClick = onPrivacy) { Text(stringResource(R.string.privacy_policy)) }
