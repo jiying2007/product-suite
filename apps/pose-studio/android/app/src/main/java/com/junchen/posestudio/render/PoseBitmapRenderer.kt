@@ -30,11 +30,23 @@ object PoseBitmapRenderer {
             model.grid.forEach { line -> canvas.drawLine(line.x1, line.y1, line.x2, line.y2, gridPaint) }
         }
 
+        model.bodySegments.forEach { segment ->
+            val shade = shade(segment.luminance)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(shade, shade, (shade + 7).coerceAtMost(255))
+                strokeWidth = segment.width
+                strokeCap = Paint.Cap.ROUND
+            }
+            canvas.drawLine(segment.x1, segment.y1, segment.x2, segment.y2, paint)
+        }
+
         model.volumes.forEach { volume ->
             val shade = shade(volume.luminance)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.rgb(shade, shade, (shade + 7).coerceAtMost(255))
             }
+            canvas.save()
+            canvas.rotate(volume.rotationDegrees, volume.centerX, volume.centerY)
             canvas.drawOval(
                 RectF(
                     volume.centerX - volume.radiusX,
@@ -44,6 +56,7 @@ object PoseBitmapRenderer {
                 ),
                 paint,
             )
+            canvas.restore()
         }
 
         model.bones.forEach { line ->

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
@@ -147,16 +148,27 @@ fun PoseScene(
             renderModel.grid.forEach { line ->
                 drawLine(gridColor, Offset(line.x1, line.y1), Offset(line.x2, line.y2), strokeWidth = line.width)
             }
-            renderModel.volumes.forEach { volume ->
-                drawOval(
-                    color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
-                    topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
-                    size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
+            renderModel.bodySegments.forEach { segment ->
+                drawLine(
+                    color = bodyColor.copy(alpha = (0.28f + segment.luminance * 0.58f).coerceAtMost(0.88f)),
+                    start = Offset(segment.x1, segment.y1),
+                    end = Offset(segment.x2, segment.y2),
+                    strokeWidth = segment.width,
+                    cap = StrokeCap.Round,
                 )
+            }
+            renderModel.volumes.forEach { volume ->
+                rotate(volume.rotationDegrees, pivot = Offset(volume.centerX, volume.centerY)) {
+                    drawOval(
+                        color = bodyColor.copy(alpha = (0.32f + volume.luminance * 0.55f).coerceAtMost(0.92f)),
+                        topLeft = Offset(volume.centerX - volume.radiusX, volume.centerY - volume.radiusY),
+                        size = Size(volume.radiusX * 2f, volume.radiusY * 2f),
+                    )
+                }
             }
             renderModel.bones.forEach { line ->
                 drawLine(
-                    color = bodyColor.copy(alpha = (0.32f + line.luminance * 0.68f).coerceAtMost(0.98f)),
+                    color = bodyColor.copy(alpha = (0.45f + line.luminance * 0.5f).coerceAtMost(0.92f)),
                     start = Offset(line.x1, line.y1),
                     end = Offset(line.x2, line.y2),
                     strokeWidth = line.width,
