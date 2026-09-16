@@ -38,7 +38,11 @@ class ReferenceAlignmentUiTest {
             "Choose a local image, then use Align reference on the canvas to drag and pinch it into place. " +
                 "Sliders remain available for precise adjustment."
         rule.onNodeWithContentDescription(alignmentDescription).performTouchInput {
-            swipe(center, center + Offset(120f, 48f), durationMillis = 350)
+            swipe(
+                topRight + Offset(-220f, 180f),
+                topRight + Offset(-100f, 228f),
+                durationMillis = 350,
+            )
         }
         rule.runOnIdle {
             assertTrue(ReferenceOverlaySession.offsetXDp > 0f)
