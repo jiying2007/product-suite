@@ -6,7 +6,7 @@ plugins {
     id "com.google.devtools.ksp" version "2.3.11" apply false
 }
 
-def releaseVersion = providers.gradleProperty("jingduVersionName").getOrElse("2.3.8")
+def releaseVersion = providers.gradleProperty("jingduVersionName").getOrElse("2.3.9")
 
 tasks.register("androidCheck") {
     group = "verification"
