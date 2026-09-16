@@ -1,5 +1,8 @@
 package com.junchen.posestudio.ui
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,6 +89,63 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
         OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
+    }
+
+    HorizontalDivider()
+    ReferenceOverlayControls()
+}
+
+@Composable
+private fun ReferenceOverlayControls() {
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            ReferenceOverlaySession.use(uri)
+        }
+    }
+
+    Text(stringResource(R.string.reference_overlay), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.reference_overlay_help))
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = { picker.launch(arrayOf("image/*")) }) {
+            Text(stringResource(R.string.choose_reference))
+        }
+        if (ReferenceOverlaySession.uri != null) {
+            OutlinedButton(onClick = { ReferenceOverlaySession.visible = !ReferenceOverlaySession.visible }) {
+                Text(
+                    stringResource(
+                        if (ReferenceOverlaySession.visible) R.string.hide_reference else R.string.show_reference,
+                    ),
+                )
+            }
+            OutlinedButton(onClick = ReferenceOverlaySession::resetTransform) {
+                Text(stringResource(R.string.reset_reference))
+            }
+            OutlinedButton(onClick = ReferenceOverlaySession::clear) {
+                Text(stringResource(R.string.clear_reference))
+            }
+        }
+    }
+    if (ReferenceOverlaySession.uri != null) {
+        LabeledSlider(stringResource(R.string.reference_opacity), ReferenceOverlaySession.opacity, 0.1f..0.95f) {
+            ReferenceOverlaySession.opacity = it
+        }
+        LabeledSlider(stringResource(R.string.reference_scale), ReferenceOverlaySession.scale, 0.5f..2.5f) {
+            ReferenceOverlaySession.scale = it
+        }
+        LabeledSlider(stringResource(R.string.reference_horizontal), ReferenceOverlaySession.offsetXDp, -220f..220f) {
+            ReferenceOverlaySession.offsetXDp = it
+        }
+        LabeledSlider(stringResource(R.string.reference_vertical), ReferenceOverlaySession.offsetYDp, -220f..220f) {
+            ReferenceOverlaySession.offsetYDp = it
+        }
+        Text(stringResource(R.string.reference_session_only), style = MaterialTheme.typography.labelSmall)
     }
 }
 
