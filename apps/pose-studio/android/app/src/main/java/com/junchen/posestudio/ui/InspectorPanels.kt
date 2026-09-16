@@ -23,6 +23,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +37,7 @@ import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.Vec3
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.launch
 
 private val ORIENTABLE_ENDPOINTS = setOf(
     JointId.LEFT_WRIST,
@@ -46,8 +48,6 @@ private val ORIENTABLE_ENDPOINTS = setOf(
 
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
-    // Reference matching is now a primary 0.3 workflow, so keep its entry point ahead of
-    // lower-level joint precision controls in the bounded phone inspector.
     ReferenceOverlayControls()
     HorizontalDivider()
 
@@ -68,9 +68,6 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     viewModel.selectedJoint?.let { joint ->
         Text(stringResource(R.string.selected_joint, jointLabel(joint)), style = MaterialTheme.typography.titleSmall)
         Text(stringResource(R.string.accessible_adjustment_help))
-        // Precision controls are a fallback path for touch, keyboard and switch users. Keep them
-        // in the outer vertical flow rather than another horizontal scroller so every direction
-        // is reliably bring-into-view on phones and under large font scale.
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -147,6 +144,44 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
         OutlinedButton(onClick = viewModel::undo) { Text(stringResource(R.string.undo)) }
         OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
     }
+
+    HorizontalDivider()
+    PoseLibraryControls(viewModel)
+}
+
+@Composable
+private fun PoseLibraryControls(viewModel: PoseStudioViewModel) {
+    val scope = rememberCoroutineScope()
+    val enabled = !viewModel.projectBusy
+    Text(stringResource(R.string.pose_library), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.pose_library_help))
+    Button(
+        onClick = { scope.launch { viewModel.saveCurrentPoseToLibrary() } },
+        enabled = enabled,
+    ) { Text(stringResource(R.string.save_pose_to_library)) }
+
+    if (viewModel.savedPoses.isEmpty()) {
+        Text(stringResource(R.string.no_saved_poses), style = MaterialTheme.typography.labelMedium)
+    } else {
+        viewModel.savedPoses.forEach { saved ->
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(saved.name, fontWeight = FontWeight.Medium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { scope.launch { viewModel.applySavedPose(saved.id) } },
+                        enabled = enabled,
+                    ) { Text(stringResource(R.string.apply_pose)) }
+                    TextButton(
+                        onClick = { scope.launch { viewModel.deleteSavedPose(saved.id) } },
+                        enabled = enabled,
+                    ) { Text(stringResource(R.string.delete)) }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -165,8 +200,6 @@ private fun ReferenceOverlayControls() {
     Text(stringResource(R.string.reference_overlay_help))
 
     if (ReferenceOverlaySession.uri == null) {
-        // A single primary action should participate in the outer vertical scroll directly.
-        // Wrapping it in an inner horizontal scroller makes bring-into-view unreliable on phones.
         Button(onClick = { picker.launch(arrayOf("image/*")) }) {
             Text(stringResource(R.string.choose_reference))
         }
