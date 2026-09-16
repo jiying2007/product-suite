@@ -26,24 +26,30 @@ Established independent Android identity/CI, 19-joint procedural mannequin, fixe
 
 The 0.2.1 prerelease remains the frozen commercial-beta artifact. Production-v1 work is intentionally secondary to product-value depth.
 
-## 0.3 — drawing-reference workflow depth — current
+## 0.3 — drawing-reference workflow depth — landed on source main
 
-Development is guided by `REFERENCE_BENCHMARK.md`. Real-artist recruitment is optional during this phase and does not block repository changes.
+Development was guided by `REFERENCE_BENCHMARK.md`. Real-artist recruitment was optional during this phase and did not block repository changes.
 
-Implementation progress:
+Landed sequence:
 
-1. **Local reference overlay — landed in #109.** Choose a local image, align it behind the mannequin, tune opacity/scale/offset, and keep pose gestures authoritative.
-2. **Readable mannequin volume — landed in #111.** Procedural capsule body segments plus oriented chest/pelvis construction masses now share one screen/export render model.
-3. **Hand/foot orientation — current in #112.** Make schema-v2 roll visible through procedural wrist/foot orientation paddles and expose roll controls only where renderer feedback exists.
-4. **Depth manipulation — queued in #113.** Reduce normal dependence on Forward/Back buttons with an explicit on-canvas camera-axis depth mode.
-5. **Local pose reuse — queued in #114.** Focused user-owned local pose snapshots with save/apply/delete and preserved camera/light/project identity.
-6. **Drawing output modes — queued in #115.** Keep shaded/transparent output and add deterministic silhouette/construction PNG handoff modes.
+1. **Local reference overlay — #109.** Choose a local image, align it behind the mannequin, tune opacity/scale/offset, and keep pose gestures authoritative.
+2. **Readable mannequin volume — #111.** Procedural capsule body segments plus oriented chest/pelvis construction masses share one screen/export render model.
+3. **Hand/foot orientation — #117.** Schema-v2 roll is visible through procedural wrist/foot orientation paddles, with roll controls exposed only where renderer feedback exists. #117 is the clean-stack replacement for the original #112.
+4. **Direct depth manipulation — #118.** A selected joint can be dragged along the camera depth axis without making Forward/Back buttons the ordinary posing path. #118 replaces the original stacked #113.
+5. **Local pose reuse — #119.** User-owned local pose snapshots support save/apply/delete while preserving camera/light/project identity. #119 replaces the original stacked #114.
+6. **Drawing output modes — #120.** Shaded/transparent output remains available alongside deterministic silhouette and construction PNG handoff modes. #120 replaces the original stacked #115.
+7. **Task-oriented workspace — #121.** Top-level navigation is Pose / Scene / Export; Camera and Light live under Scene, drawing exports lead Export, and each workspace keeps its own scroll identity so switching tasks starts at the task top even at 200% font scale.
 
-Secondary, only after the single-figure workflow is substantially deeper:
-- configurable artistic body proportions without medical claims;
-- multiple mannequins;
-- basic props;
-- additional scene/grid helpers.
+The single-figure 0.3 workflow is therefore materially deeper than the 0.2 commercial-beta foundation: reference matching → readable volume/orientation → planar/depth posing → local pose reuse → drawing-oriented export.
+
+### Post-0.3 exploration
+
+Do not immediately turn Pose Studio into a general scene editor. The next product work should continue optimizing `time_to_reference_pose` and remain evidence-gated. Candidate directions, in priority order for evaluation rather than as shipment promises:
+
+- reduce reference-alignment interaction cost while preserving authoritative pose gestures;
+- add configurable artistic body proportions without medical/anatomical claims;
+- evaluate saved camera/grid helpers where they reduce repeated setup;
+- reassess multiple mannequins/basic props only if single-figure workflow evidence shows they materially improve common drawing-reference tasks.
 
 Explicitly avoid chasing competitor asset counts, cloud accounts, generative AI or a marketplace as substitutes for a strong posing workflow.
 
@@ -51,7 +57,7 @@ Explicitly avoid chasing competitor asset counts, cloud accounts, generative AI 
 
 Production qualification remains a separate operational decision. When resumed, it requires the normal release evidence appropriate to the exact candidate: signing/AAB provenance, supported-device compatibility, accessibility, physical performance, Play policy/store evidence and staged rollout.
 
-A real-artist study is **not required to compile or merge 0.3 product work**. It is required before publishing comparative claims such as "faster than" or quantified preference/quality claims about named alternatives.
+A real-artist study is **not required to compile or merge product work**. It is required before publishing comparative claims such as "faster than" or quantified preference/quality claims about named alternatives.
 
 ## Commercial hypothesis
 
