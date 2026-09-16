@@ -21,18 +21,48 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val REFERENCE_MIN_SCALE = 0.5f
+private const val REFERENCE_MAX_SCALE = 2.5f
+private const val REFERENCE_MAX_OFFSET_DP = 220f
+
 internal object ReferenceOverlaySession {
     var uri by mutableStateOf<String?>(null)
-    var visible by mutableStateOf(true)
+    private var visibleState by mutableStateOf(true)
+    var visible: Boolean
+        get() = visibleState
+        set(value) {
+            visibleState = value
+            if (!value) alignmentMode = false
+        }
     var opacity by mutableFloatStateOf(0.45f)
     var scale by mutableFloatStateOf(1f)
     var offsetXDp by mutableFloatStateOf(0f)
     var offsetYDp by mutableFloatStateOf(0f)
+    var alignmentMode by mutableStateOf(false)
+        private set
 
     fun use(uri: Uri) {
         this.uri = uri.toString()
         visible = true
         resetTransform()
+        alignmentMode = true
+    }
+
+    fun toggleAlignment() {
+        if (uri != null && visible) alignmentMode = !alignmentMode
+    }
+
+    fun endAlignment() {
+        alignmentMode = false
+    }
+
+    fun panByDp(deltaXDp: Float, deltaYDp: Float) {
+        offsetXDp = referenceOffsetAfterPan(offsetXDp, deltaXDp)
+        offsetYDp = referenceOffsetAfterPan(offsetYDp, deltaYDp)
+    }
+
+    fun zoomBy(factor: Float) {
+        scale = referenceScaleAfterZoom(scale, factor)
     }
 
     fun resetTransform() {
@@ -44,6 +74,7 @@ internal object ReferenceOverlaySession {
 
     fun clear() {
         uri = null
+        alignmentMode = false
         visible = true
         resetTransform()
     }
@@ -71,8 +102,8 @@ internal fun ReferenceImageOverlay(modifier: Modifier = Modifier) {
         contentScale = ContentScale.Fit,
         modifier = modifier.graphicsLayer {
             alpha = ReferenceOverlaySession.opacity.coerceIn(0.1f, 0.95f)
-            scaleX = ReferenceOverlaySession.scale.coerceIn(0.5f, 2.5f)
-            scaleY = ReferenceOverlaySession.scale.coerceIn(0.5f, 2.5f)
+            scaleX = ReferenceOverlaySession.scale.coerceIn(REFERENCE_MIN_SCALE, REFERENCE_MAX_SCALE)
+            scaleY = ReferenceOverlaySession.scale.coerceIn(REFERENCE_MIN_SCALE, REFERENCE_MAX_SCALE)
             this.translationX = translationX
             this.translationY = translationY
         },
@@ -102,4 +133,16 @@ internal fun referenceSampleSize(width: Int, height: Int, maxDimension: Int): In
         sample *= 2
     }
     return sample
+}
+
+internal fun referenceScaleAfterZoom(currentScale: Float, factor: Float): Float {
+    val base = currentScale.takeIf(Float::isFinite) ?: 1f
+    if (!factor.isFinite() || factor <= 0f) return base.coerceIn(REFERENCE_MIN_SCALE, REFERENCE_MAX_SCALE)
+    return (base * factor).coerceIn(REFERENCE_MIN_SCALE, REFERENCE_MAX_SCALE)
+}
+
+internal fun referenceOffsetAfterPan(currentOffsetDp: Float, deltaDp: Float): Float {
+    val base = currentOffsetDp.takeIf(Float::isFinite) ?: 0f
+    if (!deltaDp.isFinite()) return base.coerceIn(-REFERENCE_MAX_OFFSET_DP, REFERENCE_MAX_OFFSET_DP)
+    return (base + deltaDp).coerceIn(-REFERENCE_MAX_OFFSET_DP, REFERENCE_MAX_OFFSET_DP)
 }

@@ -6,7 +6,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
@@ -60,9 +62,22 @@ fun PoseScene(
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var depthDragMode by remember { mutableStateOf(false) }
+    val referenceAlignmentActive = ReferenceOverlaySession.uri != null &&
+        ReferenceOverlaySession.visible &&
+        ReferenceOverlaySession.alignmentMode
+    val referenceAlignmentDescription = stringResource(R.string.reference_overlay_help)
+    val referenceAlignmentState = stringResource(R.string.done_aligning)
+
     LaunchedEffect(selectedJoint) { depthDragMode = false }
+    LaunchedEffect(referenceAlignmentActive) {
+        if (referenceAlignmentActive) {
+            depthDragMode = false
+            onSelect(null)
+        }
+    }
 
     val density = LocalDensity.current
+    val densityScale = density.density
     val hitRadiusPx = with(density) { 48.dp.toPx() }
     val overlapSlopPx = with(density) { 12.dp.toPx() }
     val model = remember(project.joints, project.jointRollDegrees, project.camera, project.light, canvasSize) {
@@ -75,6 +90,7 @@ fun PoseScene(
     val currentModel by rememberUpdatedState(model)
     val currentCamera by rememberUpdatedState(project.camera)
     val currentDepthDragMode by rememberUpdatedState(depthDragMode)
+    val currentReferenceAlignment by rememberUpdatedState(referenceAlignmentActive)
     val background = MaterialTheme.colorScheme.background
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val bodyColor = MaterialTheme.colorScheme.onSurface
@@ -87,21 +103,30 @@ fun PoseScene(
                 .fillMaxSize()
                 .onSizeChanged { canvasSize = it }
                 .semantics {
-                    contentDescription = sceneDescription
-                    selectedJointLabel?.let { stateDescription = it }
+                    contentDescription = if (referenceAlignmentActive) referenceAlignmentDescription else sceneDescription
+                    stateDescription = if (referenceAlignmentActive) {
+                        referenceAlignmentState
+                    } else {
+                        selectedJointLabel ?: ""
+                    }
                 }
-                .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx) {
+                .pointerInput(canvasSize, hitRadiusPx, overlapSlopPx, densityScale) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        val alignReference = currentReferenceAlignment
                         val startModel = currentModel
-                        var activeJoint = startModel?.projected?.let { projected ->
-                            JointPicker.pick(
-                                projected = projected,
-                                touchX = down.position.x,
-                                touchY = down.position.y,
-                                hitRadiusPx = hitRadiusPx,
-                                overlapSlopPx = overlapSlopPx,
-                            )
+                        var activeJoint = if (alignReference) {
+                            null
+                        } else {
+                            startModel?.projected?.let { projected ->
+                                JointPicker.pick(
+                                    projected = projected,
+                                    touchX = down.position.x,
+                                    touchY = down.position.y,
+                                    hitRadiusPx = hitRadiusPx,
+                                    overlapSlopPx = overlapSlopPx,
+                                )
+                            }
                         }
                         var activeDepth = activeJoint?.let { startModel?.projected?.get(it)?.depth }
                             ?: currentCamera.distance
@@ -122,37 +147,56 @@ fun PoseScene(
                                 onSelect(null)
                                 val zoom = event.calculateZoom()
                                 val pan = event.calculatePan()
-                                if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
-                                if (pan.getDistance() > 0.01f && canvasSize.width > 0) {
-                                    onPan(pan.x, pan.y, canvasSize.width.toFloat())
+                                if (alignReference) {
+                                    if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) {
+                                        ReferenceOverlaySession.zoomBy(zoom)
+                                    }
+                                    if (pan.getDistance() > 0.01f && densityScale > 0f) {
+                                        ReferenceOverlaySession.panByDp(
+                                            pan.x / densityScale,
+                                            pan.y / densityScale,
+                                        )
+                                    }
+                                } else {
+                                    if (zoom.isFinite() && abs(zoom - 1f) > 0.001f) onZoom(zoom)
+                                    if (pan.getDistance() > 0.01f && canvasSize.width > 0) {
+                                        onPan(pan.x, pan.y, canvasSize.width.toFloat())
+                                    }
                                 }
                                 event.changes.forEach { it.consume() }
                             } else {
                                 val change = pressed.first()
                                 val delta = change.positionChange()
                                 if (delta.getDistance() > 0f) {
-                                    val joint = activeJoint
-                                    if (joint != null) {
-                                        activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
-                                        val worldDelta = if (currentDepthDragMode) {
-                                            SceneProjection.screenDepthDeltaToWorld(
-                                                delta.y,
-                                                currentCamera,
-                                                canvasSize.width.toFloat(),
-                                                activeDepth,
-                                            )
-                                        } else {
-                                            SceneProjection.screenDeltaToWorld(
-                                                delta.x,
-                                                delta.y,
-                                                currentCamera,
-                                                canvasSize.width.toFloat(),
-                                                activeDepth,
-                                            )
-                                        }
-                                        onDragJoint(joint, worldDelta)
+                                    if (alignReference && densityScale > 0f) {
+                                        ReferenceOverlaySession.panByDp(
+                                            delta.x / densityScale,
+                                            delta.y / densityScale,
+                                        )
                                     } else {
-                                        onOrbit(delta.x, delta.y)
+                                        val joint = activeJoint
+                                        if (joint != null) {
+                                            activeDepth = currentModel?.projected?.get(joint)?.depth ?: activeDepth
+                                            val worldDelta = if (currentDepthDragMode) {
+                                                SceneProjection.screenDepthDeltaToWorld(
+                                                    delta.y,
+                                                    currentCamera,
+                                                    canvasSize.width.toFloat(),
+                                                    activeDepth,
+                                                )
+                                            } else {
+                                                SceneProjection.screenDeltaToWorld(
+                                                    delta.x,
+                                                    delta.y,
+                                                    currentCamera,
+                                                    canvasSize.width.toFloat(),
+                                                    activeDepth,
+                                                )
+                                            }
+                                            onDragJoint(joint, worldDelta)
+                                        } else {
+                                            onOrbit(delta.x, delta.y)
+                                        }
                                     }
                                     change.consume()
                                 }
@@ -210,13 +254,31 @@ fun PoseScene(
                 drawCircle(if (chosen) selectionColor else bodyColor, radius, Offset(p.x, p.y))
             }
         }
-        if (selectedJoint != null) {
-            FilterChip(
-                selected = depthDragMode,
-                onClick = { depthDragMode = !depthDragMode },
-                label = { Text(stringResource(R.string.depth_drag)) },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-            )
+        Column(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (ReferenceOverlaySession.uri != null && ReferenceOverlaySession.visible) {
+                FilterChip(
+                    selected = referenceAlignmentActive,
+                    onClick = ReferenceOverlaySession::toggleAlignment,
+                    label = {
+                        Text(
+                            stringResource(
+                                if (referenceAlignmentActive) R.string.done_aligning else R.string.align_reference,
+                            ),
+                        )
+                    },
+                )
+            }
+            if (selectedJoint != null && !referenceAlignmentActive) {
+                FilterChip(
+                    selected = depthDragMode,
+                    onClick = { depthDragMode = !depthDragMode },
+                    label = { Text(stringResource(R.string.depth_drag)) },
+                )
+            }
         }
     }
 }
