@@ -1,5 +1,6 @@
 package com.junchen.posestudio.engine
 
+import com.junchen.posestudio.model.BodyProportionPreset
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.Mannequin
 import com.junchen.posestudio.model.Vec3
@@ -10,15 +11,45 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 object PoseMath {
-    fun enforceBoneLengths(candidate: Map<JointId, Vec3>): Map<JointId, Vec3> {
-        val reference = Mannequin.neutral()
+    fun enforceBoneLengths(candidate: Map<JointId, Vec3>): Map<JointId, Vec3> =
+        retargetBoneLengths(candidate, Mannequin.neutral())
+
+    fun retargetBoneLengths(
+        candidate: Map<JointId, Vec3>,
+        lengthReference: Map<JointId, Vec3>,
+    ): Map<JointId, Vec3> {
+        if (!allFinite(candidate) || !allFinite(lengthReference)) return candidate
+        val neutral = Mannequin.neutral()
         val out = candidate.toMutableMap()
         for (bone in Mannequin.bones) {
-            val parent = out.getValue(bone.parent)
-            val child = out.getValue(bone.child)
-            val expected = distance(reference.getValue(bone.parent), reference.getValue(bone.child))
-            out[bone.child] = parent + (child - parent)
-                .normalized(reference.getValue(bone.child) - reference.getValue(bone.parent)) * expected
+            val candidateParent = candidate.getValue(bone.parent)
+            val candidateChild = candidate.getValue(bone.child)
+            val referenceParent = lengthReference.getValue(bone.parent)
+            val referenceChild = lengthReference.getValue(bone.child)
+            val fallback = neutral.getValue(bone.child) - neutral.getValue(bone.parent)
+            val expected = distance(referenceParent, referenceChild)
+            out[bone.child] = out.getValue(bone.parent) +
+                (candidateChild - candidateParent).normalized(fallback) * expected
+        }
+        return out
+    }
+
+    fun applyBodyProportions(
+        joints: Map<JointId, Vec3>,
+        preset: BodyProportionPreset,
+    ): Map<JointId, Vec3> {
+        if (!allFinite(joints)) return joints
+        val neutral = Mannequin.neutral()
+        val out = joints.toMutableMap()
+        for (bone in Mannequin.bones) {
+            val sourceParent = joints.getValue(bone.parent)
+            val sourceChild = joints.getValue(bone.child)
+            val neutralParent = neutral.getValue(bone.parent)
+            val neutralChild = neutral.getValue(bone.child)
+            val fallback = neutralChild - neutralParent
+            val expected = distance(neutralParent, neutralChild) * proportionMultiplier(preset, bone.parent, bone.child)
+            out[bone.child] = out.getValue(bone.parent) +
+                (sourceChild - sourceParent).normalized(fallback) * expected
         }
         return out
     }
@@ -132,6 +163,34 @@ object PoseMath {
 
     fun allFinite(joints: Map<JointId, Vec3>): Boolean =
         JointId.entries.all { joints[it]?.isFinite() == true }
+
+    private fun proportionMultiplier(
+        preset: BodyProportionPreset,
+        parent: JointId,
+        child: JointId,
+    ): Float = when (preset) {
+        BodyProportionPreset.BALANCED -> 1f
+        BodyProportionPreset.LONG_LEGS -> when {
+            isLegLengthBone(parent, child) -> 1.14f
+            isTorsoLengthBone(parent, child) -> 0.95f
+            else -> 1f
+        }
+        BodyProportionPreset.LONG_TORSO -> when {
+            isTorsoLengthBone(parent, child) -> 1.14f
+            isLegLengthBone(parent, child) -> 0.95f
+            else -> 1f
+        }
+    }
+
+    private fun isLegLengthBone(parent: JointId, child: JointId): Boolean =
+        (parent == JointId.LEFT_HIP && child == JointId.LEFT_KNEE) ||
+            (parent == JointId.LEFT_KNEE && child == JointId.LEFT_ANKLE) ||
+            (parent == JointId.RIGHT_HIP && child == JointId.RIGHT_KNEE) ||
+            (parent == JointId.RIGHT_KNEE && child == JointId.RIGHT_ANKLE)
+
+    private fun isTorsoLengthBone(parent: JointId, child: JointId): Boolean =
+        (parent == JointId.PELVIS && child == JointId.SPINE) ||
+            (parent == JointId.SPINE && child == JointId.CHEST)
 
     private fun copyMirroredChain(
         joints: Map<JointId, Vec3>,

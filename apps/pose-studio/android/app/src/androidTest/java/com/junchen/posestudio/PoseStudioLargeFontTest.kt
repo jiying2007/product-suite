@@ -37,6 +37,10 @@ class PoseStudioLargeFontTest {
         rule.onNodeWithText("Hide").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Reset").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Clear").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Drawing proportions").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Balanced").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Long legs").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Long torso").performScrollTo().assertIsDisplayed()
 
         rule.onNodeWithText("Scene").performClick()
         rule.onNodeWithText("Front").assertIsDisplayed()

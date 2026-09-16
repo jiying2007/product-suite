@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.junchen.posestudio.R
 import com.junchen.posestudio.data.ProjectStore
+import com.junchen.posestudio.model.BodyProportionPreset
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.PosePreset
 import com.junchen.posestudio.model.Vec3
@@ -50,6 +51,8 @@ private val ORIENTABLE_ENDPOINTS = setOf(
 @Composable
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
     ReferenceOverlayControls()
+    HorizontalDivider()
+    DrawingProportionControls(viewModel)
     HorizontalDivider()
 
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
@@ -149,6 +152,31 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
     HorizontalDivider()
     PoseLibraryControls(viewModel)
 }
+
+@Composable
+private fun DrawingProportionControls(viewModel: PoseStudioViewModel) {
+    Text(stringResource(R.string.drawing_proportions), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.drawing_proportions_help))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BodyProportionPreset.entries.forEach { preset ->
+            OutlinedButton(
+                onClick = { viewModel.applyBodyProportions(preset) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(bodyProportionLabel(preset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun bodyProportionLabel(preset: BodyProportionPreset): String = stringResource(
+    when (preset) {
+        BodyProportionPreset.BALANCED -> R.string.proportion_balanced
+        BodyProportionPreset.LONG_LEGS -> R.string.proportion_long_legs
+        BodyProportionPreset.LONG_TORSO -> R.string.proportion_long_torso
+    },
+)
 
 @Composable
 private fun PoseLibraryControls(viewModel: PoseStudioViewModel) {
