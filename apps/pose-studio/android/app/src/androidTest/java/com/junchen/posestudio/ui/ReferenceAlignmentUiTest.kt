@@ -39,8 +39,8 @@ class ReferenceAlignmentUiTest {
                 "Sliders remain available for precise adjustment."
         rule.onNodeWithContentDescription(alignmentDescription).performTouchInput {
             swipe(
-                topRight + Offset(-220f, 180f),
-                topRight + Offset(-100f, 228f),
+                centerRight + Offset(-240f, -100f),
+                centerRight + Offset(-100f, -52f),
                 durationMillis = 350,
             )
         }
