@@ -52,8 +52,6 @@ private val ORIENTABLE_ENDPOINTS = setOf(
 internal fun PoseControls(viewModel: PoseStudioViewModel) {
     ReferenceOverlayControls()
     HorizontalDivider()
-    DrawingProportionControls(viewModel)
-    HorizontalDivider()
 
     Text(stringResource(R.string.select_joint), style = MaterialTheme.typography.titleSmall)
     Row(
@@ -149,6 +147,8 @@ internal fun PoseControls(viewModel: PoseStudioViewModel) {
         OutlinedButton(onClick = viewModel::redo) { Text(stringResource(R.string.redo)) }
     }
 
+    HorizontalDivider()
+    DrawingProportionControls(viewModel)
     HorizontalDivider()
     PoseLibraryControls(viewModel)
 }
