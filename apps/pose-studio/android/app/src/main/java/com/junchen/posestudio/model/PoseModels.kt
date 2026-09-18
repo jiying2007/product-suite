@@ -76,6 +76,12 @@ enum class PosePreset(val label: String) {
     RUN("Run"),
 }
 
+enum class BodyProportionPreset {
+    BALANCED,
+    LONG_LEGS,
+    LONG_TORSO,
+}
+
 object Mannequin {
     val bones = listOf(
         Bone(JointId.PELVIS, JointId.SPINE, 17f),

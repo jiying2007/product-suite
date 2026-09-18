@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="drawing_proportions">Drawing proportions</string>
+    <string name="drawing_proportions_help">Artistic mannequin presets for matching a reference. They change segment lengths while keeping the current pose direction.</string>
+    <string name="proportion_balanced">Balanced</string>
+    <string name="proportion_long_legs">Long legs</string>
+    <string name="proportion_long_torso">Long torso</string>
+</resources>

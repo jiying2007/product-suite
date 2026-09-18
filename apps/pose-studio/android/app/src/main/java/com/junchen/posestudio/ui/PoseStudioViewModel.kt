@@ -14,6 +14,7 @@ import com.junchen.posestudio.data.ProjectCodec
 import com.junchen.posestudio.data.ProjectStore
 import com.junchen.posestudio.engine.PoseMath
 import com.junchen.posestudio.engine.SceneProjection
+import com.junchen.posestudio.model.BodyProportionPreset
 import com.junchen.posestudio.model.CameraState
 import com.junchen.posestudio.model.JointId
 import com.junchen.posestudio.model.LightState
@@ -124,9 +125,17 @@ class PoseStudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun applyPreset(preset: PosePreset) {
-        applyPoseEdit { com.junchen.posestudio.model.Mannequin.preset(preset) }
+        applyPoseEdit { current ->
+            PoseMath.retargetBoneLengths(
+                com.junchen.posestudio.model.Mannequin.preset(preset),
+                current,
+            )
+        }
         if (onboardingStep == 2) onboardingStep = 3
     }
+
+    fun applyBodyProportions(preset: BodyProportionPreset) =
+        applyPoseEdit { PoseMath.applyBodyProportions(it, preset) }
 
     fun mirrorPose() = applyPoseEdit(PoseMath::mirrorPose)
     fun copyLeftArmToRight() = applyPoseEdit { PoseMath.copyArm(it, fromLeft = true) }
