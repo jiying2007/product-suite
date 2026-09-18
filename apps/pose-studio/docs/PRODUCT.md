@@ -15,14 +15,17 @@ Pose Studio treats the phone or tablet as a **digital drawing mannequin**, not B
 - Two-bone IK for wrists and ankles.
 - Bone-length-preserving manipulation for other articulated joints.
 - Visible wrist/foot orientation driven by schema-v2 roll semantics, with endpoint roll controls where renderer feedback exists.
-- Neutral, contrapposto, reach and run presets.
+- Neutral, contrapposto, reach and run pose presets; applying Fast Pose preserves the current stylized bone lengths.
+- Artistic drawing-proportion presets: Balanced, Long legs and Long torso. They retarget segment lengths while preserving the current pose direction and make no medical/anatomical accuracy claim.
 - Mirror pose, copy left/right arm or leg and ground the figure.
 - Undo/redo for pose edits.
 
 ### Match a reference
 - Import a local image through Android's document picker.
 - Render it behind the mannequin without intercepting pose gestures.
-- Adjust opacity, scale and horizontal/vertical alignment.
+- Choosing a reference enters an explicit canvas alignment mode: one-finger drag moves the image and pinch adjusts it; leaving alignment immediately restores pose/camera gestures.
+- Keep opacity, scale and horizontal/vertical sliders as precise/accessibility fallback controls.
+- Keep Choose / Hide / Reset / Clear reachable in a stable 2×2 action layout, including at 200% font scale.
 - Bound large image decoding before display.
 - Keep the current reference overlay session-local and outside portable project JSON / exported PNG until a future portable asset contract is deliberately designed.
 
@@ -36,7 +39,7 @@ Pose Studio treats the phone or tablet as a **digital drawing mannequin**, not B
 - Orbit by dragging empty scene space.
 - Two-finger pan/zoom.
 - Yaw, pitch, distance and field-of-view controls.
-- Front, side and three-quarter presets.
+- Front, side and three-quarter presets that also restore default distance, FOV and target while preserving each preset view angle.
 
 ### Light
 - Directional-light azimuth/elevation/intensity.
@@ -82,7 +85,9 @@ Pose Studio treats the phone or tablet as a **digital drawing mannequin**, not B
 
 `time_to_reference_pose`: time from opening a project or choosing a reference to reaching a usable construction reference.
 
-The 0.3 source work closes the benchmarked single-figure gaps around reference matching, readable mannequin volume, hand/foot direction, direct depth manipulation, local pose reuse and drawing-oriented export. The next product iteration should therefore optimize interaction cost before expanding scene complexity.
+The 0.3 source work closed the benchmarked single-figure capability gaps around reference matching, readable mannequin volume, hand/foot direction, direct depth manipulation, local pose reuse and drawing-oriented export. The 0.4 source work then reduced deterministic interaction cost through direct reference alignment, stable reference actions, reusable framing helpers and artistic drawing proportions. The 0.4 feature closure exact main is `aa907e76a7f39ee96fa8f4351cc181abbcb652a6`.
+
+Multiple mannequins and basic props were reassessed against the same `time_to_reference_pose` goal and remain deferred: they add scene breadth, but there is not yet task evidence that they shorten the common single-figure reference workflow enough to justify the added interaction cost.
 
 Real-artist studies are **not a source-control merge gate** for product development. They remain appropriate for subjective workflow evidence and any comparative speed/preference claim.
 
