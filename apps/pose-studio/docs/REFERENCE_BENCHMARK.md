@@ -62,16 +62,26 @@ The six highest-value single-figure gaps identified for 0.3 are now represented 
 
 These changes close the specific 0.3 capability sequence. They do **not** establish a comparative claim that Pose Studio is faster or preferred versus the reference products.
 
-## Post-0.3 decision boundary
+## 0.4 interaction-cost sequence — closed in source
 
-Multi-character scenes and props remain observable competitor capabilities, but they are still secondary. Adding them now would increase scene complexity before there is evidence that they improve the primary `time_to_reference_pose` task enough to justify the interaction cost.
+The next single-figure evaluation sequence identified after 0.3 has now been implemented and validated:
 
-The next evaluation should therefore prioritize single-figure workflow cost:
+1. **Direct reference alignment — #124.** Choosing a reference enters an explicit canvas alignment mode; one-finger drag moves the image and pinch adjusts it, while leaving the mode restores pose/camera gestures immediately.
+2. **Stable reference actions — #125.** Choose / Hide / Reset / Clear no longer depend on nested horizontal scrolling and remain reachable at 200% font scale.
+3. **Reusable framing helpers — #126.** Front / Three-quarter / Side restore default distance, FOV and target while reusing the camera state already stored in the project.
+4. **Artistic drawing proportions — #127.** Balanced / Long legs / Long torso retarget segment lengths without anatomical/medical claims, are absolute/idempotent, and remain compatible with the existing joints-based project/library/export data paths.
 
-1. reference alignment with fewer parameter-hunting steps while pose gestures remain authoritative;
-2. configurable artistic body proportions without anatomical/medical claims;
-3. saved camera/grid helpers where they remove repeated setup;
-4. only then re-evaluate multiple mannequins/basic props against concrete drawing-reference tasks.
+The 0.4 feature closure exact main is `aa907e76a7f39ee96fa8f4351cc181abbcb652a6`. Post-merge CI Contracts #182, Pose Studio #188 and canonical CI #1534 completed successfully, including API36/200% font, Android functional, hosted performance, 16 KiB compatibility, immutable source release and stable-debug-key APK publication.
+
+#127 also produced useful negative evidence: its initial layout placed Drawing proportions above the joint picker and caused two existing API36 first-screen contracts to fail. The tests were not relaxed; the product hierarchy was changed so core joint controls remain ahead of the secondary proportion block.
+
+These results are implementation evidence only. They do **not** establish a comparative claim that Pose Studio is faster or preferred versus Easy Pose, Poseit or Magic Poser.
+
+## Post-0.4 decision boundary
+
+Multiple mannequins and basic props remain observable reference-product capabilities, but the reassessment is complete and the current decision is to defer them. The completed 0.4 work removes concrete single-figure setup costs; adding more scene entities would increase navigation and state complexity without current task evidence that it shortens the primary `time_to_reference_pose` workflow.
+
+Reopen multi-character/basic-prop work only when a concrete drawing-reference task shows that scene breadth improves the task more than it increases setup cost. Until then, prioritize small single-figure interaction improvements that can be exercised deterministically or supported by later human evidence.
 
 ## Increment acceptance method
 

@@ -42,14 +42,26 @@ Landed sequence:
 
 The single-figure 0.3 workflow is therefore materially deeper than the 0.2 commercial-beta foundation: reference matching → readable volume/orientation → planar/depth posing → local pose reuse → drawing-oriented export.
 
-### Post-0.3 exploration
+## 0.4 — reduce time to reference pose — landed on source main
 
-Do not immediately turn Pose Studio into a general scene editor. The next product work should continue optimizing `time_to_reference_pose` and remain evidence-gated. Candidate directions, in priority order for evaluation rather than as shipment promises:
+The 0.4 track kept the product single-figure-first and targeted deterministic setup cost rather than scene breadth.
 
-- reduce reference-alignment interaction cost while preserving authoritative pose gestures;
-- add configurable artistic body proportions without medical/anatomical claims;
-- evaluate saved camera/grid helpers where they reduce repeated setup;
-- reassess multiple mannequins/basic props only if single-figure workflow evidence shows they materially improve common drawing-reference tasks.
+Landed sequence:
+
+1. **Direct reference alignment — #124.** Choosing a reference enters an explicit canvas alignment mode; one-finger drag moves the image and pinch adjusts it. Leaving the mode immediately restores pose/camera gestures.
+2. **Reference action layout — #125.** Choose / Hide / Reset / Clear use a stable 2×2 layout so the primary reference actions remain reachable without nested horizontal scrolling, including at 200% font scale.
+3. **Framing helpers — #126.** Front / Three-quarter / Side restore default distance, FOV and target while preserving each view angle. Existing project-persisted camera state is reused instead of adding a duplicate recent-framing store.
+4. **Artistic drawing proportions — #127.** Balanced / Long legs / Long torso retarget segment lengths while preserving pose direction. Presets are absolute/idempotent, Fast Pose preserves the current stylized lengths, and existing joints-based save/library/export paths require no schema migration.
+
+#127 also preserved a real failed-head regression: placing Drawing proportions above the joint picker displaced existing Pelvis / Right wrist first-screen controls on API36. The assertions were not weakened; the product hierarchy was corrected before merge.
+
+The 0.4 feature closure exact main is `aa907e76a7f39ee96fa8f4351cc181abbcb652a6`. Post-merge CI Contracts #182, Pose Studio #188 and canonical CI #1534 all completed successfully, including API36/200% font, Android functional, hosted performance, 16 KiB compatibility, immutable source release and stable-debug-key APK publication.
+
+### Post-0.4 decision boundary
+
+Multiple mannequins and basic props were reassessed against the same `time_to_reference_pose` goal and remain deferred. They are observable competitor capabilities, but current evidence does not show that adding scene complexity shortens the common single-figure reference task enough to justify the interaction cost.
+
+Reconsider scene breadth only when a concrete drawing-reference task demonstrates that it improves the task more than it increases setup/navigation cost. Until then, prefer small single-figure interaction improvements backed by deterministic tests or later human evidence.
 
 Explicitly avoid chasing competitor asset counts, cloud accounts, generative AI or a marketplace as substitutes for a strong posing workflow.
 
