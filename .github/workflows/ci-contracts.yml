@@ -61,7 +61,11 @@ jobs:
           manifest="apps/pose-studio/releases/${tag}.md"
           test -f "$manifest"
 
-          grep -Fq -- 'workflows: ["CI", "Pose Studio", "CI Contracts"]' "$workflow"
+          grep -Fq -- 'workflows: ["Pose Studio"]' "$workflow"
+          if grep -Fq -- 'workflows: ["CI", "Pose Studio", "CI Contracts"]' "$workflow"; then
+            echo 'Pose Studio candidate workflow must not fan out from generic CI workflows' >&2
+            exit 1
+          fi
           grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
           grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
           grep -Fq -- 'ref: ${{ github.event.workflow_run.head_sha }}' "$workflow"
@@ -86,14 +90,17 @@ jobs:
           grep -Fxq -- 'production_signing_proven: false' "$manifest"
           grep -Fxq -- 'google_play_production: false' "$manifest"
 
-      - name: Verify Pose Studio commercial-beta distribution contract
+      - name: Verify retired Pose Studio commercial-beta lock contract
         shell: bash
         run: |
           set -euo pipefail
           workflow=.github/workflows/pose-studio-beta-release.yml
           lock=apps/pose-studio/releases/commercial-beta.lock.env
-          test -f "$workflow"
+          docs=apps/pose-studio/docs/RELEASE.md
+
+          test ! -e "$workflow"
           test -f "$lock"
+          test -f "$docs"
 
           expected_keys="APK_NAME EXPECTED_CANDIDATE_SHA EXPECTED_CERT_SHA256 EXPECTED_KEYSTORE_SHA256 EXPECTED_MANIFEST_SHA256 TAG VERSION_CODE VERSION_NAME"
           actual_keys="$(grep -Ev '^[[:space:]]*(#|$)' "$lock" | cut -d= -f1 | sort | xargs)"
@@ -123,29 +130,5 @@ jobs:
           grep -Fxq -- 'production_signing_proven: false' "$manifest"
           grep -Fxq -- 'google_play_production: false' "$manifest"
 
-          grep -Fq -- 'workflows: ["CI Contracts"]' "$workflow"
-          grep -Fq -- "github.event.workflow_run.event == 'push'" "$workflow"
-          grep -Fq -- "github.event.workflow_run.head_branch == 'main'" "$workflow"
-          grep -Fq -- "github.event.workflow_run.conclusion == 'success'" "$workflow"
-          grep -Fq -- 'contents: write' "$workflow"
-          grep -Fq -- 'LOCK: apps/pose-studio/releases/commercial-beta.lock.env' "$workflow"
-          grep -Fq -- "source \"\$LOCK\"" "$workflow"
-          grep -Fq -- "if: steps.preflight.outputs.needs_publish == 'true'" "$workflow"
-          grep -Fq -- 'validatePoseReleaseSigning assembleRelease' "$workflow"
-          grep -Fq -- 'production_signing_proven: false' "$workflow"
-          grep -Fq -- 'google_play_production: false' "$workflow"
-          grep -Fq -- 'pre-production commercial-beta distribution only' "$workflow"
-          grep -Fq -- 'POSE-STUDIO-SHA256SUMS.txt' "$workflow"
-          grep -Fq -- 'POSE-STUDIO-SIGNING-CERT-SHA256.txt' "$workflow"
-          grep -Fq -- 'POSE-STUDIO-SOURCE-SHA.txt' "$workflow"
-          grep -Fq -- '{draft:false, prerelease:true, make_latest:"false", body:$body}' "$workflow"
-
-          if grep -Fq -- 'bundleRelease' "$workflow"; then
-            echo 'Commercial-beta GitHub distribution must not publish a Play-style AAB' >&2
-            exit 1
-          fi
-
-          if grep -Eq -- 'TAG: pose-studio-v[0-9]|EXPECTED_CANDIDATE_SHA: [0-9a-f]{40}|EXPECTED_MANIFEST_SHA256: [0-9a-f]{64}' "$workflow"; then
-            echo 'Version-specific beta provenance belongs in commercial-beta.lock.env, not workflow YAML' >&2
-            exit 1
-          fi
+          grep -Fq -- 'commercial-beta publication workflow is retired' "$docs"
+          grep -Fq -- 'commercial-beta.lock.env' "$docs"
