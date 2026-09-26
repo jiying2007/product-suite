@@ -2,6 +2,19 @@
 
 This repository contains the code and store-copy SSOT. It does not have a connected Google Play Console automation provider, so the Console actions below must be performed in Play Console and then verified against this contract and `PRODUCTION_READINESS.md`.
 
+## 0. Developer verification and app registration
+
+Before artifact or listing submission:
+
+- confirm the Play Console developer account's required identity, contact email and phone verification are complete and current;
+- complete every applicable verification task shown on Play Console Home, including physical Android device verification when the account is required to perform it;
+- open Play Console Home and confirm package `com.junchen.jingdu` is registered to the verified developer under Android developer verification;
+- do not assume automatic app registration is sufficient; resolve any registration task shown by Play Console before production submission;
+- record the completion date/account type in the private release record, but never commit identity documents, phone numbers, addresses, payment-profile data or other account secrets to this repository.
+
+This is an account/package eligibility gate, separate from source CI, AAB signing and Play review.
+
+
 ## 1. Lifetime Pro one-time product
 
 Create one one-time in-app product for application `com.junchen.jingdu`:
