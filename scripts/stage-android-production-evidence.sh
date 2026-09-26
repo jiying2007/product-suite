@@ -115,7 +115,7 @@ command -v keytool >/dev/null || {
 }
 JARSIGNER_REPORT="$(mktemp)"
 trap 'rm -f "$APKSIGNER_REPORT" "$JARSIGNER_REPORT"' EXIT
-jarsigner -verify "$AAB" | tee "$JARSIGNER_REPORT"
+jarsigner -J-Duser.language=en -J-Duser.country=US -verify "$AAB" | tee "$JARSIGNER_REPORT"
 grep -Fq "jar verified." "$JARSIGNER_REPORT" || {
   echo "release AAB JAR signature verification failed" >&2
   exit 1
