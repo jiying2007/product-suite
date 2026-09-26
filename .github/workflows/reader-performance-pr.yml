@@ -3,7 +3,12 @@ name: Reader Performance PR
 on:
   pull_request:
     paths:
-      - 'apps/jingdu/**'
+      # Reader performance is owned by executable Android/product paths, shared runtime code and
+      # the benchmark/SLO implementation itself. Product-level docs and ignored signing files
+      # must not occupy a hosted emulator.
+      - 'apps/jingdu/android/**'
+      - '!apps/jingdu/android/.gitignore'
+      - '!apps/jingdu/android/**/*.md'
       - 'platform/**'
       - 'native/**'
       - 'scripts/run-android-macrobenchmark-ci.sh'
