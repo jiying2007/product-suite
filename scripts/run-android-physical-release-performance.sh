@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT/apps/jingdu/android"
 TARGET_PACKAGE="com.junchen.jingdu"
 TEST_PACKAGE="com.junchen.jingdu.macrobenchmark"
+TEST_CLASSES="com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark,com.junchen.jingdu.macrobenchmark.StartupBenchmark"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 ADB="${ADB:-$SDK_ROOT/platform-tools/adb}"
 REMOTE_ROOT="/sdcard/Download/jingdu-reader-physical-release"
@@ -89,6 +90,7 @@ fingerprint=$FINGERPRINT
 page_turn_input=physical-volume
 release_slo_p95_ms=40
 release_slo_p99_ms=80
+cold_start_p95_target_ms=1000
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -100,7 +102,7 @@ set +e
   -e additionalTestOutputDir "$REMOTE_ROOT" \
   -e listener androidx.benchmark.macro.junit4.SideEffectRunListener \
   -e androidx.benchmark.enabledRules Macrobenchmark \
-  -e class com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark \
+  -e class "$TEST_CLASSES" \
   -e jingdu.pageTurnInput physical-volume \
   "$INSTRUMENTATION" | tee "$LOG"
 STATUS=${PIPESTATUS[0]}
@@ -119,5 +121,7 @@ JSON="$(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print
 cd "$ROOT"
 # This is the product frame SLO. Never substitute hosted-regression thresholds here.
 python3 scripts/check-android-performance-slo.py "$JSON" --mode release
+python3 scripts/check-android-startup-slo.py "$JSON"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
+echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
