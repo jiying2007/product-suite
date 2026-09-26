@@ -120,6 +120,7 @@ grep -q 'jingdu-smartclean-feedback' apps/jingdu/android/app/src/main/java/com/j
 bash -n scripts/stage-android-production-evidence.sh
 grep -Fq 'source ref must be an annotated immutable release tag' scripts/stage-android-production-evidence.sh
 grep -Fq 'UPLOAD-CERT-SHA256.txt' scripts/stage-android-production-evidence.sh
+grep -Fq 'release APK/AAB signing certificate mismatch' scripts/stage-android-production-evidence.sh
 grep -Fq 'native-debug-symbols' scripts/stage-android-production-evidence.sh
 grep -q 'manifest-sha256' scripts/publish-source-release.py
 grep -q '"/git/tags"' scripts/publish-source-release.py
