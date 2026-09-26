@@ -68,7 +68,7 @@ internal class BillingManager(
         val result = billingClient.launchBillingFlow(activity, BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(productParams)).build())
         if (result.responseCode != BillingClient.BillingResponseCode.OK) {
             errorLog.record(ProductErrorCode.BILLING_LAUNCH_FAILED, "billing.purchase")
-            onMessage(activity.getString(R.string.billing_launch_failed, result.debugMessage))
+            onMessage(activity.getString(R.string.billing_launch_failed))
         }
     }
 
@@ -102,7 +102,7 @@ internal class BillingManager(
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> queryOwned(showResult = true)
             else -> {
                 errorLog.record(ProductErrorCode.BILLING_UPDATE_FAILED, "billing.update")
-                onMessage(activity.getString(R.string.billing_incomplete, result.debugMessage))
+                onMessage(activity.getString(R.string.billing_incomplete))
             }
         }
     }
@@ -136,7 +136,7 @@ internal class BillingManager(
                 if (showResult) onMessage(activity.getString(if (restored) R.string.billing_restored else R.string.billing_not_owned))
             } else {
                 errorLog.record(ProductErrorCode.BILLING_OWNERSHIP_QUERY_FAILED, "billing.restore")
-                if (showResult) onMessage(activity.getString(R.string.billing_restore_failed, result.debugMessage))
+                if (showResult) onMessage(activity.getString(R.string.billing_restore_failed))
             }
         }
     }
