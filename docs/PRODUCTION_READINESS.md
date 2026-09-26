@@ -131,6 +131,7 @@ Before production verify that this export:
 - [ ] Custom Listings are applied only where Play supplies the matching keyword targeting capability;
 - [ ] Data safety / privacy declarations match the no-book-upload / no-ads / no-runtime-analytics architecture;
 - [ ] Play Console developer identity/contact verification is complete and current;
+- [ ] if the account is a personal developer account created after 2023-11-13, the required closed test has at least 12 testers continuously opted in for at least 14 days and Play has granted production access;
 - [ ] package `com.junchen.jingdu` is registered to the verified developer under Android developer verification; do not assume automatic registration;
 - [ ] store contact/category/content declarations are complete;
 - [ ] no screenshot or description contains unverified performance/ranking claims;
