@@ -1,1 +1,1 @@
-TXT reader for encoding rescue, smart cleanup, huge novels and offline TTS
+Local TXT reader for encoding rescue, smart cleanup, huge novels and system TTS
