@@ -7,6 +7,7 @@ This repository contains the code and store-copy SSOT. It does not have a connec
 Before artifact or listing submission:
 
 - confirm the Play Console developer account's required identity, contact email and phone verification are complete and current;
+- complete every applicable verification task shown on Play Console Home, including physical Android device verification when the account is required to perform it;
 - open Play Console Home and confirm package `com.junchen.jingdu` is registered to the verified developer under Android developer verification;
 - do not assume automatic app registration is sufficient; resolve any registration task shown by Play Console before production submission;
 - record the completion date/account type in the private release record, but never commit identity documents, phone numbers, addresses, payment-profile data or other account secrets to this repository.
