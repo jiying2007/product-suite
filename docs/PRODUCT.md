@@ -11,7 +11,7 @@ The terminal promise is:
 
 > Open messy TXT correctly, become readable quickly, diagnose what is wrong, repair presentation/structure/noise safely, keep very long books responsive, and preserve long-session reading without sending book text anywhere.
 
-Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨讀 - TXT 小說閱讀器`, `Jingdu - Offline TXT Reader`.
+Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨讀 - TXT 小說閱讀器`, `Jingdu - TXT Novel Reader`.
 
 ## Current product generation
 
