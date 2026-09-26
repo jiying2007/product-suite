@@ -71,7 +71,7 @@ Expected titles:
 - `zh-CN`: `净读 - TXT 小说阅读器`
 - `zh-TW`: `淨讀 - TXT 小說閱讀器`
 - `zh-HK`: `淨讀 - TXT 小說閱讀器`
-- `en-US`: `Jingdu - Offline TXT Reader`
+- `en-US`: `Jingdu - TXT Novel Reader`
 
 English localization communicates the same Chinese-TXT-depth product and must not imply EPUB/PDF/cloud catalog support.
 

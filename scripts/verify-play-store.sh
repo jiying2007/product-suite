@@ -28,6 +28,7 @@ expected_titles = {
     'zh-CN': '净读 - TXT 小说阅读器',
     'zh-TW': '淨讀 - TXT 小說閱讀器',
     'zh-HK': '淨讀 - TXT 小說閱讀器',
+    'en-US': 'Jingdu - TXT Novel Reader',
 }
 for locale, expected in expected_titles.items():
     title = (root / f'fastlane/metadata/android/{locale}/title.txt').read_text(encoding='utf-8').strip()
