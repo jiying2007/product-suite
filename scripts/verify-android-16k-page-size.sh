@@ -43,6 +43,7 @@ grep -Fq 'android.permission.INTERNET' "$RELEASE_MANIFEST" || { echo "Jingdu rel
 grep -Fq 'android.permission.INTERNET' "$MERGED_MANIFEST" || { echo "merged release manifest lost required INTERNET permission for Play services" >&2; exit 1; }
 grep -Fq 'android:usesCleartextTraffic="false"' "$MERGED_MANIFEST" || { echo "merged release manifest must keep cleartext traffic disabled" >&2; exit 1; }
 grep -Fq 'com.android.billingclient:billing:9.1.0' "$APP_GRADLE" || { echo "approved Billing dependency drift" >&2; exit 1; }
+grep -Fq 'com.google.android.play.billingclient.version' "$MERGED_MANIFEST" || { echo "merged release manifest lost Play Billing version metadata" >&2; exit 1; }
 grep -Fq 'com.google.android.play:review:2.0.2' "$APP_GRADLE" || { echo "approved In-App Review dependency drift" >&2; exit 1; }
 grep -Fq 'Google Play Billing' "$PRIVACY_POLICY" || { echo "privacy policy missing Google Play Billing network boundary" >&2; exit 1; }
 grep -Fq 'Google Play In-App Review' "$PRIVACY_POLICY" || { echo "privacy policy missing Google Play Review network boundary" >&2; exit 1; }
