@@ -88,7 +88,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 
 ## Privacy requirements
 
-- App manifest does not request direct `android.permission.INTERNET`.
+- The core Reader `src/main` manifest does not request `android.permission.INTERNET`; the final Google Play `src/release` overlay requests it only for optional Google Play Billing and In-App Review.
 - No account, advertising SDK or runtime analytics SDK.
 - Google Play Billing and In-App Review are allowed platform commerce/feedback integrations; they must not receive private TXT content.
 - Source TXT is never modified or deleted.

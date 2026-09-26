@@ -205,7 +205,7 @@ SAF URI grants are device/install capabilities and therefore must be re-selected
 
 Privacy is an architectural feature and an in-app verifiable fact:
 
-- Android Manifest has no INTERNET permission;
+- The core Reader `src/main` manifest has no `INTERNET` permission; the Google Play `src/release` overlay adds `INTERNET` only for optional Billing and In-App Review, with no Jingdu-operated content or analytics backend;
 - no broad storage permission;
 - no account;
 - no advertising SDK;
@@ -305,7 +305,7 @@ Without adding runtime analytics SDKs, release/support/store evidence should sho
 - background TTS survives ordinary Activity lifecycle changes, supports MediaSession controls and keeps source highlights correct through local pronunciation replacements;
 - folder sync skips reliably unchanged documents and conservatively reimports unknown metadata;
 - portable backup restores text-free user assets, including optional local pronunciation rules, and applies progress only to the exact normalized revision;
-- 20/100/200 MiB real-device qualification is recorded against `PERFORMANCE_SLO.md` / `DEVICE_MATRIX.md`;
+- 10/100/300 MiB real-device qualification is recorded against `PERFORMANCE.md` / `DEVICE_MATRIX.md`, with release SLOs from `PERFORMANCE_SLO.md`;
 - Android resources remain complete across en-US / zh-Hans / zh-Hant;
-- Android retains no direct INTERNET/broad-storage permission and no ads/analytics runtime SDK;
+- Android retains no broad-storage permission and no ads/analytics runtime SDK; the core Reader remains network-independent while the Play release package exposes network capability only for optional Billing/In-App Review;
 - Google Play production is declared only after `PRODUCTION_READINESS.md` external evidence is complete.
