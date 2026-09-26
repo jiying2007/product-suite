@@ -51,8 +51,10 @@ required=(
   apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
   apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/StartupBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
+  scripts/check-android-startup-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -421,7 +423,10 @@ require_literal "$benchmark_runner" 'test-android-performance-slo.py' 'SLO self-
 require_literal scripts/check-android-performance-slo.py 'frameDurationCpuMs' 'real frame metric'
 require_literal scripts/check-android-performance-slo.py 'JINGDU_FRAME_P95_MS' 'P95 threshold'
 require_literal scripts/check-android-performance-slo.py 'JINGDU_FRAME_P99_MS' 'P99 threshold'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-startup-slo.py 'StartupBenchmark.coldStartup' 'physical cold-start benchmark'
+require_literal scripts/check-android-startup-slo.py 'timeToInitialDisplayMs' 'AndroidX startup metric'
+require_literal scripts/check-android-startup-slo.py 'DEFAULT_P95_MS = 1000.0' 'cold-start P95 threshold'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 
