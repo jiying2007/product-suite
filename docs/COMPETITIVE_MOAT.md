@@ -20,7 +20,7 @@ select TXT / folder
 
 The competitive promise is not “support more formats.” It is: **take a TXT that another reader treats as broken or ugly, open it correctly, explain what is wrong, repair presentation/structure/noise safely, and keep it comfortable through a long reading session.**
 
-The source TXT is never modified or deleted. Book text is never uploaded. Android retains no INTERNET permission.
+The source TXT is never modified or deleted. Book text is never uploaded. The core Reader remains network-independent; the Google Play release overlay adds `INTERNET` only for optional Billing/In-App Review and does not introduce a Jingdu-operated content or analytics backend.
 
 ## P0 — immediate differentiated value
 
