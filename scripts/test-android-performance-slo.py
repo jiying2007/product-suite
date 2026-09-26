@@ -188,8 +188,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn("refuses emulator/generic devices", source)
         self.assertIn("-e jingdu.pageTurnInput physical-volume", source)
         self.assertIn("StartupBenchmark", source)
-        self.assertIn('scripts/check-android-performance-slo.py "$JSON" --mode release', source)
-        self.assertIn('scripts/check-android-startup-slo.py "$JSON"', source)
+        self.assertIn('scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release', source)
+        self.assertIn('scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"', source)
+        self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
     def test_real_shape_file_discovery(self) -> None:
