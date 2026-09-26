@@ -189,12 +189,12 @@
     <string name="error_redecode">Re-decode failed</string>
     <string name="billing_already_unlocked">Jingdu Pro is already unlocked.</string>
     <string name="billing_unavailable">Google Play purchase service is unavailable. Try again later.</string>
-    <string name="billing_launch_failed">Could not start purchase: %1$s</string>
+    <string name="billing_launch_failed">Could not start the purchase. Check Google Play and try again.</string>
     <string name="billing_restoring">Connecting to Google Play and restoring purchase…</string>
-    <string name="billing_incomplete">Purchase not completed: %1$s</string>
+    <string name="billing_incomplete">Purchase was not completed. Check Google Play and try again.</string>
     <string name="billing_restored">Jingdu Pro restored.</string>
     <string name="billing_not_owned">This Google Play account has no Jingdu Pro purchase.</string>
-    <string name="billing_restore_failed">Restore failed: %1$s</string>
+    <string name="billing_restore_failed">Could not restore the purchase. Check Google Play and try again.</string>
     <string name="billing_ack_pending">Pro is unlocked, but purchase acknowledgement is pending. Reopen Jingdu when online.</string>
     <string name="noise_reason_url">URL</string>
     <string name="noise_reason_promo">Promotion</string>
