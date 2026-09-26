@@ -3,8 +3,13 @@ set -euo pipefail
 
 python3 - <<'PY'
 from pathlib import Path
+import re
 
 root = Path('.')
+app_gradle = (root / 'apps/jingdu/android/app/build.gradle').read_text(encoding='utf-8')
+target_match = re.search(r'\btargetSdk\s*=\s*(\d+)', app_gradle)
+if target_match is None or int(target_match.group(1)) < 36:
+    raise SystemExit('Google Play mobile release requires targetSdk >= 36')
 locales = ['zh-CN', 'zh-TW', 'zh-HK', 'en-US']
 limits = {'title.txt': 30, 'short_description.txt': 80, 'full_description.txt': 4000}
 for locale in locales:
