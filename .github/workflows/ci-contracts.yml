@@ -26,7 +26,13 @@ jobs:
           grep -Fq -- "if: github.event_name == 'push'" "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$pr"
-          grep -Fq -- "- 'apps/jingdu/**'" "$pr"
+          grep -Fq -- "- 'apps/jingdu/android/**'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/.gitignore'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/**/*.md'" "$pr"
+          if grep -Fq -- "- 'apps/jingdu/**'" "$pr"; then
+            echo 'Reader PR performance scope is too broad; product-level docs must not start emulator qualification' >&2
+            exit 1
+          fi
           grep -Fq -- "- 'platform/**'" "$pr"
           grep -Fq -- "- 'native/**'" "$pr"
           grep -Fq -- "- 'scripts/run-android-macrobenchmark-ci.sh'" "$pr"
