@@ -182,7 +182,9 @@ physical_runner = physical_runner_path.read_text(encoding="utf-8")
 physical_workflow = physical_workflow_path.read_text(encoding="utf-8")
 assert 'ro.kernel.qemu' in physical_runner and 'refuses emulator/generic devices' in physical_runner
 assert '-e jingdu.pageTurnInput physical-volume' in physical_runner, "physical Release must force real volume-key CUJ"
-assert 'scripts/check-android-performance-slo.py "$JSON" --mode release' in physical_runner, "physical Release must use 40/80 Release mode"
+assert 'StartupBenchmark' in physical_runner, "physical Release must execute the dedicated cold-start suite"
+assert 'scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release' in physical_runner, "physical Release must use 40/80 Release mode"
+assert 'scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"' in physical_runner, "physical Release must enforce cold-start P95"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow
