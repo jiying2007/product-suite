@@ -101,7 +101,33 @@ trap 'rm -f "$APKSIGNER_REPORT"' EXIT
 "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$APKSIGNER_REPORT"
 UPLOAD_CERT_SHA="$(sed -n 's/.*certificate SHA-256 digest: //p' "$APKSIGNER_REPORT" | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
 [[ "$UPLOAD_CERT_SHA" =~ ^[0-9a-f]{64}$ ]] || {
-  echo "could not resolve release signing certificate SHA-256" >&2
+  echo "could not resolve release APK signing certificate SHA-256" >&2
+  exit 1
+}
+
+command -v jarsigner >/dev/null || {
+  echo "jarsigner missing from the configured JDK" >&2
+  exit 1
+}
+command -v keytool >/dev/null || {
+  echo "keytool missing from the configured JDK" >&2
+  exit 1
+}
+JARSIGNER_REPORT="$(mktemp)"
+trap 'rm -f "$APKSIGNER_REPORT" "$JARSIGNER_REPORT"' EXIT
+jarsigner -verify "$AAB" | tee "$JARSIGNER_REPORT"
+grep -Fq "jar verified." "$JARSIGNER_REPORT" || {
+  echo "release AAB JAR signature verification failed" >&2
+  exit 1
+}
+AAB_CERT_SHA="$(keytool -J-Duser.language=en -J-Duser.country=US -printcert -jarfile "$AAB" \
+  | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+[[ "$AAB_CERT_SHA" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "could not resolve release AAB signing certificate SHA-256" >&2
+  exit 1
+}
+[[ "$AAB_CERT_SHA" == "$UPLOAD_CERT_SHA" ]] || {
+  echo "release APK/AAB signing certificate mismatch" >&2
   exit 1
 }
 
@@ -130,6 +156,7 @@ application_id=com.junchen.jingdu
 version_code=$VERSION_CODE
 version_name=$VERSION
 upload_certificate_sha256=$UPLOAD_CERT_SHA
+aab_signing_certificate_sha256=$AAB_CERT_SHA
 play_app_signing_certificate_sha256=external-play-console-evidence
 google_play_production=false
 EOF
