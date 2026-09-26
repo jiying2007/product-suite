@@ -130,6 +130,8 @@ Before production verify that this export:
 - [ ] screenshots captured from the actual release UI using synthetic/public-domain TXT;
 - [ ] Custom Listings are applied only where Play supplies the matching keyword targeting capability;
 - [ ] Data safety / privacy declarations match the no-book-upload / no-ads / no-runtime-analytics architecture;
+- [ ] Play Console developer identity/contact verification is complete and current;
+- [ ] package `com.junchen.jingdu` is registered to the verified developer under Android developer verification; do not assume automatic registration;
 - [ ] store contact/category/content declarations are complete;
 - [ ] no screenshot or description contains unverified performance/ranking claims;
 - [ ] In-App Review remains milestone/cooldown driven and is not a first-launch gate.
