@@ -10,12 +10,17 @@ import tempfile
 import unittest
 
 MODULE_PATH = pathlib.Path(__file__).with_name("check-android-performance-slo.py")
+STARTUP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-startup-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
 assert spec and spec.loader
 slo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(slo)
+startup_spec = importlib.util.spec_from_file_location("jingdu_android_startup_slo", STARTUP_MODULE_PATH)
+assert startup_spec and startup_spec.loader
+startup_slo = importlib.util.module_from_spec(startup_spec)
+startup_spec.loader.exec_module(startup_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -23,6 +28,74 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         values = [float(value) for value in range(1, 101)]
         self.assertAlmostEqual(95.05, slo.androidx_percentile(values, 95))
         self.assertAlmostEqual(99.01, slo.androidx_percentile(values, 99))
+
+    def test_cold_start_metric_uses_real_androidx_shape(self) -> None:
+        payload = {
+            "benchmarks": [
+                {
+                    "name": "coldStartup",
+                    "className": "com.junchen.jingdu.macrobenchmark.StartupBenchmark",
+                    "metrics": {
+                        "timeToInitialDisplayMs": {
+                            "runs": [620.0, 640.0, 660.0, 680.0, 700.0, 720.0, 740.0, 760.0, 780.0, 800.0]
+                        }
+                    },
+                    "sampledMetrics": {},
+                }
+            ]
+        }
+        rows = startup_slo.cold_start_records(payload)
+        self.assertEqual(1, len(rows))
+        self.assertTrue(rows[0][0].endswith("StartupBenchmark.coldStartup"))
+        self.assertEqual(10, len(rows[0][1]))
+        self.assertAlmostEqual(791.0, startup_slo.androidx_percentile(rows[0][1], 95))
+
+    def test_cold_start_cli_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "StartupBenchmark-benchmarkData.json"
+            payload = {
+                "benchmarks": [
+                    {
+                        "name": "coldStartup",
+                        "className": "com.junchen.jingdu.macrobenchmark.StartupBenchmark",
+                        "metrics": {"timeToInitialDisplayMs": {"runs": [700.0] * 10}},
+                    }
+                ]
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            passed = subprocess.run(
+                [sys.executable, str(STARTUP_MODULE_PATH), str(path)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            self.assertIn("P95: 700.000ms", passed.stdout)
+
+            payload["benchmarks"][0]["metrics"]["timeToInitialDisplayMs"]["runs"] = [1200.0] * 10
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            slow = subprocess.run(
+                [sys.executable, str(STARTUP_MODULE_PATH), str(path)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("FAIL", slow.stdout)
+
+            payload["benchmarks"][0]["metrics"]["timeToInitialDisplayMs"]["runs"] = [700.0] * 9
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            truncated = subprocess.run(
+                [sys.executable, str(STARTUP_MODULE_PATH), str(path)],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, truncated.returncode, truncated.stdout)
+            self.assertIn("minimum=10", truncated.stdout)
 
     def test_sampled_metrics_are_flattened_per_benchmark(self) -> None:
         payload = {
@@ -114,7 +187,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn("ro.kernel.qemu", source)
         self.assertIn("refuses emulator/generic devices", source)
         self.assertIn("-e jingdu.pageTurnInput physical-volume", source)
+        self.assertIn("StartupBenchmark", source)
         self.assertIn('scripts/check-android-performance-slo.py "$JSON" --mode release', source)
+        self.assertIn('scripts/check-android-startup-slo.py "$JSON"', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
     def test_real_shape_file_discovery(self) -> None:
