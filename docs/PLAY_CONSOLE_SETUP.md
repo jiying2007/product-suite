@@ -8,6 +8,7 @@ Before artifact or listing submission:
 
 - confirm the Play Console developer account's required identity, contact email and phone verification are complete and current;
 - complete every applicable verification task shown on Play Console Home, including physical Android device verification when the account is required to perform it;
+- if the developer account is a **personal account created after 2023-11-13**, complete the required closed test with at least 12 testers continuously opted in for at least 14 days, then apply for and obtain production access before attempting the first production release;
 - open Play Console Home and confirm package `com.junchen.jingdu` is registered to the verified developer under Android developer verification;
 - do not assume automatic app registration is sufficient; resolve any registration task shown by Play Console before production submission;
 - record the completion date/account type in the private release record, but never commit identity documents, phone numbers, addresses, payment-profile data or other account secrets to this repository.
