@@ -90,6 +90,7 @@ fingerprint=$FINGERPRINT
 page_turn_input=physical-volume
 release_slo_p95_ms=40
 release_slo_p99_ms=80
+cold_start_metric=timeToInitialDisplayMs
 cold_start_p95_target_ms=1000
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
@@ -115,13 +116,14 @@ if (( STATUS != 0 )) || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTA
 fi
 
 "$ADB" pull "$REMOTE_ROOT" "$RESULT_ROOT/evidence"
-JSON="$(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print -quit)"
-[[ -n "$JSON" && -f "$JSON" ]] || { echo "Physical Release benchmarkData.json missing" >&2; exit 1; }
+mapfile -t BENCHMARK_JSON < <(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print)
+((${#BENCHMARK_JSON[@]} > 0)) || { echo "Physical Release benchmarkData.json missing" >&2; exit 1; }
 
 cd "$ROOT"
-# This is the product frame SLO. Never substitute hosted-regression thresholds here.
-python3 scripts/check-android-performance-slo.py "$JSON" --mode release
-python3 scripts/check-android-startup-slo.py "$JSON"
+# These are separate product SLO authorities over the same retained physical evidence directory.
+# Never substitute hosted-regression thresholds for either physical gate.
+python3 scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release
+python3 scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
