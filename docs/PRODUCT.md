@@ -305,7 +305,7 @@ Without adding runtime analytics SDKs, release/support/store evidence should sho
 - background TTS survives ordinary Activity lifecycle changes, supports MediaSession controls and keeps source highlights correct through local pronunciation replacements;
 - folder sync skips reliably unchanged documents and conservatively reimports unknown metadata;
 - portable backup restores text-free user assets, including optional local pronunciation rules, and applies progress only to the exact normalized revision;
-- 20/100/200 MiB real-device qualification is recorded against `PERFORMANCE_SLO.md` / `DEVICE_MATRIX.md`;
+- 10/100/300 MiB real-device qualification is recorded against `PERFORMANCE.md` / `DEVICE_MATRIX.md`, with release SLOs from `PERFORMANCE_SLO.md`;
 - Android resources remain complete across en-US / zh-Hans / zh-Hant;
 - Android retains no broad-storage permission and no ads/analytics runtime SDK; the core Reader remains network-independent while the Play release package exposes network capability only for optional Billing/In-App Review;
 - Google Play production is declared only after `PRODUCTION_READINESS.md` external evidence is complete.
