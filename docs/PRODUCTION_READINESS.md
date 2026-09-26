@@ -34,16 +34,16 @@ Regardless of repository settings, the candidate source tag must resolve to the 
 
 ### Production-signed Android artifact
 
-Use the retained production/upload signing path and explicit monotonically increasing version values:
+Use the retained production/upload signing path from an **exact immutable source-tag checkout**. Keep production/upload credentials only in ignored `apps/jingdu/android/keystore.properties`, then stage one auditable evidence bundle:
 
 ```bash
-cd apps/jingdu/android
-./gradlew --no-daemon --no-configuration-cache --warning-mode all \
-  -PjingduApplicationId=com.junchen.jingdu \
-  -PjingduVersionCode=<production-code> \
-  -PjingduVersionName=<source-semver> \
-  androidStoreCheck writeAndroidReleaseChecksums
+git checkout vX.Y.Z
+bash ./scripts/stage-android-production-evidence.sh vX.Y.Z
 ```
+
+The helper fails closed unless the checkout exactly matches an annotated release tag, the tracked worktree is clean, source/app versions agree, production/upload signing is configured, the release APK/AAB build succeeds, and the canonical 16 KiB/native-symbol verifier passes. It stages the release APK/AAB, R8 mapping, FULL native symbols, upload-certificate SHA-256, source provenance and `SHA256SUMS.txt` under `apps/jingdu/android/build/production-evidence/X.Y.Z/`.
+
+The staged upload-certificate fingerprint proves the local signing identity used to produce the candidate. If Google Play App Signing uses a different production app-signing certificate, that Play certificate remains separate external Play Console evidence and must also be archived before rollout.
 
 Archive and record:
 
@@ -130,6 +130,8 @@ Before production verify that this export:
 - [ ] screenshots captured from the actual release UI using synthetic/public-domain TXT;
 - [ ] Custom Listings are applied only where Play supplies the matching keyword targeting capability;
 - [ ] Data safety / privacy declarations match the no-book-upload / no-ads / no-runtime-analytics architecture;
+- [ ] Play Console developer identity/contact verification is complete and current;
+- [ ] package `com.junchen.jingdu` is registered to the verified developer under Android developer verification; do not assume automatic registration;
 - [ ] store contact/category/content declarations are complete;
 - [ ] no screenshot or description contains unverified performance/ranking claims;
 - [ ] In-App Review remains milestone/cooldown driven and is not a first-launch gate.

@@ -47,7 +47,7 @@ required=(
   .github/CODEOWNERS .github/REPOSITORY_POLICY.md .github/dependabot.yml .github/pull_request_template.md .github/workflows/ci.yml
   config/signing/android-debug.keystore config/signing/README.md
   docs/PRODUCT.md docs/ARCHITECTURE.md docs/PERFORMANCE.md docs/TESTING.md docs/RELEASE.md docs/PRODUCTION_READINESS.md
-  scripts/verify-play-store.sh scripts/verify-android-i18n.py scripts/verify-release-version.py scripts/verify-reader.sh scripts/verify-reader-profile-contract.py scripts/publish-source-release.py
+  scripts/verify-play-store.sh scripts/verify-android-i18n.py scripts/verify-release-version.py scripts/verify-reader.sh scripts/verify-reader-profile-contract.py scripts/publish-source-release.py scripts/stage-android-production-evidence.sh
   platform/text/native/include/jingdu/core_api.h platform/text/native/src/core_api.cpp platform/text/native/src/core_api_cached.cpp
   apps/jingdu/android/readerproto/src/main/proto/reader_settings.proto
   apps/jingdu/android/app/src/release/AndroidManifest.xml
@@ -117,6 +117,11 @@ grep -q 'containsBookText' apps/jingdu/android/app/src/main/java/com/junchen/jin
 grep -q 'consumeRestoredProgress' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
 grep -q 'jingdu-reading-stats' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserAssetBackup.kt
 grep -q 'jingdu-smartclean-feedback' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartCleanFeedbackStore.kt
+bash -n scripts/stage-android-production-evidence.sh
+grep -Fq 'source ref must be an annotated immutable release tag' scripts/stage-android-production-evidence.sh
+grep -Fq 'UPLOAD-CERT-SHA256.txt' scripts/stage-android-production-evidence.sh
+grep -Fq 'release APK/AAB signing certificate mismatch' scripts/stage-android-production-evidence.sh
+grep -Fq 'native-debug-symbols' scripts/stage-android-production-evidence.sh
 grep -q 'manifest-sha256' scripts/publish-source-release.py
 grep -q '"/git/tags"' scripts/publish-source-release.py
 grep -q 'Current GitHub release governance' .github/REPOSITORY_POLICY.md
