@@ -41,7 +41,14 @@ The Reader frame-tail product SLO is independently enforced for every frame-prod
 
 Required evidence floors are unchanged: `pageTurn10MiB >= 20`, `continuousScroll10MiB >= 500`, and `chaptersAndSettings10MiB >= 50` CPU-frame samples.
 
-Physical qualification is executed by `scripts/run-android-physical-release-performance.sh` through `.github/workflows/android-physical-release-performance.yml`. The workflow requires a self-hosted runner labeled `[self-hosted, android, physical]`; the script rejects QEMU/generic emulator devices and forces `jingdu.pageTurnInput=physical-volume`. Six real `KEYCODE_VOLUME_DOWN` events must advance the authoritative Reader position. The physical gate invokes `scripts/check-android-performance-slo.py --mode release`; Hosted thresholds cannot satisfy it.
+Physical qualification is executed by `scripts/run-android-physical-release-performance.sh` through `.github/workflows/android-physical-release-performance.yml`. The workflow requires a self-hosted runner labeled `[self-hosted, android, physical]`; the script rejects QEMU/generic emulator devices and forces `jingdu.pageTurnInput=physical-volume`. Six real `KEYCODE_VOLUME_DOWN` events must advance the authoritative Reader position.
+
+The same retained physical Macrobenchmark evidence now has two independent authorities:
+
+- `scripts/check-android-performance-slo.py --mode release` enforces the Reader frame-tail P95/P99 SLO and sample floors;
+- `scripts/check-android-startup-slo.py` enforces `StartupBenchmark.coldStartup` `timeToInitialDisplayMs` P95 < 1.0 s over at least 10 physical cold-start iterations.
+
+Hosted thresholds cannot satisfy either physical gate. The remaining first-readable/search/chapter/Smart Clean/TTS/200 MiB physical Release SLO automation is tracked separately in #134 and must stay fail-closed until dedicated retained physical evidence exists.
 
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
 

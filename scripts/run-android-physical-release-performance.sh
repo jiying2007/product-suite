@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT/apps/jingdu/android"
 TARGET_PACKAGE="com.junchen.jingdu"
 TEST_PACKAGE="com.junchen.jingdu.macrobenchmark"
+TEST_CLASSES="com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark,com.junchen.jingdu.macrobenchmark.StartupBenchmark"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 ADB="${ADB:-$SDK_ROOT/platform-tools/adb}"
 REMOTE_ROOT="/sdcard/Download/jingdu-reader-physical-release"
@@ -89,6 +90,8 @@ fingerprint=$FINGERPRINT
 page_turn_input=physical-volume
 release_slo_p95_ms=40
 release_slo_p99_ms=80
+cold_start_metric=timeToInitialDisplayMs
+cold_start_p95_target_ms=1000
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -100,7 +103,7 @@ set +e
   -e additionalTestOutputDir "$REMOTE_ROOT" \
   -e listener androidx.benchmark.macro.junit4.SideEffectRunListener \
   -e androidx.benchmark.enabledRules Macrobenchmark \
-  -e class com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark \
+  -e class "$TEST_CLASSES" \
   -e jingdu.pageTurnInput physical-volume \
   "$INSTRUMENTATION" | tee "$LOG"
 STATUS=${PIPESTATUS[0]}
@@ -113,11 +116,14 @@ if (( STATUS != 0 )) || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTA
 fi
 
 "$ADB" pull "$REMOTE_ROOT" "$RESULT_ROOT/evidence"
-JSON="$(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print -quit)"
-[[ -n "$JSON" && -f "$JSON" ]] || { echo "Physical Release benchmarkData.json missing" >&2; exit 1; }
+mapfile -t BENCHMARK_JSON < <(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print)
+((${#BENCHMARK_JSON[@]} > 0)) || { echo "Physical Release benchmarkData.json missing" >&2; exit 1; }
 
 cd "$ROOT"
-# This is the product frame SLO. Never substitute hosted-regression thresholds here.
-python3 scripts/check-android-performance-slo.py "$JSON" --mode release
+# These are separate product SLO authorities over the same retained physical evidence directory.
+# Never substitute hosted-regression thresholds for either physical gate.
+python3 scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release
+python3 scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
+echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
