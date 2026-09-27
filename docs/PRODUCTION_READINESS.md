@@ -26,7 +26,7 @@ Google Play production is a later, separate stage. The rows below apply only whe
 
 ### Repository governance for Play production
 
-Before the first Play production staged rollout, capture actual GitHub administration evidence appropriate to that stage, including any chosen `main` / `v*` protection policy, required hosted checks, force-push/deletion controls, and tag immutability controls.
+Before the first Play production publication, or any later staged update rollout, capture actual GitHub administration evidence appropriate to that stage, including any chosen `main` / `v*` protection policy, required hosted checks, force-push/deletion controls, and tag immutability controls.
 
 This maturity pass intentionally does **not** enable `main` protection. That remains a later repository-administration choice rather than a current source change.
 
@@ -114,7 +114,7 @@ The current lifetime/no-account product intentionally has no entitlement backend
 
 ### Privacy-safe support diagnostics
 
-The APK must continue to have no direct `INTERNET` permission and no runtime ads/analytics SDK. When support evidence is needed, the user may explicitly export the local privacy/diagnostic JSON.
+The core Reader `src/main` manifest must remain network-free and the app must continue to have no runtime ads/analytics SDK. The final Google Play release package may expose `INTERNET` only through the approved release overlay for optional Billing/In-App Review; support diagnostics remain local and are exported only by explicit user action.
 
 Before production verify that this export:
 
@@ -131,6 +131,7 @@ Before production verify that this export:
 - [ ] Custom Listings are applied only where Play supplies the matching keyword targeting capability;
 - [ ] Data safety / privacy declarations match the no-book-upload / no-ads / no-runtime-analytics architecture;
 - [ ] Play Console developer identity/contact verification is complete and current;
+- [ ] if the account is a personal developer account created after 2023-11-13, the required closed test has at least 12 testers continuously opted in for at least 14 days and Play has granted production access;
 - [ ] package `com.junchen.jingdu` is registered to the verified developer under Android developer verification; do not assume automatic registration;
 - [ ] store contact/category/content declarations are complete;
 - [ ] no screenshot or description contains unverified performance/ranking claims;
@@ -141,13 +142,13 @@ Before production verify that this export:
 - [ ] upload the exact qualified AAB to the intended Play track;
 - [ ] complete internal/closed testing on Play-installed builds;
 - [ ] verify purchase/restore on a Play-installed candidate;
-- [ ] start a staged production rollout instead of immediate 100% exposure after the Reader + commerce hardening changes;
-- [ ] record initial staged percentage and start timestamp;
-- [ ] inspect Android vitals / crash / ANR / store feedback before each rollout expansion;
-- [ ] record the commit/tag/AAB checksum associated with each rollout expansion;
-- [ ] complete 100% rollout only after the staged evidence is acceptable.
+- [ ] determine whether the Play track already has a prior production release before choosing rollout mechanics;
+- [ ] for an **update**, start a staged production rollout and record the initial percentage/timestamp; expand only after vitals/commerce/store evidence is acceptable;
+- [ ] for a **first production release**, record that staged rollout percentages are unavailable, complete internal/closed testing first, then record the first-production publication timestamp and targeted countries/regions;
+- [ ] record the commit/tag/AAB checksum for the first publication and every staged expansion or subsequent production update;
+- [ ] on regression, halt the staged update when available; users who already received it stay on that version, so remediate with a new higher `versionCode`. A first release has no previous release to fall back to and must use the available Play publishing/unpublish controls plus a corrected higher-version build.
 
-Android vitals/store platform limits are not the internal product target. Rollout expansion should require materially healthier crash/ANR behavior than the platform bad-behavior thresholds, with the exact installed versionCode/AAB provenance recorded for each decision.
+Android vitals/store platform limits are not the internal product target. For staged updates, expansion should require materially healthier crash/ANR behavior than the platform bad-behavior thresholds. For a first production release, inspect the same signals immediately after publication before any subsequent distribution/listing expansion. Record the exact installed versionCode/AAB provenance for every decision.
 
 ## Portable local-user backup acceptance
 
