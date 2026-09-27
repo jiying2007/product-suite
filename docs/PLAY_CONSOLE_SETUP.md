@@ -8,6 +8,7 @@ Before artifact or listing submission:
 
 - confirm the Play Console developer account's required identity, contact email and phone verification are complete and current;
 - complete every applicable verification task shown on Play Console Home, including physical Android device verification when the account is required to perform it;
+- if the developer account is a **personal account created after 2023-11-13**, complete the required closed test with at least 12 testers continuously opted in for at least 14 days, then apply for and obtain production access before attempting the first production release;
 - open Play Console Home and confirm package `com.junchen.jingdu` is registered to the verified developer under Android developer verification;
 - do not assume automatic app registration is sufficient; resolve any registration task shown by Play Console before production submission;
 - record the completion date/account type in the private release record, but never commit identity documents, phone numbers, addresses, payment-profile data or other account secrets to this repository.
@@ -108,7 +109,7 @@ Capture actual release UI using synthetic/public-domain demo TXT content. Do not
 
 ## 6. App-language verification
 
-Android ships `zh-Hans`, `zh-Hant` and `en-US` UI resources and uses generated platform LocaleConfig. Before staged rollout:
+Android ships `zh-Hans`, `zh-Hant` and `en-US` UI resources and uses generated platform LocaleConfig. Before production publication or any subsequent staged update rollout:
 
 - verify system/per-app language selection on `zh-CN`, `zh-TW`, `zh-HK`, `en-US`;
 - verify an unsupported system language falls back to English;
@@ -168,7 +169,7 @@ Before uploading Android 2.3.x:
 - confirm Data safety / privacy declarations remain consistent with no text upload, no advertising SDK and no analytics SDK;
 - complete the App content declarations in section 9, including the `mediaPlayback` foreground-service declaration;
 - capture actual GitHub `main`/`v*` protection evidence;
-- use internal/closed testing and staged rollout rather than immediately exposing 100% of production users after the Reader + commerce hardening changes.
+- use internal/closed testing before production. If this track already has a production version, use staged rollout for the update; if this is the first production release, Play does not offer staged percentages, so record the first-release publication and targeted countries/regions instead.
 
 ## 11. Post-release checks
 
@@ -181,4 +182,4 @@ Verify in production Play:
 - unsupported system language falls back to English in-app;
 - no unexpected INTERNET/runtime analytics dependency was introduced;
 - review prompt appears only after meaningful milestones and never as a first-launch gate;
-- staged rollout expansion is tied to the exact source tag/AAB checksum and Android vitals evidence.
+- production rollout evidence is tied to the exact source tag/AAB checksum and Android vitals: staged percentage/expansion history for updates, or first-release publication + targeted countries/regions when no prior production version exists.

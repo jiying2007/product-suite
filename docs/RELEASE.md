@@ -92,7 +92,7 @@ When Google Play production work begins, follow `PLAY_CONSOLE_SETUP.md` and `PRO
 - default listing metadata comes from `fastlane/metadata/android`;
 - Custom Listing/search keyword specs and screenshot brief under `store/play/` are applied where supported;
 - Data safety/privacy declarations match actual app behavior;
-- production repository governance, signing, device and staged-rollout evidence is captured for that later stage.
+- production repository governance, signing, device and rollout evidence is captured for that later stage, using staged percentages only when Play exposes them for an update.
 
 Source CI cannot create/activate Play Console products, publish listings, qualify physical devices or establish Google Play production evidence.
 
@@ -108,7 +108,7 @@ A Google Play production release requires:
 - Play license-test purchase/restore/acknowledge evidence;
 - store listing screenshots/text uploaded and reviewed;
 - internal/closed Play-installed candidate testing;
-- staged rollout evidence;
+- production rollout evidence: staged rollout history for an update, or first-production publication/country evidence when the track has no prior production release;
 - immutable source tag/GitHub Release provenance.
 
 The current debug-key-signed GitHub APK satisfies the **current GitHub release stage**, but does not satisfy future Google Play production signing.
