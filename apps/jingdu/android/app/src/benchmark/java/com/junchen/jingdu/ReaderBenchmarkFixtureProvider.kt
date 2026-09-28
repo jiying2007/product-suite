@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 
 /** Benchmark-build only. Never merged into the production manifest/source set. */
 class ReaderBenchmarkFixtureProvider : ContentProvider() {
@@ -28,6 +29,20 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     putString("bookId", book.id)
                     putLong("bytes", fixture.length())
                     putInt("mib", mib)
+                }
+            }
+            "fixtureInfo" -> {
+                val mib = (arg?.toIntOrNull() ?: 10).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                check(fixture.isFile) { "Benchmark fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("Benchmark fixture is not imported: ${fixture.name}")
+                Bundle().apply {
+                    putString("bookId", book.id)
+                    putLong("bytes", fixture.length())
+                    putInt("mib", mib)
+                    putString("sha256", sha256(fixture))
                 }
             }
             "mode" -> {
@@ -134,6 +149,19 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
             }
             output.flush()
         }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
