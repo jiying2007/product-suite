@@ -3,9 +3,11 @@ package com.junchen.jingdu
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -43,6 +45,31 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     putLong("bytes", fixture.length())
                     putInt("mib", mib)
                     putString("sha256", sha256(fixture))
+                }
+            }
+            "prepareSource" -> {
+                val mib = (arg?.toIntOrNull() ?: 20).coerceIn(1, 256)
+                val fixture = sourceFixture(context.cacheDir, mib)
+                val target = mib.toLong() * 1024L * 1024L
+                if (!fixture.isFile || fixture.length() < target) writeFixture(fixture, target)
+                Bundle().apply {
+                    putString("uri", sourceUri(mib).toString())
+                    putLong("bytes", fixture.length())
+                    putInt("mib", mib)
+                    putString("sha256", sha256(fixture))
+                }
+            }
+            "removeImportedSource" -> {
+                val mib = (arg?.toIntOrNull() ?: 20).coerceIn(1, 256)
+                val fixture = sourceFixture(context.cacheDir, mib)
+                check(fixture.isFile) { "Benchmark source fixture is not prepared: ${fixture.name}" }
+                val sourceSha = sha256(fixture)
+                val repository = BookRepository(context)
+                val existing = repository.list().firstOrNull { it.id == sourceSha }
+                if (existing != null) repository.delete(existing)
+                Bundle().apply {
+                    putString("sha256", sourceSha)
+                    putBoolean("deleted", existing != null)
                 }
             }
             "mode" -> {
@@ -119,7 +146,9 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
             "clear" -> {
                 val repository = BookRepository(context)
                 repository.list().filter { it.name.startsWith("Benchmark Novel ") }.forEach(repository::delete)
-                context.cacheDir.listFiles()?.filter { it.name.startsWith("Benchmark Novel ") }?.forEach(File::delete)
+                context.cacheDir.listFiles()?.filter {
+                    it.name.startsWith("Benchmark Novel ") || it.name.startsWith("Benchmark New Source ")
+                }?.forEach(File::delete)
                 Bundle.EMPTY
             }
             else -> super.call(method, arg, extras)
@@ -151,6 +180,21 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
         }
     }
 
+    private fun sourceFixture(cacheDir: File, mib: Int): File =
+        File(cacheDir, "Benchmark New Source ${mib} MiB.txt")
+
+    private fun sourceUri(mib: Int): Uri =
+        Uri.parse("content://com.junchen.jingdu.benchmarkfixture/source/$mib")
+
+    private fun sourceFile(uri: Uri): File? {
+        if (uri.authority != "com.junchen.jingdu.benchmarkfixture") return null
+        val segments = uri.pathSegments
+        if (segments.size != 2 || segments[0] != "source") return null
+        val mib = segments[1].toIntOrNull()?.coerceIn(1, 256) ?: return null
+        val context = context ?: return null
+        return sourceFixture(context.cacheDir, mib).takeIf(File::isFile)
+    }
+
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().buffered().use { input ->
@@ -164,12 +208,37 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
         return digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
-    override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null
-    override fun getType(uri: Uri): String? = null
+    override fun query(
+        uri: Uri,
+        projection: Array<out String>?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+        sortOrder: String?,
+    ): Cursor? {
+        val file = sourceFile(uri) ?: return null
+        val columns = projection?.toList() ?: listOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
+        val cursor = MatrixCursor(columns.toTypedArray(), 1)
+        val row = cursor.newRow()
+        columns.forEach { column ->
+            when (column) {
+                OpenableColumns.DISPLAY_NAME -> row.add(file.name)
+                OpenableColumns.SIZE -> row.add(file.length())
+                else -> row.add(null)
+            }
+        }
+        return cursor
+    }
+
+    override fun getType(uri: Uri): String? = if (sourceFile(uri) != null) "text/plain" else null
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
-    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? = null
+
+    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
+        check(!mode.contains('w')) { "Benchmark source provider is read-only" }
+        val file = sourceFile(uri) ?: return null
+        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    }
 
     private companion object {
         // ~25 KiB/chapter keeps 10 MiB at hundreds of chapters and 100 MiB at thousands:
