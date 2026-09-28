@@ -59,6 +59,7 @@ required=(
   scripts/check-android-first-readable-slo.py
   scripts/check-android-new-import-slo.py
   scripts/check-android-chapter-jump-slo.py
+  scripts/check-android-indexed-search-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -398,6 +399,10 @@ require_literal "$fixture" '"chapterJumpMetric"' 'active-index chapter-jump benc
 require_literal "$fixture" 'val prewarmed = source.chapters()' 'chapter index prewarm outside timed interval'
 require_literal "$fixture" 'val startedNs = System.nanoTime()' 'chapter-jump internal monotonic timer'
 require_literal "$fixture" 'check(finalPosition == target.offset)' 'chapter-jump target proof'
+require_literal "$fixture" '"indexedSearchMetric"' 'indexed exact-search benchmark call'
+require_literal "$fixture" 'val prewarmed = source.search(EXACT_SEARCH_QUERY)' 'search index prewarm outside timed interval'
+require_literal "$fixture" 'val hits = source.search(EXACT_SEARCH_QUERY)' 'timed indexed exact search'
+require_literal "$fixture" 'queryToken=quick_brown_fox' 'deterministic exact-search query proof'
 require_literal "$journey" 'open10MiBTxt' '10MiB journey'
 require_literal "$journey" 'open100MiBTxt' '100MiB journey'
 require_literal "$journey" 'StartupTimingMetric' 'startup timing metric'
@@ -465,7 +470,11 @@ require_literal scripts/check-android-chapter-jump-slo.py 'DEFAULT_P95_MS = 100.
 require_literal scripts/check-android-chapter-jump-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'chapter-jump sample floor'
 require_literal scripts/check-android-chapter-jump-slo.py 'target_offset != sample.final_position' 'chapter-jump target proof validation'
 require_literal scripts/check-android-chapter-jump-slo.py '"sourceSha": args.source_sha' 'chapter-jump source provenance'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-indexed-search-slo.py 'DEFAULT_P95_MS = 100.0' 'indexed exact-search P95 threshold'
+require_literal scripts/check-android-indexed-search-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'indexed exact-search sample floor'
+require_literal scripts/check-android-indexed-search-slo.py 'EXPECTED_QUERY_TOKEN = "quick_brown_fox"' 'indexed exact-search query identity'
+require_literal scripts/check-android-indexed-search-slo.py 'hit_count <= 0' 'indexed exact-search positive-hit proof'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 

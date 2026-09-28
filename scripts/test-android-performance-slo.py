@@ -14,6 +14,7 @@ STARTUP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-startup-sl
 FIRST_READABLE_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-first-readable-slo.py")
 NEW_IMPORT_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-new-import-slo.py")
 CHAPTER_JUMP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-chapter-jump-slo.py")
+INDEXED_SEARCH_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-indexed-search-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -45,6 +46,13 @@ assert chapter_jump_spec and chapter_jump_spec.loader
 chapter_jump_slo = importlib.util.module_from_spec(chapter_jump_spec)
 sys.modules[chapter_jump_spec.name] = chapter_jump_slo
 chapter_jump_spec.loader.exec_module(chapter_jump_slo)
+indexed_search_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_indexed_search_slo", INDEXED_SEARCH_MODULE_PATH
+)
+assert indexed_search_spec and indexed_search_spec.loader
+indexed_search_slo = importlib.util.module_from_spec(indexed_search_spec)
+sys.modules[indexed_search_spec.name] = indexed_search_slo
+indexed_search_spec.loader.exec_module(indexed_search_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -529,6 +537,99 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertEqual(1, mismatch.returncode, mismatch.stdout)
             self.assertIn("finalPosition", mismatch.stdout)
 
+    def test_indexed_exact_search_cli_enforces_p95_sample_floor_and_hit_proof(self) -> None:
+        fixture_sha = "4" * 64
+        normalized_sha = "5" * 64
+        source_sha = "6" * 40
+
+        def evidence(count: int, duration: float, hits: int = 25) -> str:
+            return "\n".join(
+                (
+                    "Result: Bundle[{sample="
+                    "metric=indexed-exact-search;"
+                    f"durationMs={duration + index:.3f};"
+                    f"fixtureMiB=10;fixtureSha256={fixture_sha};"
+                    f"normalizedSha256={normalized_sha};queryToken=quick_brown_fox;"
+                    f"hitCount={hits};firstOffset={1000 + index}"
+                    "}]"
+                )
+                for index in range(1, count + 1)
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "indexed-search.log"
+            summary = root / "indexed-search-slo.json"
+            common = [
+                sys.executable,
+                str(INDEXED_SEARCH_MODULE_PATH),
+                str(log),
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            log.write_text(evidence(10, 20.0), encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual("indexed-exact-search", payload["metric"])
+            self.assertEqual("quick_brown_fox", payload["fixture"]["queryToken"])
+            self.assertEqual(10, len(payload["samplesMs"]))
+            self.assertLess(payload["p95Ms"], 100.0)
+            self.assertTrue(all(item["hitCount"] > 0 for item in payload["proof"]))
+
+            log.write_text(evidence(10, 120.0), encoding="utf-8")
+            slow = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("P95=", slow.stdout)
+
+            log.write_text(evidence(9, 20.0), encoding="utf-8")
+            truncated = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, truncated.returncode, truncated.stdout)
+            self.assertIn("minimum=10", truncated.stdout)
+
+            log.write_text(evidence(10, 20.0, hits=0), encoding="utf-8")
+            empty = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, empty.returncode, empty.stdout)
+            self.assertIn("hitCount=0", empty.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -556,6 +657,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('--method chapterJumpMetric', source)
         self.assertIn('scripts/check-android-chapter-jump-slo.py "$CHAPTER_JUMP_LOG"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/chapter-jump-slo.json"', source)
+        self.assertIn('--method indexedSearchMetric', source)
+        self.assertIn('scripts/check-android-indexed-search-slo.py "$INDEXED_SEARCH_LOG"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/indexed-search-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
