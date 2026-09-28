@@ -43,12 +43,13 @@ Required evidence floors are unchanged: `pageTurn10MiB >= 20`, `continuousScroll
 
 Physical qualification is executed by `scripts/run-android-physical-release-performance.sh` through `.github/workflows/android-physical-release-performance.yml`. The workflow requires a self-hosted runner labeled `[self-hosted, android, physical]`; the script rejects QEMU/generic emulator devices and forces `jingdu.pageTurnInput=physical-volume`. Six real `KEYCODE_VOLUME_DOWN` events must advance the authoritative Reader position.
 
-The same retained physical Macrobenchmark evidence now has two independent authorities:
+Physical Release qualification now has three independent authorities:
 
-- `scripts/check-android-performance-slo.py --mode release` enforces the Reader frame-tail P95/P99 SLO and sample floors;
-- `scripts/check-android-startup-slo.py` enforces `StartupBenchmark.coldStartup` `timeToInitialDisplayMs` P95 < 1.0 s over at least 10 physical cold-start iterations.
+- `scripts/check-android-performance-slo.py --mode release` enforces the Reader frame-tail P95/P99 SLO and sample floors from retained AndroidX frame evidence;
+- `scripts/check-android-startup-slo.py` enforces `StartupBenchmark.coldStartup` `timeToInitialDisplayMs` P95 < 1.0 s over at least 10 physical cold-start iterations;
+- `scripts/check-android-first-readable-slo.py` enforces unchanged imported 10 MiB book Library-click -> authoritative paged position + raster/layout readiness P95 < 500 ms over at least 10 physical samples, and writes `first-readable-slo.json` with source SHA/ref, device identity, raw samples and fixture SHA-256.
 
-Hosted thresholds cannot satisfy either physical gate. The remaining first-readable/search/chapter/Smart Clean/TTS/200 MiB physical Release SLO automation is tracked separately in #134 and must stay fail-closed until dedicated retained physical evidence exists.
+The first-readable journey is physical-only and is excluded from Hosted Reader performance CI so it cannot widen or contaminate emulator frame regression authority. Hosted thresholds cannot satisfy any physical gate. The remaining new-import/search/chapter/Smart Clean/TTS/200 MiB physical Release SLO automation is tracked separately in #134 and must stay fail-closed until dedicated retained physical evidence exists.
 
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
 
