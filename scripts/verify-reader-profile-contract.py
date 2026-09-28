@@ -196,6 +196,9 @@ assert '--summary-json "$RESULT_ROOT/new-100mib-first-readable-slo.json"' in phy
 assert '--method chapterJumpMetric' in physical_runner, "physical Release must sample active-index chapter jumps"
 assert 'scripts/check-android-chapter-jump-slo.py "$CHAPTER_JUMP_LOG"' in physical_runner, "physical Release must enforce chapter-jump P95"
 assert '--summary-json "$RESULT_ROOT/chapter-jump-slo.json"' in physical_runner, "physical Release must retain machine-readable chapter-jump evidence"
+assert '--method indexedSearchMetric' in physical_runner, "physical Release must sample indexed exact search"
+assert 'scripts/check-android-indexed-search-slo.py "$INDEXED_SEARCH_LOG"' in physical_runner, "physical Release must enforce indexed-search P95"
+assert '--summary-json "$RESULT_ROOT/indexed-search-slo.json"' in physical_runner, "physical Release must retain machine-readable indexed-search evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow

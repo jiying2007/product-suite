@@ -112,6 +112,43 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     }
                 }
             }
+            "indexedSearchMetric" -> {
+                val mib = (arg?.toIntOrNull() ?: 10).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                check(fixture.isFile) { "Benchmark fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("Benchmark fixture is not imported: ${fixture.name}")
+                ReaderController().use { source ->
+                    source.open(repository.normalizedFile(book), book.progress)
+                    val prewarmed = source.search(EXACT_SEARCH_QUERY)
+                    check(prewarmed.isNotEmpty()) { "Benchmark exact-search query has no prewarm hits" }
+
+                    val startedNs = System.nanoTime()
+                    val hits = source.search(EXACT_SEARCH_QUERY)
+                    val elapsedMs = (System.nanoTime() - startedNs) / 1_000_000.0
+
+                    check(hits.isNotEmpty()) { "Benchmark exact-search query has no timed hits" }
+                    check(hits.first().offset == prewarmed.first().offset) {
+                        "Indexed exact-search first-hit drift: prewarm=${prewarmed.first().offset} timed=${hits.first().offset}"
+                    }
+                    Bundle().apply {
+                        putString(
+                            "sample",
+                            buildString {
+                                append("metric=indexed-exact-search")
+                                append(";durationMs=").append(String.format(Locale.US, "%.3f", elapsedMs))
+                                append(";fixtureMiB=").append(mib)
+                                append(";fixtureSha256=").append(book.sourceSha256)
+                                append(";normalizedSha256=").append(book.normalizedSha256)
+                                append(";queryToken=quick_brown_fox")
+                                append(";hitCount=").append(hits.size)
+                                append(";firstOffset=").append(hits.first().offset)
+                            },
+                        )
+                    }
+                }
+            }
             "mode" -> {
                 val mode = when (arg?.lowercase()) {
                     "paged" -> ReaderMode.PAGED
@@ -284,5 +321,6 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
         // ~25 KiB/chapter keeps 10 MiB at hundreds of chapters and 100 MiB at thousands:
         // still a heavy novel fixture without the previous pathological one-heading-per-paragraph bias.
         const val BODY_LINES_PER_CHAPTER = 256
+        const val EXACT_SEARCH_QUERY = "quick brown fox"
     }
 }
