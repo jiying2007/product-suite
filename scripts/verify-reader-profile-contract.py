@@ -193,6 +193,9 @@ assert '--summary-json "$RESULT_ROOT/first-readable-slo.json"' in physical_runne
 assert '--summary-json "$RESULT_ROOT/new-20mib-first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable 20 MiB import evidence"
 assert '--fixture-mib 100' in physical_runner and '--limit-ms 2000' in physical_runner, "physical Release must enforce 100 MiB import target"
 assert '--summary-json "$RESULT_ROOT/new-100mib-first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable 100 MiB import evidence"
+assert '--method chapterJumpMetric' in physical_runner, "physical Release must sample active-index chapter jumps"
+assert 'scripts/check-android-chapter-jump-slo.py "$CHAPTER_JUMP_LOG"' in physical_runner, "physical Release must enforce chapter-jump P95"
+assert '--summary-json "$RESULT_ROOT/chapter-jump-slo.json"' in physical_runner, "physical Release must retain machine-readable chapter-jump evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow

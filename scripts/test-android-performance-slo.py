@@ -13,6 +13,7 @@ MODULE_PATH = pathlib.Path(__file__).with_name("check-android-performance-slo.py
 STARTUP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-startup-slo.py")
 FIRST_READABLE_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-first-readable-slo.py")
 NEW_IMPORT_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-new-import-slo.py")
+CHAPTER_JUMP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-chapter-jump-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -37,6 +38,13 @@ assert new_import_spec and new_import_spec.loader
 new_import_slo = importlib.util.module_from_spec(new_import_spec)
 sys.modules[new_import_spec.name] = new_import_slo
 new_import_spec.loader.exec_module(new_import_slo)
+chapter_jump_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_chapter_jump_slo", CHAPTER_JUMP_MODULE_PATH
+)
+assert chapter_jump_spec and chapter_jump_spec.loader
+chapter_jump_slo = importlib.util.module_from_spec(chapter_jump_spec)
+sys.modules[chapter_jump_spec.name] = chapter_jump_slo
+chapter_jump_spec.loader.exec_module(chapter_jump_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -427,6 +435,100 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertEqual(1, slow.returncode, slow.stdout)
             self.assertIn("iteration=4", slow.stdout)
 
+    def test_chapter_jump_cli_enforces_p95_sample_floor_and_position_proof(self) -> None:
+        fixture_sha = "1" * 64
+        normalized_sha = "2" * 64
+        source_sha = "3" * 40
+
+        def evidence(count: int, duration: float, mismatch: bool = False) -> str:
+            lines = []
+            for index in range(1, count + 1):
+                target = 1000 + index * 100
+                final = target + 1 if mismatch and index == count else target
+                lines.append(
+                    "Result: Bundle[{sample="
+                    "metric=chapter-jump;"
+                    f"durationMs={duration + index:.3f};"
+                    f"fixtureMiB=10;fixtureSha256={fixture_sha};"
+                    f"normalizedSha256={normalized_sha};chapterCount=400;"
+                    f"targetOffset={target};finalPosition={final}"
+                    "}]"
+                )
+            return "\n".join(lines)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "chapter-jump.log"
+            summary = root / "chapter-jump-slo.json"
+            common = [
+                sys.executable,
+                str(CHAPTER_JUMP_MODULE_PATH),
+                str(log),
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            log.write_text(evidence(10, 20.0), encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual("chapter-jump", payload["metric"])
+            self.assertEqual(10, len(payload["samplesMs"]))
+            self.assertLess(payload["p95Ms"], 100.0)
+            self.assertTrue(all(item["targetOffset"] == item["finalPosition"] for item in payload["proof"]))
+
+            log.write_text(evidence(10, 120.0), encoding="utf-8")
+            slow = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("P95=", slow.stdout)
+
+            log.write_text(evidence(9, 20.0), encoding="utf-8")
+            truncated = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, truncated.returncode, truncated.stdout)
+            self.assertIn("minimum=10", truncated.stdout)
+
+            log.write_text(evidence(10, 20.0, mismatch=True), encoding="utf-8")
+            mismatch = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, mismatch.returncode, mismatch.stdout)
+            self.assertIn("finalPosition", mismatch.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -451,6 +553,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('--fixture-mib 100', source)
         self.assertIn('--limit-ms 2000', source)
         self.assertIn('--summary-json "$RESULT_ROOT/new-100mib-first-readable-slo.json"', source)
+        self.assertIn('--method chapterJumpMetric', source)
+        self.assertIn('scripts/check-android-chapter-jump-slo.py "$CHAPTER_JUMP_LOG"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/chapter-jump-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 

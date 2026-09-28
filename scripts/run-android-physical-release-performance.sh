@@ -101,6 +101,9 @@ new_20_mib_first_readable_min_samples=5
 new_100_mib_first_readable_metric=action_view_import_to_authoritative_paged_ready
 new_100_mib_first_readable_limit_ms=2000
 new_100_mib_first_readable_min_samples=5
+chapter_jump_metric=active_index_chapters_lookup_and_jump
+chapter_jump_p95_target_ms=100
+chapter_jump_min_samples=10
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -127,6 +130,18 @@ fi
 "$ADB" pull "$REMOTE_ROOT" "$RESULT_ROOT/evidence"
 mapfile -t BENCHMARK_JSON < <(find "$RESULT_ROOT/evidence" -type f -name '*-benchmarkData.json' -print)
 ((${#BENCHMARK_JSON[@]} > 0)) || { echo "Physical Release benchmarkData.json missing" >&2; exit 1; }
+
+CHAPTER_JUMP_LOG="$RESULT_ROOT/chapter-jump.log"
+"$ADB" shell content call --uri content://com.junchen.jingdu.benchmarkfixture --method seed --arg 10 \
+  > "$RESULT_ROOT/chapter-jump-setup.log"
+: > "$CHAPTER_JUMP_LOG"
+for iteration in $(seq 1 10); do
+  echo "iteration=$iteration" >> "$CHAPTER_JUMP_LOG"
+  "$ADB" shell content call \
+    --uri content://com.junchen.jingdu.benchmarkfixture \
+    --method chapterJumpMetric \
+    --arg 10 | tee -a "$CHAPTER_JUMP_LOG"
+done
 
 cd "$ROOT"
 # These are separate product SLO authorities over the same retained physical evidence directory.
@@ -159,9 +174,18 @@ python3 scripts/check-android-new-import-slo.py "$LOG" \
   --model "$MODEL" \
   --sdk "$SDK" \
   --fingerprint "$FINGERPRINT"
+python3 scripts/check-android-chapter-jump-slo.py "$CHAPTER_JUMP_LOG" \
+  --summary-json "$RESULT_ROOT/chapter-jump-slo.json" \
+  --source-ref "$SOURCE_REF" \
+  --source-sha "$ACTUAL_SOURCE_SHA" \
+  --manufacturer "$MANUFACTURER" \
+  --model "$MODEL" \
+  --sdk "$SDK" \
+  --fingerprint "$FINGERPRINT"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
 echo "Physical Release unchanged-book first-readable gate PASS: P95<500ms over >=10 retained samples"
 echo "Physical Release new 20 MiB first-readable gate PASS: every retained sample <1000ms"
 echo "Physical Release new 100 MiB first-readable gate PASS: every retained sample <2000ms"
+echo "Physical Release chapter-jump gate PASS: active-index P95<100ms over >=10 retained samples"
