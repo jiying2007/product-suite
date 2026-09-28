@@ -13,11 +13,11 @@ import sys
 from dataclasses import dataclass
 
 DEFAULT_LIMIT_MS = 1000.0
+DEFAULT_FIXTURE_MIB = 20
 REQUIRED_MIN_SAMPLES = 5
-METRIC = "new-import-20mib"
 SAMPLE_RE = re.compile(
     r"jingdu\.newImportSample="
-    r"metric=new-import-20mib;"
+    r"metric=(?P<metric>new-import-\d+mib);"
     r"iteration=(?P<iteration>\d+);"
     r"durationMs=(?P<duration>[0-9]+(?:\.[0-9]+)?);"
     r"fixtureMiB=(?P<mib>\d+);"
@@ -30,6 +30,7 @@ SAMPLE_RE = re.compile(
 
 @dataclass(frozen=True)
 class Sample:
+    metric: str
     iteration: int
     duration_ms: float
     fixture_mib: int
@@ -58,6 +59,7 @@ def parse_samples(text: str) -> list[Sample]:
             continue
         samples.append(
             Sample(
+                metric=match.group("metric"),
                 iteration=int(match.group("iteration")),
                 duration_ms=duration,
                 fixture_mib=int(match.group("mib")),
@@ -70,7 +72,12 @@ def parse_samples(text: str) -> list[Sample]:
     return samples
 
 
-def validate_samples(samples: list[Sample], minimum: int, limit_ms: float) -> list[str]:
+def validate_samples(
+    samples: list[Sample],
+    minimum: int,
+    limit_ms: float,
+    expected_fixture_mib: int,
+) -> list[str]:
     failures: list[str] = []
     if len(samples) < minimum:
         failures.append(f"samples={len(samples)} minimum={minimum}")
@@ -86,8 +93,11 @@ def validate_samples(samples: list[Sample], minimum: int, limit_ms: float) -> li
     if len(identities) > 1:
         failures.append("fixture identity drift across samples")
     for sample in samples:
-        if sample.fixture_mib != 20:
-            failures.append(f"iteration={sample.iteration} unexpected fixtureMiB={sample.fixture_mib}")
+        if sample.fixture_mib != expected_fixture_mib:
+            failures.append(
+                f"iteration={sample.iteration} unexpected fixtureMiB={sample.fixture_mib} "
+                f"expected={expected_fixture_mib}"
+            )
         if sample.position < 0 or sample.layout_generation <= 0:
             failures.append(
                 f"iteration={sample.iteration} missing authoritative readiness "
@@ -104,6 +114,7 @@ def validate_samples(samples: list[Sample], minimum: int, limit_ms: float) -> li
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("instrumentation_log")
+    parser.add_argument("--fixture-mib", type=int, default=DEFAULT_FIXTURE_MIB)
     parser.add_argument(
         "--limit-ms",
         type=float,
@@ -119,6 +130,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fingerprint", required=True)
     args = parser.parse_args(argv)
 
+    if args.fixture_mib <= 0:
+        print(f"new-import gate: invalid fixture MiB: {args.fixture_mib}", file=sys.stderr)
+        return 2
     if not math.isfinite(args.limit_ms) or args.limit_ms <= 0:
         print(f"new-import gate: invalid threshold: {args.limit_ms}", file=sys.stderr)
         return 2
@@ -136,8 +150,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"new-import gate: could not read {log_path}: {error}", file=sys.stderr)
         return 2
 
-    samples = parse_samples(text)
-    failures = validate_samples(samples, args.min_samples, args.limit_ms)
+    metric = f"new-import-{args.fixture_mib}mib"
+    samples = [sample for sample in parse_samples(text) if sample.metric == metric]
+    failures = validate_samples(samples, args.min_samples, args.limit_ms, args.fixture_mib)
     durations = [sample.duration_ms for sample in samples]
     median = percentile(durations, 50) if durations else None
     p95 = percentile(durations, 95) if durations else None
@@ -156,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
             "sdk": args.sdk,
             "fingerprint": args.fingerprint,
         },
-        "metric": METRIC,
+        "metric": metric,
         "target": {
             "operator": "<",
             "milliseconds": args.limit_ms,
@@ -183,13 +198,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if not durations:
         print(
-            f"new-import gate: missing {METRIC} evidence; samples={len(samples)} minimum={args.min_samples}",
+            f"new-import gate: missing {metric} evidence; samples={len(samples)} minimum={args.min_samples}",
             file=sys.stderr,
         )
     else:
         status = "PASS" if passed else "FAIL"
         print(
-            f"{METRIC}: median={median:.3f}ms P95={p95:.3f}ms max={maximum:.3f}ms "
+            f"{metric}: median={median:.3f}ms P95={p95:.3f}ms max={maximum:.3f}ms "
             f"target-each<{args.limit_ms:.3f}ms samples={len(samples)} {status}"
         )
     for failure in failures:

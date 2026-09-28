@@ -348,6 +348,85 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertEqual(1, truncated.returncode, truncated.stdout)
             self.assertIn("minimum=5", truncated.stdout)
 
+    def test_new_100_mib_import_cli_filters_metric_and_requires_every_sample_under_target(self) -> None:
+        fixture_sha = "e" * 64
+        source_sha = "f" * 40
+
+        def sample(metric: str, mib: int, index: int, duration: float) -> str:
+            return (
+                "INSTRUMENTATION_STATUS: jingdu.newImportSample="
+                f"metric={metric};"
+                f"iteration={index};durationMs={duration:.3f};"
+                f"fixtureMiB={mib};fixtureBytes={mib * 1024 * 1024};fixtureSha256={fixture_sha};"
+                f"position={index * 10};layoutGeneration={index}"
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "instrumentation.log"
+            summary = root / "new-100mib-first-readable-slo.json"
+            common = [
+                sys.executable,
+                str(NEW_IMPORT_MODULE_PATH),
+                str(log),
+                "--fixture-mib",
+                "100",
+                "--limit-ms",
+                "2000",
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            lines = [
+                sample("new-import-20mib", 20, index, 500.0 + index)
+                for index in range(1, 6)
+            ] + [
+                sample("new-import-100mib", 100, index, 1200.0 + index * 10)
+                for index in range(1, 6)
+            ]
+            log.write_text("\n".join(lines), encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual("new-import-100mib", payload["metric"])
+            self.assertEqual(100, payload["fixture"]["mib"])
+            self.assertEqual(5, len(payload["samplesMs"]))
+            self.assertLess(payload["maxMs"], 2000.0)
+
+            slow_lines = [
+                sample("new-import-100mib", 100, index, 2100.0 if index == 4 else 1300.0 + index)
+                for index in range(1, 6)
+            ]
+            log.write_text("\n".join(slow_lines), encoding="utf-8")
+            slow = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("iteration=4", slow.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -369,6 +448,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('--summary-json "$RESULT_ROOT/first-readable-slo.json"', source)
         self.assertIn('scripts/check-android-new-import-slo.py "$LOG"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/new-20mib-first-readable-slo.json"', source)
+        self.assertIn('--fixture-mib 100', source)
+        self.assertIn('--limit-ms 2000', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/new-100mib-first-readable-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
