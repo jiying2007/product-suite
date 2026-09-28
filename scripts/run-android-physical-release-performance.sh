@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT/apps/jingdu/android"
 TARGET_PACKAGE="com.junchen.jingdu"
 TEST_PACKAGE="com.junchen.jingdu.macrobenchmark"
-TEST_CLASSES="com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark,com.junchen.jingdu.macrobenchmark.StartupBenchmark"
+TEST_CLASSES="com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark,com.junchen.jingdu.macrobenchmark.StartupBenchmark,com.junchen.jingdu.macrobenchmark.PhysicalReleaseSloBenchmark"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 ADB="${ADB:-$SDK_ROOT/platform-tools/adb}"
 REMOTE_ROOT="/sdcard/Download/jingdu-reader-physical-release"
@@ -92,6 +92,9 @@ release_slo_p95_ms=40
 release_slo_p99_ms=80
 cold_start_metric=timeToInitialDisplayMs
 cold_start_p95_target_ms=1000
+unchanged_imported_first_readable_metric=click_to_authoritative_paged_ready
+unchanged_imported_first_readable_p95_target_ms=500
+unchanged_imported_first_readable_min_samples=10
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -124,6 +127,15 @@ cd "$ROOT"
 # Never substitute hosted-regression thresholds for either physical gate.
 python3 scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release
 python3 scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"
+python3 scripts/check-android-first-readable-slo.py "$LOG" \
+  --summary-json "$RESULT_ROOT/first-readable-slo.json" \
+  --source-ref "$SOURCE_REF" \
+  --source-sha "$ACTUAL_SOURCE_SHA" \
+  --manufacturer "$MANUFACTURER" \
+  --model "$MODEL" \
+  --sdk "$SDK" \
+  --fingerprint "$FINGERPRINT"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
+echo "Physical Release unchanged-book first-readable gate PASS: P95<500ms over >=10 retained samples"
