@@ -188,7 +188,9 @@ assert 'PhysicalReleaseSloBenchmark' in physical_runner, "physical Release must 
 assert 'scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release' in physical_runner, "physical Release must use 40/80 Release mode"
 assert 'scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"' in physical_runner, "physical Release must enforce cold-start P95"
 assert 'scripts/check-android-first-readable-slo.py "$LOG"' in physical_runner, "physical Release must enforce unchanged-book first-readable P95"
+assert 'scripts/check-android-new-import-slo.py "$LOG"' in physical_runner, "physical Release must enforce 20 MiB new-import first-readable target"
 assert '--summary-json "$RESULT_ROOT/first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable first-readable evidence"
+assert '--summary-json "$RESULT_ROOT/new-20mib-first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable 20 MiB import evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow
