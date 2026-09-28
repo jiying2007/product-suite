@@ -11,6 +11,7 @@ import unittest
 
 MODULE_PATH = pathlib.Path(__file__).with_name("check-android-performance-slo.py")
 STARTUP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-startup-slo.py")
+FIRST_READABLE_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-first-readable-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -21,6 +22,13 @@ startup_spec = importlib.util.spec_from_file_location("jingdu_android_startup_sl
 assert startup_spec and startup_spec.loader
 startup_slo = importlib.util.module_from_spec(startup_spec)
 startup_spec.loader.exec_module(startup_slo)
+first_readable_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_first_readable_slo", FIRST_READABLE_MODULE_PATH
+)
+assert first_readable_spec and first_readable_spec.loader
+first_readable_slo = importlib.util.module_from_spec(first_readable_spec)
+sys.modules[first_readable_spec.name] = first_readable_slo
+first_readable_spec.loader.exec_module(first_readable_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -174,6 +182,85 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         high_baseline_relative = 150.0 * (1.0 + slo.HOSTED_MAX_REGRESSION_RATIO)
         self.assertEqual(160.0, min(slo.HOSTED_P95_MS, high_baseline_relative))
 
+    def test_first_readable_cli_preserves_provenance_and_fails_closed(self) -> None:
+        fixture_sha = "a" * 64
+        source_sha = "b" * 40
+
+        def evidence(count: int, duration: float) -> str:
+            return "\n".join(
+                (
+                    "INSTRUMENTATION_STATUS: jingdu.firstReadableSample="
+                    "metric=unchanged-imported-book;"
+                    f"iteration={index};durationMs={duration + index:.3f};"
+                    f"fixtureMiB=10;fixtureBytes=10485760;fixtureSha256={fixture_sha};"
+                    f"position={index * 10};layoutGeneration={index}"
+                )
+                for index in range(1, count + 1)
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "instrumentation.log"
+            summary = root / "first-readable-slo.json"
+            common = [
+                sys.executable,
+                str(FIRST_READABLE_MODULE_PATH),
+                str(log),
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            log.write_text(evidence(10, 300.0), encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual(source_sha, payload["sourceSha"])
+            self.assertEqual(fixture_sha, payload["fixture"]["sha256"])
+            self.assertEqual(10, len(payload["samplesMs"]))
+            self.assertLess(payload["p95Ms"], 500.0)
+
+            log.write_text(evidence(10, 600.0), encoding="utf-8")
+            slow = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("FAIL", slow.stdout)
+            self.assertFalse(json.loads(summary.read_text(encoding="utf-8"))["pass"])
+
+            log.write_text(evidence(9, 300.0), encoding="utf-8")
+            truncated = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, truncated.returncode, truncated.stdout)
+            self.assertIn("minimum=10", truncated.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -188,8 +275,11 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn("refuses emulator/generic devices", source)
         self.assertIn("-e jingdu.pageTurnInput physical-volume", source)
         self.assertIn("StartupBenchmark", source)
+        self.assertIn("PhysicalReleaseSloBenchmark", source)
         self.assertIn('scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release', source)
         self.assertIn('scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"', source)
+        self.assertIn('scripts/check-android-first-readable-slo.py "$LOG"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/first-readable-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
