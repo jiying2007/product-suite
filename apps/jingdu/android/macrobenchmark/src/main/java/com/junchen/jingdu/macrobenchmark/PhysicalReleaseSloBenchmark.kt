@@ -91,7 +91,18 @@ class PhysicalReleaseSloBenchmark {
     }
 
     @Test
-    fun new20MiBTxtFirstReadable() {
+    fun new20MiBTxtFirstReadable() = newImportedTxtFirstReadable(
+        mib = NEW_20_IMPORT_MIB,
+        iterations = NEW_IMPORT_SAMPLES,
+    )
+
+    @Test
+    fun new100MiBTxtFirstReadable() = newImportedTxtFirstReadable(
+        mib = NEW_100_IMPORT_MIB,
+        iterations = NEW_IMPORT_SAMPLES,
+    )
+
+    private fun newImportedTxtFirstReadable(mib: Int, iterations: Int) {
         var sampleIndex = 0
         var sourceIdentity: PhysicalSourceIdentity? = null
 
@@ -100,10 +111,10 @@ class PhysicalReleaseSloBenchmark {
             metrics = listOf(StartupTimingMetric()),
             compilationMode = PHYSICAL_COMPILATION_MODE,
             startupMode = StartupMode.COLD,
-            iterations = NEW_IMPORT_SAMPLES,
+            iterations = iterations,
             setupBlock = {
                 pressHome()
-                val prepared = prepareSource(NEW_IMPORT_MIB)
+                val prepared = prepareSource(mib)
                 sourceIdentity = prepared
                 removeImportedSource(prepared)
                 setReaderMode("paged")
@@ -121,8 +132,8 @@ class PhysicalReleaseSloBenchmark {
             },
         )
 
-        check(sampleIndex == NEW_IMPORT_SAMPLES) {
-            "Physical 20 MiB new-import benchmark emitted $sampleIndex samples, expected $NEW_IMPORT_SAMPLES"
+        check(sampleIndex == iterations) {
+            "Physical $mib MiB new-import benchmark emitted $sampleIndex samples, expected $iterations"
         }
     }
 
@@ -271,7 +282,7 @@ class PhysicalReleaseSloBenchmark {
     ) {
         check(durationMs.isFinite() && durationMs > 0.0) { "Invalid physical new-import duration: $durationMs" }
         val value = buildString {
-            append("metric=new-import-20mib")
+            append("metric=new-import-").append(source.mib).append("mib")
             append(";iteration=").append(iteration)
             append(";durationMs=").append(String.format(Locale.US, "%.3f", durationMs))
             append(";fixtureMiB=").append(source.mib)
@@ -302,7 +313,8 @@ class PhysicalReleaseSloBenchmark {
         const val LIBRARY_TIMEOUT_MS = 8_000L
         const val READY_TIMEOUT_NS = 12_000_000_000L
         const val SAMPLE_STATUS_KEY = "jingdu.firstReadableSample"
-        const val NEW_IMPORT_MIB = 20
+        const val NEW_20_IMPORT_MIB = 20
+        const val NEW_100_IMPORT_MIB = 100
         const val NEW_IMPORT_SAMPLES = 5
         const val NEW_IMPORT_STATUS_KEY = "jingdu.newImportSample"
 
