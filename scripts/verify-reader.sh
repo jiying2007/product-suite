@@ -52,9 +52,11 @@ required=(
   apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/StartupBenchmark.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
   scripts/check-android-startup-slo.py
+  scripts/check-android-first-readable-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -89,6 +91,7 @@ proto=apps/jingdu/android/readerproto/src/main/proto/reader_settings.proto
 foundations=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
 motion=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
 journey=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
+physical_slo=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
 baseline=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
 fixture=apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
 benchmark_manifest=apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
@@ -383,6 +386,8 @@ require_literal "$fixture" 'advancedGestureCustomizationEnabled = false' 'determ
 require_literal "$fixture" 'centerTapAction = ReaderGestureAction.CONTROLS' 'deterministic fixture center tap'
 require_literal "$fixture" 'volumeKeyMode = ReaderVolumeKeyMode.PAGE_WHEN_NOT_TTS' 'deterministic volume paging'
 require_literal "$fixture" 'BODY_LINES_PER_CHAPTER = 256' 'representative chapter density'
+require_literal "$fixture" '"fixtureInfo"' 'physical fixture identity call'
+require_literal "$fixture" 'putString("sha256", sha256(fixture))' 'physical fixture SHA-256 evidence'
 require_literal "$journey" 'open10MiBTxt' '10MiB journey'
 require_literal "$journey" 'open100MiBTxt' '100MiB journey'
 require_literal "$journey" 'StartupTimingMetric' 'startup timing metric'
@@ -391,6 +396,10 @@ require_literal "$journey" 'PAGE_FORWARD_TAP_X' 'hosted real page-turn tap input
 require_literal "$journey" 'KEYCODE_VOLUME_DOWN' 'physical Release volume page-turn input'
 require_literal "$journey" 'jingdu.pageTurnInput' 'physical Release input selector'
 require_literal "$journey" 'PHYSICAL_VOLUME_INPUT = "physical-volume"' 'physical Release volume mode'
+require_literal "$physical_slo" 'unchangedImportedBookFirstReadable10MiB' 'unchanged imported first-readable physical journey'
+require_literal "$physical_slo" 'REQUIRED_SAMPLES = 10' 'first-readable physical sample floor'
+require_literal "$physical_slo" 'jingdu.firstReadableSample' 'first-readable retained sample status'
+require_literal "$physical_slo" 'layoutGeneration > 0L' 'first-readable raster readiness'
 require_literal "$journey" 'val before = readerPosition()' 'page-turn authoritative start position'
 require_literal "$journey" 'after > before' 'page-turn authoritative advance assertion'
 require_literal "$fixture" 'ReaderInteractionRuntime.foregroundPosition' 'benchmark authoritative position source'
@@ -426,7 +435,11 @@ require_literal scripts/check-android-performance-slo.py 'JINGDU_FRAME_P99_MS' '
 require_literal scripts/check-android-startup-slo.py 'StartupBenchmark.coldStartup' 'physical cold-start benchmark'
 require_literal scripts/check-android-startup-slo.py 'timeToInitialDisplayMs' 'AndroidX startup metric'
 require_literal scripts/check-android-startup-slo.py 'DEFAULT_P95_MS = 1000.0' 'cold-start P95 threshold'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-first-readable-slo.py 'DEFAULT_P95_MS = 500.0' 'unchanged-book first-readable P95 threshold'
+require_literal scripts/check-android-first-readable-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'unchanged-book first-readable sample floor'
+require_literal scripts/check-android-first-readable-slo.py '"sourceSha": args.source_sha' 'first-readable source provenance'
+require_literal scripts/check-android-first-readable-slo.py '"sha256": fixture.fixture_sha256' 'first-readable fixture hash provenance'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 
