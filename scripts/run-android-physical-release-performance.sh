@@ -95,6 +95,9 @@ cold_start_p95_target_ms=1000
 unchanged_imported_first_readable_metric=click_to_authoritative_paged_ready
 unchanged_imported_first_readable_p95_target_ms=500
 unchanged_imported_first_readable_min_samples=10
+new_20_mib_first_readable_metric=action_view_import_to_authoritative_paged_ready
+new_20_mib_first_readable_limit_ms=1000
+new_20_mib_first_readable_min_samples=5
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -135,7 +138,16 @@ python3 scripts/check-android-first-readable-slo.py "$LOG" \
   --model "$MODEL" \
   --sdk "$SDK" \
   --fingerprint "$FINGERPRINT"
+python3 scripts/check-android-new-import-slo.py "$LOG" \
+  --summary-json "$RESULT_ROOT/new-20mib-first-readable-slo.json" \
+  --source-ref "$SOURCE_REF" \
+  --source-sha "$ACTUAL_SOURCE_SHA" \
+  --manufacturer "$MANUFACTURER" \
+  --model "$MODEL" \
+  --sdk "$SDK" \
+  --fingerprint "$FINGERPRINT"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
 echo "Physical Release unchanged-book first-readable gate PASS: P95<500ms over >=10 retained samples"
+echo "Physical Release new 20 MiB first-readable gate PASS: every retained sample <1000ms"

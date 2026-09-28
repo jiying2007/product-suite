@@ -43,13 +43,14 @@ Required evidence floors are unchanged: `pageTurn10MiB >= 20`, `continuousScroll
 
 Physical qualification is executed by `scripts/run-android-physical-release-performance.sh` through `.github/workflows/android-physical-release-performance.yml`. The workflow requires a self-hosted runner labeled `[self-hosted, android, physical]`; the script rejects QEMU/generic emulator devices and forces `jingdu.pageTurnInput=physical-volume`. Six real `KEYCODE_VOLUME_DOWN` events must advance the authoritative Reader position.
 
-Physical Release qualification now has three independent authorities:
+Physical Release qualification now has four independent authorities:
 
 - `scripts/check-android-performance-slo.py --mode release` enforces the Reader frame-tail P95/P99 SLO and sample floors from retained AndroidX frame evidence;
 - `scripts/check-android-startup-slo.py` enforces `StartupBenchmark.coldStartup` `timeToInitialDisplayMs` P95 < 1.0 s over at least 10 physical cold-start iterations;
-- `scripts/check-android-first-readable-slo.py` enforces unchanged imported 10 MiB book Library-click -> authoritative paged position + raster/layout readiness P95 < 500 ms over at least 10 physical samples, and writes `first-readable-slo.json` with source SHA/ref, device identity, raw samples and fixture SHA-256.
+- `scripts/check-android-first-readable-slo.py` enforces unchanged imported 10 MiB book Library-click -> authoritative paged position + raster/layout readiness P95 < 500 ms over at least 10 physical samples, and writes `first-readable-slo.json` with source SHA/ref, device identity, raw samples and fixture SHA-256;
+- `scripts/check-android-new-import-slo.py` enforces the new 20 MiB TXT target through the real `ACTION_VIEW text/plain` -> `MainActivity.importUri()` -> `BookRepository.importUri()` -> first authoritative paged raster-ready path. Source generation and previous-import cleanup stay outside the measured interval; at least five retained physical samples are required and every sample must be < 1.0 s. `new-20mib-first-readable-slo.json` records median/P95/max, raw samples, source/device identity and fixture SHA-256.
 
-The first-readable journey is physical-only and is excluded from Hosted Reader performance CI so it cannot widen or contaminate emulator frame regression authority. Hosted thresholds cannot satisfy any physical gate. The remaining new-import/search/chapter/Smart Clean/TTS/200 MiB physical Release SLO automation is tracked separately in #134 and must stay fail-closed until dedicated retained physical evidence exists.
+The first-readable journeys are physical-only and excluded from Hosted Reader performance CI so they cannot widen or contaminate emulator frame regression authority. Hosted thresholds cannot satisfy any physical gate. The remaining 100 MiB new-import/search/chapter/Smart Clean/TTS/200 MiB physical Release SLO automation is tracked separately in #134 and must stay fail-closed until dedicated retained physical evidence exists.
 
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
 

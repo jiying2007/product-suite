@@ -57,6 +57,7 @@ required=(
   scripts/check-android-performance-slo.py
   scripts/check-android-startup-slo.py
   scripts/check-android-first-readable-slo.py
+  scripts/check-android-new-import-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -388,6 +389,10 @@ require_literal "$fixture" 'volumeKeyMode = ReaderVolumeKeyMode.PAGE_WHEN_NOT_TT
 require_literal "$fixture" 'BODY_LINES_PER_CHAPTER = 256' 'representative chapter density'
 require_literal "$fixture" '"fixtureInfo"' 'physical fixture identity call'
 require_literal "$fixture" 'putString("sha256", sha256(fixture))' 'physical fixture SHA-256 evidence'
+require_literal "$fixture" '"prepareSource"' 'unimported physical source preparation'
+require_literal "$fixture" '"removeImportedSource"' 'new-import iteration cleanup'
+require_literal "$fixture" 'Benchmark New Source' 'new-import synthetic source fixture'
+require_literal "$fixture" 'ParcelFileDescriptor.MODE_READ_ONLY' 'benchmark source URI read-only contract'
 require_literal "$journey" 'open10MiBTxt' '10MiB journey'
 require_literal "$journey" 'open100MiBTxt' '100MiB journey'
 require_literal "$journey" 'StartupTimingMetric' 'startup timing metric'
@@ -400,6 +405,10 @@ require_literal "$physical_slo" 'unchangedImportedBookFirstReadable10MiB' 'uncha
 require_literal "$physical_slo" 'REQUIRED_SAMPLES = 10' 'first-readable physical sample floor'
 require_literal "$physical_slo" 'jingdu.firstReadableSample' 'first-readable retained sample status'
 require_literal "$physical_slo" 'layoutGeneration > 0L' 'first-readable raster readiness'
+require_literal "$physical_slo" 'new20MiBTxtFirstReadable' '20 MiB new-import physical journey'
+require_literal "$physical_slo" 'android.intent.action.VIEW' 'new-import real ACTION_VIEW route'
+require_literal "$physical_slo" 'NEW_IMPORT_SAMPLES = 5' '20 MiB new-import sample floor'
+require_literal "$physical_slo" 'jingdu.newImportSample' '20 MiB retained sample status'
 require_literal "$journey" 'val before = readerPosition()' 'page-turn authoritative start position'
 require_literal "$journey" 'after > before' 'page-turn authoritative advance assertion'
 require_literal "$fixture" 'ReaderInteractionRuntime.foregroundPosition' 'benchmark authoritative position source'
@@ -439,7 +448,11 @@ require_literal scripts/check-android-first-readable-slo.py 'DEFAULT_P95_MS = 50
 require_literal scripts/check-android-first-readable-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'unchanged-book first-readable sample floor'
 require_literal scripts/check-android-first-readable-slo.py '"sourceSha": args.source_sha' 'first-readable source provenance'
 require_literal scripts/check-android-first-readable-slo.py '"sha256": fixture.fixture_sha256' 'first-readable fixture hash provenance'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-new-import-slo.py 'DEFAULT_LIMIT_MS = 1000.0' '20 MiB first-readable limit'
+require_literal scripts/check-android-new-import-slo.py 'REQUIRED_MIN_SAMPLES = 5' '20 MiB new-import sample floor'
+require_literal scripts/check-android-new-import-slo.py '"appliesTo": "every-retained-sample"' '20 MiB per-sample target semantics'
+require_literal scripts/check-android-new-import-slo.py '"sourceSha": args.source_sha' '20 MiB source provenance'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 
