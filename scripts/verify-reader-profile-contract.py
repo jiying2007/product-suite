@@ -164,6 +164,7 @@ assert 'class_args=(-e class "$test_class")' in runner, "instrumentation class f
 assert 'MACRO_CLASS="com.junchen.jingdu.macrobenchmark.ReaderJourneyBenchmark"' in runner
 assert 'PROFILE_CLASS="com.junchen.jingdu.macrobenchmark.BaselineProfileGenerator"' in runner
 assert 'StartupBenchmark' not in runner, "standalone startup suite must not contaminate the frame gate"
+assert 'PhysicalReleaseSloBenchmark' not in runner, "physical-only SLO suite must not contaminate Hosted Reader CI"
 
 # An invalid instrumentation run is infrastructure evidence, not a performance result. The hosted
 # gate must fail closed on the fresh measurement guest rather than retrying a system_server-dead AVD.
@@ -183,8 +184,11 @@ physical_workflow = physical_workflow_path.read_text(encoding="utf-8")
 assert 'ro.kernel.qemu' in physical_runner and 'refuses emulator/generic devices' in physical_runner
 assert '-e jingdu.pageTurnInput physical-volume' in physical_runner, "physical Release must force real volume-key CUJ"
 assert 'StartupBenchmark' in physical_runner, "physical Release must execute the dedicated cold-start suite"
+assert 'PhysicalReleaseSloBenchmark' in physical_runner, "physical Release must execute the first-readable SLO suite"
 assert 'scripts/check-android-performance-slo.py "$RESULT_ROOT/evidence" --mode release' in physical_runner, "physical Release must use 40/80 Release mode"
 assert 'scripts/check-android-startup-slo.py "$RESULT_ROOT/evidence"' in physical_runner, "physical Release must enforce cold-start P95"
+assert 'scripts/check-android-first-readable-slo.py "$LOG"' in physical_runner, "physical Release must enforce unchanged-book first-readable P95"
+assert '--summary-json "$RESULT_ROOT/first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable first-readable evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow
