@@ -11,6 +11,7 @@ import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.Locale
 
 /** Benchmark-build only. Never merged into the production manifest/source set. */
 class ReaderBenchmarkFixtureProvider : ContentProvider() {
@@ -70,6 +71,45 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 Bundle().apply {
                     putString("sha256", sourceSha)
                     putBoolean("deleted", existing != null)
+                }
+            }
+            "chapterJumpMetric" -> {
+                val mib = (arg?.toIntOrNull() ?: 10).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                check(fixture.isFile) { "Benchmark fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("Benchmark fixture is not imported: ${fixture.name}")
+                ReaderController().use { source ->
+                    source.open(repository.normalizedFile(book), book.progress)
+                    val prewarmed = source.chapters()
+                    check(prewarmed.size >= 2) { "Benchmark fixture has insufficient chapters: ${prewarmed.size}" }
+
+                    val startedNs = System.nanoTime()
+                    val active = source.chapters()
+                    val target = active[active.size / 2]
+                    source.jump(target.offset)
+                    val finalPosition = source.position()
+                    val elapsedMs = (System.nanoTime() - startedNs) / 1_000_000.0
+
+                    check(finalPosition == target.offset) {
+                        "Chapter jump position mismatch: target=${target.offset} final=$finalPosition"
+                    }
+                    Bundle().apply {
+                        putString(
+                            "sample",
+                            buildString {
+                                append("metric=chapter-jump")
+                                append(";durationMs=").append(String.format(Locale.US, "%.3f", elapsedMs))
+                                append(";fixtureMiB=").append(mib)
+                                append(";fixtureSha256=").append(book.sourceSha256)
+                                append(";normalizedSha256=").append(book.normalizedSha256)
+                                append(";chapterCount=").append(active.size)
+                                append(";targetOffset=").append(target.offset)
+                                append(";finalPosition=").append(finalPosition)
+                            },
+                        )
+                    }
                 }
             }
             "mode" -> {
