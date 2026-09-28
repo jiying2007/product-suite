@@ -27,6 +27,13 @@ private data class PhysicalPagedReadyState(
     val layoutGeneration: Long,
 )
 
+private data class PhysicalSourceIdentity(
+    val mib: Int,
+    val bytes: Long,
+    val sha256: String,
+    val uri: String,
+)
+
 /**
  * Physical-device-only Release SLO journeys.
  *
@@ -83,11 +90,72 @@ class PhysicalReleaseSloBenchmark {
         }
     }
 
+    @Test
+    fun new20MiBTxtFirstReadable() {
+        var sampleIndex = 0
+        var sourceIdentity: PhysicalSourceIdentity? = null
+
+        rule.measureRepeated(
+            packageName = PACKAGE_NAME,
+            metrics = listOf(StartupTimingMetric()),
+            compilationMode = PHYSICAL_COMPILATION_MODE,
+            startupMode = StartupMode.COLD,
+            iterations = NEW_IMPORT_SAMPLES,
+            setupBlock = {
+                pressHome()
+                val prepared = prepareSource(NEW_IMPORT_MIB)
+                sourceIdentity = prepared
+                removeImportedSource(prepared)
+                setReaderMode("paged")
+                device.executeShellCommand("am force-stop $PACKAGE_NAME")
+                pressHome()
+            },
+            measureBlock = {
+                val source = checkNotNull(sourceIdentity) { "Physical new-import source identity missing" }
+                val startedNs = System.nanoTime()
+                launchImportSource(source)
+                val ready = waitForPagedLayoutReady()
+                val durationMs = (System.nanoTime() - startedNs) / 1_000_000.0
+                sampleIndex += 1
+                reportNewImportSample(sampleIndex, durationMs, source, ready)
+            },
+        )
+
+        check(sampleIndex == NEW_IMPORT_SAMPLES) {
+            "Physical 20 MiB new-import benchmark emitted $sampleIndex samples, expected $NEW_IMPORT_SAMPLES"
+        }
+    }
+
     private fun MacrobenchmarkScope.seedFixture(mib: Int) {
         val result = device.executeShellCommand(
             "content call --uri content://com.junchen.jingdu.benchmarkfixture --method seed --arg $mib",
         )
         check(result.contains("bytes=")) { "Reader physical fixture seed failed: $result" }
+    }
+
+    private fun MacrobenchmarkScope.prepareSource(mib: Int): PhysicalSourceIdentity {
+        val result = device.executeShellCommand(
+            "content call --uri content://com.junchen.jingdu.benchmarkfixture --method prepareSource --arg $mib",
+        )
+        val bytes = Regex("""bytes=(\d+)""").find(result)?.groupValues?.get(1)?.toLongOrNull()
+            ?: error("Reader physical source byte identity missing: $result")
+        val reportedMib = Regex("""mib=(\d+)""").find(result)?.groupValues?.get(1)?.toIntOrNull()
+            ?: error("Reader physical source MiB identity missing: $result")
+        val sha256 = Regex("""sha256=([0-9a-f]{64})""").find(result)?.groupValues?.get(1)
+            ?: error("Reader physical source SHA-256 identity missing: $result")
+        val uri = Regex("""uri=(content://[^,}\]]+)""").find(result)?.groupValues?.get(1)
+            ?: error("Reader physical source URI missing: $result")
+        check(reportedMib == mib) { "Reader physical source identity mismatch: requested=$mib result=$result" }
+        return PhysicalSourceIdentity(reportedMib, bytes, sha256, uri)
+    }
+
+    private fun MacrobenchmarkScope.removeImportedSource(source: PhysicalSourceIdentity) {
+        val result = device.executeShellCommand(
+            "content call --uri content://com.junchen.jingdu.benchmarkfixture --method removeImportedSource --arg ${source.mib}",
+        )
+        check(result.contains("sha256=${source.sha256}")) {
+            "Reader physical source cleanup identity mismatch: expected=${source.sha256} result=$result"
+        }
     }
 
     private fun MacrobenchmarkScope.fixtureInfo(mib: Int): PhysicalFixtureIdentity {
@@ -109,6 +177,16 @@ class PhysicalReleaseSloBenchmark {
             "content call --uri content://com.junchen.jingdu.benchmarkfixture --method mode --arg $mode",
         )
         check(result.contains("Result: Bundle[{}]")) { "Reader physical mode setup failed: $result" }
+    }
+
+    private fun MacrobenchmarkScope.launchImportSource(source: PhysicalSourceIdentity) {
+        val result = device.executeShellCommand(
+            "am start -W -a android.intent.action.VIEW -d ${source.uri} -t text/plain " +
+                "-f 0x00000001 -n $PACKAGE_NAME/.MainActivity",
+        )
+        check(result.contains("Status: ok") && !result.contains("Error:")) {
+            "Reader ACTION_VIEW import launch failed: $result"
+        }
     }
 
     private fun MacrobenchmarkScope.startTargetAndWait() {
@@ -185,6 +263,29 @@ class PhysicalReleaseSloBenchmark {
         )
     }
 
+    private fun reportNewImportSample(
+        iteration: Int,
+        durationMs: Double,
+        source: PhysicalSourceIdentity,
+        ready: PhysicalPagedReadyState,
+    ) {
+        check(durationMs.isFinite() && durationMs > 0.0) { "Invalid physical new-import duration: $durationMs" }
+        val value = buildString {
+            append("metric=new-import-20mib")
+            append(";iteration=").append(iteration)
+            append(";durationMs=").append(String.format(Locale.US, "%.3f", durationMs))
+            append(";fixtureMiB=").append(source.mib)
+            append(";fixtureBytes=").append(source.bytes)
+            append(";fixtureSha256=").append(source.sha256)
+            append(";position=").append(ready.position)
+            append(";layoutGeneration=").append(ready.layoutGeneration)
+        }
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            Bundle().apply { putString(NEW_IMPORT_STATUS_KEY, value) },
+        )
+    }
+
     private fun MacrobenchmarkScope.failureDiagnostics(): String = buildString {
         append("pidof: ")
         append(device.executeShellCommand("pidof $PACKAGE_NAME").trim().ifEmpty { "<not-running>" })
@@ -201,6 +302,9 @@ class PhysicalReleaseSloBenchmark {
         const val LIBRARY_TIMEOUT_MS = 8_000L
         const val READY_TIMEOUT_NS = 12_000_000_000L
         const val SAMPLE_STATUS_KEY = "jingdu.firstReadableSample"
+        const val NEW_IMPORT_MIB = 20
+        const val NEW_IMPORT_SAMPLES = 5
+        const val NEW_IMPORT_STATUS_KEY = "jingdu.newImportSample"
 
         val PHYSICAL_COMPILATION_MODE = CompilationMode.Partial(
             baselineProfileMode = BaselineProfileMode.Require,
