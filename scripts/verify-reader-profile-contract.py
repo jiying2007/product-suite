@@ -191,6 +191,8 @@ assert 'scripts/check-android-first-readable-slo.py "$LOG"' in physical_runner, 
 assert 'scripts/check-android-new-import-slo.py "$LOG"' in physical_runner, "physical Release must enforce 20 MiB new-import first-readable target"
 assert '--summary-json "$RESULT_ROOT/first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable first-readable evidence"
 assert '--summary-json "$RESULT_ROOT/new-20mib-first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable 20 MiB import evidence"
+assert '--fixture-mib 100' in physical_runner and '--limit-ms 2000' in physical_runner, "physical Release must enforce 100 MiB import target"
+assert '--summary-json "$RESULT_ROOT/new-100mib-first-readable-slo.json"' in physical_runner, "physical Release must retain machine-readable 100 MiB import evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow
