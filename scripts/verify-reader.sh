@@ -60,6 +60,7 @@ required=(
   scripts/check-android-new-import-slo.py
   scripts/check-android-chapter-jump-slo.py
   scripts/check-android-indexed-search-slo.py
+  scripts/check-android-smart-clean-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -403,6 +404,12 @@ require_literal "$fixture" '"indexedSearchMetric"' 'indexed exact-search benchma
 require_literal "$fixture" 'val prewarmed = source.search(EXACT_SEARCH_QUERY)' 'search index prewarm outside timed interval'
 require_literal "$fixture" 'val hits = source.search(EXACT_SEARCH_QUERY)' 'timed indexed exact search'
 require_literal "$fixture" 'queryToken=quick_brown_fox' 'deterministic exact-search query proof'
+require_literal "$fixture" '"seedSmartClean"' 'Smart Clean noisy fixture seed'
+require_literal "$fixture" 'writeSmartCleanFixture' 'Smart Clean representative noisy fixture writer'
+require_literal "$fixture" '"smartCleanMetric"' 'Smart Clean benchmark call'
+require_literal "$fixture" 'val candidates = source.noiseCandidates()' 'real Smart Clean production scan path'
+require_literal "$fixture" 'check(candidates.isNotEmpty())' 'Smart Clean positive candidate proof'
+require_literal "$fixture" 'append(";candidateSha256=").append(candidateSha256)' 'Smart Clean candidate checksum proof'
 require_literal "$journey" 'open10MiBTxt' '10MiB journey'
 require_literal "$journey" 'open100MiBTxt' '100MiB journey'
 require_literal "$journey" 'StartupTimingMetric' 'startup timing metric'
@@ -474,7 +481,15 @@ require_literal scripts/check-android-indexed-search-slo.py 'DEFAULT_P95_MS = 10
 require_literal scripts/check-android-indexed-search-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'indexed exact-search sample floor'
 require_literal scripts/check-android-indexed-search-slo.py 'EXPECTED_QUERY_TOKEN = "quick_brown_fox"' 'indexed exact-search query identity'
 require_literal scripts/check-android-indexed-search-slo.py 'hit_count <= 0' 'indexed exact-search positive-hit proof'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-smart-clean-slo.py 'DEFAULT_FIXTURE_MIB = 20' 'Smart Clean default fixture size'
+require_literal scripts/check-android-smart-clean-slo.py 'DEFAULT_LIMIT_MS = 1000.0' 'Smart Clean 20 MiB default target'
+require_literal scripts/check-android-smart-clean-slo.py 'REQUIRED_MIN_SAMPLES = 5' 'Smart Clean sample floor'
+require_literal scripts/check-android-smart-clean-slo.py '"appliesTo": "every-retained-sample"' 'Smart Clean per-sample target semantics'
+require_literal scripts/check-android-smart-clean-slo.py 'candidate_count <= 0' 'Smart Clean positive candidate validation'
+require_literal scripts/check-android-smart-clean-slo.py 'expected_min_bytes = fixture_mib * 1024 * 1024' 'Smart Clean fixture byte-size floor'
+require_literal scripts/check-android-smart-clean-slo.py 'candidate checksum drift across samples' 'Smart Clean candidate checksum stability'
+require_literal scripts/check-android-smart-clean-slo.py '"candidateSha256": sample.candidate_sha256' 'Smart Clean retained candidate checksum'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/check-android-smart-clean-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 

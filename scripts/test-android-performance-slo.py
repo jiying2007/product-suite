@@ -15,6 +15,7 @@ FIRST_READABLE_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-fir
 NEW_IMPORT_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-new-import-slo.py")
 CHAPTER_JUMP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-chapter-jump-slo.py")
 INDEXED_SEARCH_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-indexed-search-slo.py")
+SMART_CLEAN_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-smart-clean-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -53,6 +54,13 @@ assert indexed_search_spec and indexed_search_spec.loader
 indexed_search_slo = importlib.util.module_from_spec(indexed_search_spec)
 sys.modules[indexed_search_spec.name] = indexed_search_slo
 indexed_search_spec.loader.exec_module(indexed_search_slo)
+smart_clean_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_smart_clean_slo", SMART_CLEAN_MODULE_PATH
+)
+assert smart_clean_spec and smart_clean_spec.loader
+smart_clean_slo = importlib.util.module_from_spec(smart_clean_spec)
+sys.modules[smart_clean_spec.name] = smart_clean_slo
+smart_clean_spec.loader.exec_module(smart_clean_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -630,6 +638,120 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertEqual(1, empty.returncode, empty.stdout)
             self.assertIn("hitCount=0", empty.stdout)
 
+    def test_smart_clean_cli_filters_size_and_requires_positive_candidates(self) -> None:
+        fixture_sha = "7" * 64
+        normalized_sha = "8" * 64
+        source_sha = "9" * 40
+
+        def sample(
+            mib: int,
+            index: int,
+            duration: float,
+            candidates: int = 12,
+            fixture_bytes: int | None = None,
+        ) -> str:
+            return (
+                "Result: Bundle[{sample="
+                f"metric=smart-clean-{mib}mib;"
+                f"durationMs={duration:.3f};"
+                f"fixtureMiB={mib};fixtureBytes={fixture_bytes if fixture_bytes is not None else mib * 1024 * 1024};"
+                f"fixtureSha256={fixture_sha};normalizedSha256={normalized_sha};"
+                f"candidateCount={candidates};candidateSha256={'a' * 64};"
+                "topScore=72;topReason=inline_fragment"
+                "}]"
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "smart-clean.log"
+            summary = root / "smart-clean-slo.json"
+
+            def run_gate(mib: int, limit: int) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [
+                        sys.executable,
+                        str(SMART_CLEAN_MODULE_PATH),
+                        str(log),
+                        "--fixture-mib",
+                        str(mib),
+                        "--limit-ms",
+                        str(limit),
+                        "--summary-json",
+                        str(summary),
+                        "--source-ref",
+                        "v2.3.11",
+                        "--source-sha",
+                        source_sha,
+                        "--manufacturer",
+                        "Example",
+                        "--model",
+                        "Physical Device",
+                        "--sdk",
+                        "36",
+                        "--fingerprint",
+                        "example/device/fingerprint",
+                    ],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                )
+
+            mixed = [
+                sample(20, index, 600.0 + index * 10)
+                for index in range(1, 6)
+            ] + [
+                sample(100, index, 2200.0 + index * 20)
+                for index in range(1, 6)
+            ]
+            log.write_text("\n".join(mixed), encoding="utf-8")
+
+            passed20 = run_gate(20, 1000)
+            self.assertEqual(0, passed20.returncode, passed20.stdout)
+            payload20 = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload20["pass"])
+            self.assertEqual("smart-clean-20mib", payload20["metric"])
+            self.assertEqual(20, payload20["fixture"]["mib"])
+            self.assertEqual(5, len(payload20["samplesMs"]))
+            self.assertTrue(all(item["candidateCount"] > 0 for item in payload20["proof"]))
+            self.assertTrue(all(item["candidateSha256"] == "a" * 64 for item in payload20["proof"]))
+
+            passed100 = run_gate(100, 3000)
+            self.assertEqual(0, passed100.returncode, passed100.stdout)
+            payload100 = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload100["pass"])
+            self.assertEqual("smart-clean-100mib", payload100["metric"])
+            self.assertEqual(100, payload100["fixture"]["mib"])
+            self.assertLess(payload100["maxMs"], 3000.0)
+
+            slow = [sample(100, index, 3100.0 if index == 3 else 2200.0) for index in range(1, 6)]
+            log.write_text("\n".join(slow), encoding="utf-8")
+            slow_result = run_gate(100, 3000)
+            self.assertEqual(1, slow_result.returncode, slow_result.stdout)
+            self.assertIn("sample=3", slow_result.stdout)
+
+            truncated = [sample(20, index, 600.0) for index in range(1, 5)]
+            log.write_text("\n".join(truncated), encoding="utf-8")
+            truncated_result = run_gate(20, 1000)
+            self.assertEqual(1, truncated_result.returncode, truncated_result.stdout)
+            self.assertIn("minimum=5", truncated_result.stdout)
+
+            empty = [sample(20, index, 600.0, candidates=0) for index in range(1, 6)]
+            log.write_text("\n".join(empty), encoding="utf-8")
+            empty_result = run_gate(20, 1000)
+            self.assertEqual(1, empty_result.returncode, empty_result.stdout)
+            self.assertIn("candidateCount=0", empty_result.stdout)
+
+            undersized = [
+                sample(20, index, 600.0, fixture_bytes=19 * 1024 * 1024)
+                for index in range(1, 6)
+            ]
+            log.write_text("\n".join(undersized), encoding="utf-8")
+            undersized_result = run_gate(20, 1000)
+            self.assertEqual(1, undersized_result.returncode, undersized_result.stdout)
+            self.assertIn("fixtureBytes=", undersized_result.stdout)
+            self.assertIn("minimum=20971520", undersized_result.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -660,6 +782,13 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('--method indexedSearchMetric', source)
         self.assertIn('scripts/check-android-indexed-search-slo.py "$INDEXED_SEARCH_LOG"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/indexed-search-slo.json"', source)
+        self.assertIn('--method seedSmartClean --arg 20', source)
+        self.assertIn('--method seedSmartClean --arg 100', source)
+        self.assertIn('--method smartCleanMetric', source)
+        self.assertIn('scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_20_LOG"', source)
+        self.assertIn('scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_100_LOG"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/smart-clean-20mib-slo.json"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/smart-clean-100mib-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 
