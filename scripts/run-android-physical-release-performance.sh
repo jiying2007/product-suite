@@ -116,6 +116,7 @@ smart_clean_100_mib_min_samples=5
 tts_next_chunk_metric=speak_next_generation_projection_real_tts_queue
 tts_next_chunk_p95_target_ms=150
 tts_next_chunk_min_samples=10
+stability_200_mib_metric=import_open_search_clean_no_oom_anr
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -201,6 +202,24 @@ for iteration in $(seq 1 10); do
     --arg 10 | tee -a "$TTS_NEXT_CHUNK_LOG"
 done
 
+STABILITY_LOG="$RESULT_ROOT/stability-200mib.log"
+STABILITY_LOGCAT="$RESULT_ROOT/stability-200mib-logcat.txt"
+STABILITY_MEMINFO="$RESULT_ROOT/stability-200mib-meminfo.txt"
+STABILITY_EXIT_INFO="$RESULT_ROOT/stability-200mib-exit-info.txt"
+
+set +e
+"$ADB" shell am instrument -w -r \
+  -e class com.junchen.jingdu.macrobenchmark.PhysicalReleaseStabilityTest \
+  "$INSTRUMENTATION" | tee "$STABILITY_LOG"
+STABILITY_STATUS=${PIPESTATUS[0]}
+set -e
+
+"$ADB" shell logcat -d -v threadtime > "$STABILITY_LOGCAT" || true
+"$ADB" shell dumpsys meminfo "$TARGET_PACKAGE" > "$STABILITY_MEMINFO" || true
+"$ADB" shell dumpsys activity exit-info "$TARGET_PACKAGE" > "$STABILITY_EXIT_INFO" || true
+
+echo "stability_instrumentation_status=$STABILITY_STATUS" >> "$STABILITY_LOG"
+
 cd "$ROOT"
 # These are separate product SLO authorities over the same retained physical evidence directory.
 # Never substitute hosted-regression thresholds for either physical gate.
@@ -276,6 +295,18 @@ python3 scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG" \
   --model "$MODEL" \
   --sdk "$SDK" \
   --fingerprint "$FINGERPRINT"
+python3 scripts/check-android-200mib-stability-slo.py \
+  "$STABILITY_LOG" \
+  "$STABILITY_LOGCAT" \
+  "$STABILITY_MEMINFO" \
+  "$STABILITY_EXIT_INFO" \
+  --summary-json "$RESULT_ROOT/stability-200mib-slo.json" \
+  --source-ref "$SOURCE_REF" \
+  --source-sha "$ACTUAL_SOURCE_SHA" \
+  --manufacturer "$MANUFACTURER" \
+  --model "$MODEL" \
+  --sdk "$SDK" \
+  --fingerprint "$FINGERPRINT"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
@@ -287,3 +318,4 @@ echo "Physical Release indexed exact-search gate PASS: P95<100ms over >=10 retai
 echo "Physical Release Smart Clean 20 MiB gate PASS: every retained noisy-fixture scan <1000ms"
 echo "Physical Release Smart Clean 100 MiB gate PASS: every retained noisy-fixture scan <3000ms"
 echo "Physical Release TTS next-chunk gate PASS: real-engine queue P95<150ms over >=10 retained samples"
+echo "Physical Release 200 MiB stability gate PASS: import/open/search/Clean/Reader-ready with no OOM/ANR/crash"

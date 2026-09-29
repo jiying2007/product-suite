@@ -53,6 +53,7 @@ required=(
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/StartupBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
   scripts/check-android-startup-slo.py
@@ -62,6 +63,7 @@ required=(
   scripts/check-android-indexed-search-slo.py
   scripts/check-android-smart-clean-slo.py
   scripts/check-android-tts-next-chunk-slo.py
+  scripts/check-android-200mib-stability-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -98,6 +100,7 @@ foundations=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFound
 motion=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
 journey=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
 physical_slo=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
+physical_stability=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
 baseline=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
 fixture=apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
 benchmark_manifest=apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
@@ -446,6 +449,16 @@ require_literal "$physical_slo" 'android.intent.action.VIEW' 'new-import real AC
 require_literal "$physical_slo" 'NEW_IMPORT_SAMPLES = 5' 'new-import physical sample floor'
 require_literal "$physical_slo" 'NEW_100_IMPORT_MIB = 100' '100 MiB new-import fixture size'
 require_literal "$physical_slo" 'jingdu.newImportSample' '20 MiB retained sample status'
+require_literal "$physical_stability" 'twoHundredMiBOpenSearchCleanNoOomAnr' '200 MiB stability sequence'
+require_literal "$physical_stability" 'FIXTURE_MIB = 200' '200 MiB stability fixture size'
+require_literal "$physical_stability" 'android.intent.action.VIEW' '200 MiB real import route'
+require_literal "$physical_stability" 'contentCall("stability200Ops", FIXTURE_MIB)' '200 MiB search/Clean operation proof'
+require_literal "$physical_stability" 'pidAfter == pidBefore' '200 MiB same-process survival proof'
+require_literal "$physical_stability" 'jingdu.stability200MiB' '200 MiB retained completion status'
+require_literal "$physical_stability" '"fixtureBytes=$bytes;"' '200 MiB retained byte-size proof'
+require_literal "$physical_stability" '"fixtureSha256=$sourceSha256;"' '200 MiB retained source SHA proof'
+require_literal "$physical_stability" '"normalizedSha256=$normalizedSha256;"' '200 MiB retained normalized SHA proof'
+require_literal "$physical_stability" '"cleanCandidateCount=$cleanCandidateCount;"' '200 MiB retained Smart Clean completion count'
 require_literal "$journey" 'val before = readerPosition()' 'page-turn authoritative start position'
 require_literal "$journey" 'after > before' 'page-turn authoritative advance assertion'
 require_literal "$fixture" 'ReaderInteractionRuntime.foregroundPosition' 'benchmark authoritative position source'
@@ -512,7 +525,15 @@ require_literal scripts/check-android-tts-next-chunk-slo.py 'REQUIRED_MIN_SAMPLE
 require_literal scripts/check-android-tts-next-chunk-slo.py 'TTS engine/voice/locale identity drift across samples' 'TTS identity stability validation'
 require_literal scripts/check-android-tts-next-chunk-slo.py 'sample.next_offset <= sample.source_offset' 'TTS next-offset proof validation'
 require_literal scripts/check-android-tts-next-chunk-slo.py '"engine": fixture.engine' 'TTS retained engine identity'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/check-android-smart-clean-slo.py scripts/check-android-tts-next-chunk-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-200mib-stability-slo.py 'METRIC = "200mib-open-search-clean-stability"' '200 MiB stability metric'
+require_literal scripts/check-android-200mib-stability-slo.py 'MIN_FIXTURE_BYTES = 200 * 1024 * 1024' '200 MiB retained byte-size floor'
+require_literal scripts/check-android-200mib-stability-slo.py 'missing jingdu.stability200MiB completion proof' '200 MiB completion proof requirement'
+require_literal scripts/check-android-200mib-stability-slo.py 'OutOfMemoryError' '200 MiB OOM rejection'
+require_literal scripts/check-android-200mib-stability-slo.py 'ANR in com\.junchen\.jingdu' '200 MiB ANR rejection'
+require_literal scripts/check-android-200mib-stability-slo.py '"logcat": str(paths["logcat"])' '200 MiB retained diagnostics reference'
+require_literal scripts/check-android-200mib-stability-slo.py '"sourceSha256": proof["fixtureSha256"]' '200 MiB fixture source hash summary'
+require_literal scripts/check-android-200mib-stability-slo.py '"normalizedSha256": proof["normalizedSha256"]' '200 MiB fixture normalized hash summary'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/check-android-smart-clean-slo.py scripts/check-android-tts-next-chunk-slo.py scripts/check-android-200mib-stability-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 

@@ -208,9 +208,16 @@ assert '--summary-json "$RESULT_ROOT/smart-clean-100mib-slo.json"' in physical_r
 assert '--method ttsNextChunkMetric' in physical_runner, "physical Release must sample real TTS next-chunk queue scheduling"
 assert 'scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG"' in physical_runner, "physical Release must enforce TTS next-chunk P95"
 assert '--summary-json "$RESULT_ROOT/tts-next-chunk-slo.json"' in physical_runner, "physical Release must retain TTS next-chunk evidence"
+assert 'PhysicalReleaseStabilityTest' in physical_runner, "physical Release must execute 200 MiB stability qualification separately"
+assert 'scripts/check-android-200mib-stability-slo.py' in physical_runner, "physical Release must enforce 200 MiB stability"
+assert '--summary-json "$RESULT_ROOT/stability-200mib-slo.json"' in physical_runner, "physical Release must retain machine-readable 200 MiB stability evidence"
+assert 'stability-200mib-logcat.txt' in physical_runner, "physical Release must retain 200 MiB logcat"
+assert 'stability-200mib-meminfo.txt' in physical_runner, "physical Release must retain 200 MiB meminfo"
+assert 'stability-200mib-exit-info.txt' in physical_runner, "physical Release must retain 200 MiB exit-info"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow
+assert 'timeout-minutes: 120' in physical_workflow, "full physical qualification needs a non-SLO 120-minute workflow watchdog"
 assert 'run-android-physical-release-performance.sh' in physical_workflow
 
 # The generated evidence is curated into compact product assets. Startup stays intentionally narrow.
