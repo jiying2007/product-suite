@@ -12,6 +12,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /** Benchmark-build only. Never merged into the production manifest/source set. */
 class ReaderBenchmarkFixtureProvider : ContentProvider() {
@@ -199,6 +202,88 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     }
                 }
             }
+            "ttsNextChunkMetric" -> {
+                val mib = (arg?.toIntOrNull() ?: 10).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                check(fixture.isFile) { "TTS benchmark fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("TTS benchmark fixture is not imported: ${fixture.name}")
+
+                ReaderController().use { reader ->
+                    reader.open(repository.normalizedFile(book), 0)
+                    val readyLatch = CountDownLatch(1)
+                    val queuedLatch = CountDownLatch(1)
+                    val queued = AtomicReference<TtsController.QueueSample?>(null)
+                    val stopped = AtomicReference<String?>(null)
+                    val controller = TtsController(
+                        context,
+                        object : TtsController.QueueObserver {
+                            override fun onEngineReady() {
+                                readyLatch.countDown()
+                            }
+
+                            override fun onChunkQueued(sample: TtsController.QueueSample) {
+                                queued.set(sample)
+                                queuedLatch.countDown()
+                            }
+                        },
+                    )
+                    try {
+                        check(readyLatch.await(TTS_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                            "TTS benchmark engine did not become ready"
+                        }
+                        controller.start(
+                            reader = reader,
+                            from = 0,
+                            mode = ChineseDisplayMode.ORIGINAL,
+                            overrides = "",
+                            listener = object : TtsController.Listener {
+                                override fun onPosition(offset: Long) = Unit
+                                override fun onStopped(reason: String?) {
+                                    stopped.set(reason)
+                                    queuedLatch.countDown()
+                                }
+                            },
+                        )
+                        check(queuedLatch.await(TTS_QUEUE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                            "TTS benchmark queue event timed out"
+                        }
+                        val sample = queued.get()
+                            ?: error("TTS benchmark did not queue a chunk: ${stopped.get().orEmpty()}")
+                        check(sample.durationNs > 0L) { "TTS benchmark queue duration is invalid" }
+                        check(sample.engine.isNotBlank()) { "TTS benchmark engine identity missing" }
+                        check(sample.voice.isNotBlank()) { "TTS benchmark voice identity missing" }
+                        check(sample.locale.isNotBlank()) { "TTS benchmark locale identity missing" }
+                        check(sample.nextOffset > sample.sourceOffset) {
+                            "TTS benchmark next offset did not advance: ${sample.sourceOffset} -> ${sample.nextOffset}"
+                        }
+                        check(sample.spokenUtf16Chars > 0) { "TTS benchmark queued empty spoken text" }
+                        Bundle().apply {
+                            putString(
+                                "sample",
+                                buildString {
+                                    append("metric=tts-next-chunk")
+                                    append(";durationMs=").append(
+                                        String.format(Locale.US, "%.3f", sample.durationNs / 1_000_000.0),
+                                    )
+                                    append(";fixtureMiB=").append(mib)
+                                    append(";fixtureSha256=").append(book.sourceSha256)
+                                    append(";normalizedSha256=").append(book.normalizedSha256)
+                                    append(";engine=").append(evidenceToken(sample.engine))
+                                    append(";voice=").append(evidenceToken(sample.voice))
+                                    append(";locale=").append(evidenceToken(sample.locale))
+                                    append(";sourceOffset=").append(sample.sourceOffset)
+                                    append(";nextOffset=").append(sample.nextOffset)
+                                    append(";spokenUtf16Chars=").append(sample.spokenUtf16Chars)
+                                },
+                            )
+                        }
+                    } finally {
+                        controller.close()
+                    }
+                }
+            }
             "mode" -> {
                 val mode = when (arg?.lowercase()) {
                     "paged" -> ReaderMode.PAGED
@@ -328,6 +413,9 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
         }
     }
 
+    private fun evidenceToken(value: String): String =
+        value.replace(';', '_').replace('\n', '_').replace('\r', '_')
+
     private fun candidateSha256(candidates: List<ReaderController.NoiseCandidate>): String {
         val digest = MessageDigest.getInstance("SHA-256")
         candidates.forEach { candidate ->
@@ -407,5 +495,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
         // still a heavy novel fixture without the previous pathological one-heading-per-paragraph bias.
         const val BODY_LINES_PER_CHAPTER = 256
         const val EXACT_SEARCH_QUERY = "quick brown fox"
+        const val TTS_READY_TIMEOUT_SECONDS = 12L
+        const val TTS_QUEUE_TIMEOUT_SECONDS = 5L
     }
 }

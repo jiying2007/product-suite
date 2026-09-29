@@ -205,6 +205,9 @@ assert 'scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_20_LOG"' in physi
 assert 'scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_100_LOG"' in physical_runner, "physical Release must enforce Smart Clean 100 MiB target"
 assert '--summary-json "$RESULT_ROOT/smart-clean-20mib-slo.json"' in physical_runner, "physical Release must retain Smart Clean 20 MiB evidence"
 assert '--summary-json "$RESULT_ROOT/smart-clean-100mib-slo.json"' in physical_runner, "physical Release must retain Smart Clean 100 MiB evidence"
+assert '--method ttsNextChunkMetric' in physical_runner, "physical Release must sample real TTS next-chunk queue scheduling"
+assert 'scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG"' in physical_runner, "physical Release must enforce TTS next-chunk P95"
+assert '--summary-json "$RESULT_ROOT/tts-next-chunk-slo.json"' in physical_runner, "physical Release must retain TTS next-chunk evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow

@@ -113,6 +113,9 @@ smart_clean_20_mib_min_samples=5
 smart_clean_100_mib_metric=noise_candidates_streaming_scan
 smart_clean_100_mib_limit_ms=3000
 smart_clean_100_mib_min_samples=5
+tts_next_chunk_metric=speak_next_generation_projection_real_tts_queue
+tts_next_chunk_p95_target_ms=150
+tts_next_chunk_min_samples=10
 EOF
 "$ADB" shell rm -rf "$REMOTE_ROOT"
 "$ADB" shell mkdir -p "$REMOTE_ROOT"
@@ -186,6 +189,18 @@ for iteration in $(seq 1 5); do
     --arg 100 | tee -a "$SMART_CLEAN_100_LOG"
 done
 
+TTS_NEXT_CHUNK_LOG="$RESULT_ROOT/tts-next-chunk.log"
+"$ADB" shell content call --uri content://com.junchen.jingdu.benchmarkfixture --method seed --arg 10 \
+  > "$RESULT_ROOT/tts-next-chunk-setup.log"
+: > "$TTS_NEXT_CHUNK_LOG"
+for iteration in $(seq 1 10); do
+  echo "iteration=$iteration" >> "$TTS_NEXT_CHUNK_LOG"
+  "$ADB" shell content call \
+    --uri content://com.junchen.jingdu.benchmarkfixture \
+    --method ttsNextChunkMetric \
+    --arg 10 | tee -a "$TTS_NEXT_CHUNK_LOG"
+done
+
 cd "$ROOT"
 # These are separate product SLO authorities over the same retained physical evidence directory.
 # Never substitute hosted-regression thresholds for either physical gate.
@@ -253,6 +268,14 @@ python3 scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_100_LOG" \
   --model "$MODEL" \
   --sdk "$SDK" \
   --fingerprint "$FINGERPRINT"
+python3 scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG" \
+  --summary-json "$RESULT_ROOT/tts-next-chunk-slo.json" \
+  --source-ref "$SOURCE_REF" \
+  --source-sha "$ACTUAL_SOURCE_SHA" \
+  --manufacturer "$MANUFACTURER" \
+  --model "$MODEL" \
+  --sdk "$SDK" \
+  --fingerprint "$FINGERPRINT"
 
 echo "Physical Release Reader frame gate PASS: P95<=40ms P99<=80ms with real VOLUME_DOWN page turns"
 echo "Physical Release cold-start gate PASS: StartupBenchmark.coldStartup P95<1000ms"
@@ -263,3 +286,4 @@ echo "Physical Release chapter-jump gate PASS: active-index P95<100ms over >=10 
 echo "Physical Release indexed exact-search gate PASS: P95<100ms over >=10 retained samples"
 echo "Physical Release Smart Clean 20 MiB gate PASS: every retained noisy-fixture scan <1000ms"
 echo "Physical Release Smart Clean 100 MiB gate PASS: every retained noisy-fixture scan <3000ms"
+echo "Physical Release TTS next-chunk gate PASS: real-engine queue P95<150ms over >=10 retained samples"
