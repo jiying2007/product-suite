@@ -16,6 +16,7 @@ NEW_IMPORT_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-new-imp
 CHAPTER_JUMP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-chapter-jump-slo.py")
 INDEXED_SEARCH_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-indexed-search-slo.py")
 SMART_CLEAN_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-smart-clean-slo.py")
+TTS_NEXT_CHUNK_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-tts-next-chunk-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -61,6 +62,13 @@ assert smart_clean_spec and smart_clean_spec.loader
 smart_clean_slo = importlib.util.module_from_spec(smart_clean_spec)
 sys.modules[smart_clean_spec.name] = smart_clean_slo
 smart_clean_spec.loader.exec_module(smart_clean_slo)
+tts_next_chunk_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_tts_next_chunk_slo", TTS_NEXT_CHUNK_MODULE_PATH
+)
+assert tts_next_chunk_spec and tts_next_chunk_spec.loader
+tts_next_chunk_slo = importlib.util.module_from_spec(tts_next_chunk_spec)
+sys.modules[tts_next_chunk_spec.name] = tts_next_chunk_slo
+tts_next_chunk_spec.loader.exec_module(tts_next_chunk_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -752,6 +760,128 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertIn("fixtureBytes=", undersized_result.stdout)
             self.assertIn("minimum=20971520", undersized_result.stdout)
 
+    def test_tts_next_chunk_cli_enforces_real_queue_identity_and_p95(self) -> None:
+        fixture_sha = "a" * 64
+        normalized_sha = "b" * 64
+        source_sha = "c" * 40
+
+        def evidence(
+            count: int,
+            duration: float,
+            voice: str = "en-us-x-test-local",
+            final_next_offset: int | None = None,
+        ) -> str:
+            lines = []
+            for index in range(1, count + 1):
+                source_offset = (index - 1) * 900
+                next_offset = source_offset + 900
+                if final_next_offset is not None and index == count:
+                    next_offset = final_next_offset
+                lines.append(
+                    "Result: Bundle[{sample="
+                    "metric=tts-next-chunk;"
+                    f"durationMs={duration + index:.3f};"
+                    f"fixtureMiB=10;fixtureSha256={fixture_sha};"
+                    f"normalizedSha256={normalized_sha};"
+                    "engine=com.example.tts;"
+                    f"voice={voice};locale=en-US;"
+                    f"sourceOffset={source_offset};nextOffset={next_offset};"
+                    "spokenUtf16Chars=320"
+                    "}]"
+                )
+            return "\n".join(lines)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "tts-next-chunk.log"
+            summary = root / "tts-next-chunk-slo.json"
+            common = [
+                sys.executable,
+                str(TTS_NEXT_CHUNK_MODULE_PATH),
+                str(log),
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            log.write_text(evidence(10, 60.0), encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual("tts-next-chunk", payload["metric"])
+            self.assertEqual("com.example.tts", payload["tts"]["engine"])
+            self.assertEqual("en-us-x-test-local", payload["tts"]["voice"])
+            self.assertEqual("en-US", payload["tts"]["locale"])
+            self.assertEqual(10, len(payload["samplesMs"]))
+            self.assertLess(payload["p95Ms"], 150.0)
+            self.assertTrue(all(item["nextOffset"] > item["sourceOffset"] for item in payload["proof"]))
+
+            log.write_text(evidence(10, 180.0), encoding="utf-8")
+            slow = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, slow.returncode, slow.stdout)
+            self.assertIn("P95=", slow.stdout)
+
+            log.write_text(evidence(9, 60.0), encoding="utf-8")
+            truncated = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, truncated.returncode, truncated.stdout)
+            self.assertIn("minimum=10", truncated.stdout)
+
+            drift_lines = evidence(9, 60.0).splitlines()
+            drift_lines.append(
+                evidence(1, 60.0, voice="en-us-x-other-local").splitlines()[0]
+            )
+            log.write_text("\n".join(drift_lines), encoding="utf-8")
+            drift = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, drift.returncode, drift.stdout)
+            self.assertIn("identity drift", drift.stdout)
+
+            log.write_text(evidence(10, 60.0, final_next_offset=8100), encoding="utf-8")
+            stalled = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, stalled.returncode, stalled.stdout)
+            self.assertIn("nextOffset", stalled.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -789,6 +919,9 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_100_LOG"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/smart-clean-20mib-slo.json"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/smart-clean-100mib-slo.json"', source)
+        self.assertIn('--method ttsNextChunkMetric', source)
+        self.assertIn('scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG"', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/tts-next-chunk-slo.json"', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 

@@ -13,7 +13,10 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
 /** Android TextToSpeech transport with exact source-offset projection for presented speech text. */
-internal class TtsController(context: Context) : AutoCloseable {
+internal class TtsController(
+    context: Context,
+    private val queueObserver: QueueObserver? = null,
+) : AutoCloseable {
     interface Listener {
         fun onPosition(offset: Long)
         fun onStopped(reason: String?)
@@ -23,6 +26,23 @@ internal class TtsController(context: Context) : AutoCloseable {
     }
 
     data class VoiceOption(val name: String, val label: String)
+
+    /** Benchmark/test observability only. Production callers use the default null observer. */
+    interface QueueObserver {
+        fun onEngineReady()
+        fun onChunkQueued(sample: QueueSample)
+    }
+
+    data class QueueSample(
+        val durationNs: Long,
+        val engine: String,
+        val voice: String,
+        val locale: String,
+        val sourceOffset: Long,
+        val nextOffset: Long,
+        val spokenUtf16Chars: Int,
+    )
+
     private data class SpokenChunk(val text: String, val projection: TextProjection)
 
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -64,7 +84,12 @@ internal class TtsController(context: Context) : AutoCloseable {
     init {
         tts = TextToSpeech(context.applicationContext) { status ->
             ready = status == TextToSpeech.SUCCESS
-            if (ready) applyDesiredVoice()
+            if (ready) {
+                applyDesiredVoice()
+                queueObserver?.let { observer ->
+                    main.post { runCatching { observer.onEngineReady() } }
+                }
+            }
         }
         tts.setAudioAttributes(attributes)
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -240,6 +265,8 @@ internal class TtsController(context: Context) : AutoCloseable {
     private fun speakNext(token: Long) {
         val activeReader = reader ?: return
         if (pausedForFocus || token != generation.get()) return
+        val observer = queueObserver
+        val scheduleStartedNs = if (observer != null) System.nanoTime() else 0L
         try {
             val sourceChunk = activeReader.speech(offset, chineseMode, chineseOverrides)
             if (sourceChunk.text.isBlank() || sourceChunk.nextOffset <= offset) {
@@ -254,8 +281,27 @@ internal class TtsController(context: Context) : AutoCloseable {
             listener?.onPosition(offset)
             val sourceEnd = (offset + sourceToSpoken.sourceCodePoints).coerceAtMost(sourceChunk.nextOffset)
             listener?.onRange(offset, sourceEnd.coerceAtLeast(offset + 1))
-            if (tts.speak(spoken.text, TextToSpeech.QUEUE_FLUSH, Bundle(), token.toString()) == TextToSpeech.ERROR) {
+            val speakResult = tts.speak(spoken.text, TextToSpeech.QUEUE_FLUSH, Bundle(), token.toString())
+            if (speakResult == TextToSpeech.ERROR) {
                 stop("tts error: speak failed")
+                return
+            }
+            if (observer != null) {
+                val durationNs = System.nanoTime() - scheduleStartedNs
+                val activeVoice = tts.voice
+                runCatching {
+                    observer.onChunkQueued(
+                        QueueSample(
+                            durationNs = durationNs,
+                            engine = tts.defaultEngine.orEmpty(),
+                            voice = activeVoice?.name.orEmpty(),
+                            locale = activeVoice?.locale?.toLanguageTag().orEmpty(),
+                            sourceOffset = offset,
+                            nextOffset = sourceChunk.nextOffset,
+                            spokenUtf16Chars = spoken.text.length,
+                        ),
+                    )
+                }
             }
         } catch (error: Exception) {
             stop(error.message ?: "tts error")

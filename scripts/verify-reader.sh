@@ -61,6 +61,7 @@ required=(
   scripts/check-android-chapter-jump-slo.py
   scripts/check-android-indexed-search-slo.py
   scripts/check-android-smart-clean-slo.py
+  scripts/check-android-tts-next-chunk-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
   platform/text/native/src/index_cache.h
@@ -89,6 +90,7 @@ smart_toc_cache=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTo
 hot_controls=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
 fast_text=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
 service=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+tts_controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsController.kt
 player=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
 navigator=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
 proto=apps/jingdu/android/readerproto/src/main/proto/reader_settings.proto
@@ -360,6 +362,16 @@ require_literal "$fast_text" 'selectionMode: Boolean? = null' 'selection fallbac
 require_literal "$service" 'class TtsPlaybackService : MediaSessionService' 'Media3 session service'
 require_literal "$service" 'MediaSession.Builder' 'Media3 session'
 require_literal "$player" 'class ReaderTtsPlayer' 'Reader TTS player'
+require_literal "$player" 'private val engine = TtsController(appContext)' 'production TTS uses default no-observer controller'
+forbid_literal "$player" 'QueueObserver' 'benchmark TTS queue observer must not enter production player'
+require_literal "$tts_controller" 'queueObserver: QueueObserver? = null' 'default-null TTS queue observer'
+require_literal "$tts_controller" 'val observer = queueObserver' 'speakNext benchmark observer capture'
+require_literal "$tts_controller" 'val speakResult = tts.speak(' 'real TextToSpeech queue boundary'
+require_literal "$tts_controller" 'val scheduleStartedNs = if (observer != null) System.nanoTime() else 0L' 'observer-only speakNext scheduling timer'
+require_literal "$tts_controller" 'observer.onChunkQueued(' 'benchmark queue completion observer'
+require_literal "$tts_controller" 'engine = tts.defaultEngine.orEmpty()' 'TTS engine identity evidence'
+require_literal "$tts_controller" 'voice = activeVoice?.name.orEmpty()' 'TTS voice identity evidence'
+require_literal "$tts_controller" 'locale = activeVoice?.locale?.toLanguageTag().orEmpty()' 'TTS locale identity evidence'
 require_literal "$player" 'SimpleBasePlayer' 'Media3 player base'
 require_literal "$navigator" 'previousSentence' 'previous sentence'
 require_literal "$navigator" 'nextSentence' 'next sentence'
@@ -410,6 +422,12 @@ require_literal "$fixture" '"smartCleanMetric"' 'Smart Clean benchmark call'
 require_literal "$fixture" 'val candidates = source.noiseCandidates()' 'real Smart Clean production scan path'
 require_literal "$fixture" 'check(candidates.isNotEmpty())' 'Smart Clean positive candidate proof'
 require_literal "$fixture" 'append(";candidateSha256=").append(candidateSha256)' 'Smart Clean candidate checksum proof'
+require_literal "$fixture" '"ttsNextChunkMetric"' 'real-engine TTS next-chunk benchmark call'
+require_literal "$fixture" 'readyLatch.await(TTS_READY_TIMEOUT_SECONDS' 'TTS engine readiness outside measured interval'
+require_literal "$fixture" 'object : TtsController.QueueObserver' 'TTS queue benchmark observer'
+require_literal "$fixture" 'check(sample.nextOffset > sample.sourceOffset)' 'TTS next-offset advance proof'
+require_literal "$fixture" 'check(sample.engine.isNotBlank())' 'TTS engine identity proof'
+require_literal "$fixture" 'check(sample.voice.isNotBlank())' 'TTS voice identity proof'
 require_literal "$journey" 'open10MiBTxt' '10MiB journey'
 require_literal "$journey" 'open100MiBTxt' '100MiB journey'
 require_literal "$journey" 'StartupTimingMetric' 'startup timing metric'
@@ -489,7 +507,12 @@ require_literal scripts/check-android-smart-clean-slo.py 'candidate_count <= 0' 
 require_literal scripts/check-android-smart-clean-slo.py 'expected_min_bytes = fixture_mib * 1024 * 1024' 'Smart Clean fixture byte-size floor'
 require_literal scripts/check-android-smart-clean-slo.py 'candidate checksum drift across samples' 'Smart Clean candidate checksum stability'
 require_literal scripts/check-android-smart-clean-slo.py '"candidateSha256": sample.candidate_sha256' 'Smart Clean retained candidate checksum'
-python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/check-android-smart-clean-slo.py scripts/test-android-performance-slo.py
+require_literal scripts/check-android-tts-next-chunk-slo.py 'DEFAULT_P95_MS = 150.0' 'TTS next-chunk P95 threshold'
+require_literal scripts/check-android-tts-next-chunk-slo.py 'REQUIRED_MIN_SAMPLES = 10' 'TTS next-chunk sample floor'
+require_literal scripts/check-android-tts-next-chunk-slo.py 'TTS engine/voice/locale identity drift across samples' 'TTS identity stability validation'
+require_literal scripts/check-android-tts-next-chunk-slo.py 'sample.next_offset <= sample.source_offset' 'TTS next-offset proof validation'
+require_literal scripts/check-android-tts-next-chunk-slo.py '"engine": fixture.engine' 'TTS retained engine identity'
+python3 -m py_compile scripts/check-android-performance-slo.py scripts/check-android-startup-slo.py scripts/check-android-first-readable-slo.py scripts/check-android-new-import-slo.py scripts/check-android-chapter-jump-slo.py scripts/check-android-indexed-search-slo.py scripts/check-android-smart-clean-slo.py scripts/check-android-tts-next-chunk-slo.py scripts/test-android-performance-slo.py
 python3 scripts/test-android-performance-slo.py
 bash -n "$benchmark_runner"
 
