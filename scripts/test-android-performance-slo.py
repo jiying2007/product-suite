@@ -17,6 +17,7 @@ CHAPTER_JUMP_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-chapt
 INDEXED_SEARCH_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-indexed-search-slo.py")
 SMART_CLEAN_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-smart-clean-slo.py")
 TTS_NEXT_CHUNK_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-tts-next-chunk-slo.py")
+STABILITY_200_MIB_MODULE_PATH = pathlib.Path(__file__).with_name("check-android-200mib-stability-slo.py")
 HOSTED_BASELINE_PATH = pathlib.Path(__file__).with_name("reader-hosted-emulator-baseline.json")
 PHYSICAL_RUNNER_PATH = pathlib.Path(__file__).with_name("run-android-physical-release-performance.sh")
 spec = importlib.util.spec_from_file_location("jingdu_android_performance_slo", MODULE_PATH)
@@ -69,6 +70,13 @@ assert tts_next_chunk_spec and tts_next_chunk_spec.loader
 tts_next_chunk_slo = importlib.util.module_from_spec(tts_next_chunk_spec)
 sys.modules[tts_next_chunk_spec.name] = tts_next_chunk_slo
 tts_next_chunk_spec.loader.exec_module(tts_next_chunk_slo)
+stability_200_mib_spec = importlib.util.spec_from_file_location(
+    "jingdu_android_200mib_stability_slo", STABILITY_200_MIB_MODULE_PATH
+)
+assert stability_200_mib_spec and stability_200_mib_spec.loader
+stability_200_mib_slo = importlib.util.module_from_spec(stability_200_mib_spec)
+sys.modules[stability_200_mib_spec.name] = stability_200_mib_slo
+stability_200_mib_spec.loader.exec_module(stability_200_mib_slo)
 
 
 class AndroidPerformanceSloTest(unittest.TestCase):
@@ -882,6 +890,171 @@ class AndroidPerformanceSloTest(unittest.TestCase):
             self.assertEqual(1, stalled.returncode, stalled.stdout)
             self.assertIn("nextOffset", stalled.stdout)
 
+    def test_200_mib_stability_cli_requires_completion_and_rejects_oom_anr(self) -> None:
+        source_sha = "d" * 40
+
+        def instrumentation(
+            *,
+            complete: bool = True,
+            hits: int = 12,
+            initial_generation: int = 7,
+            final_generation: int = 9,
+            fixture_bytes: int = 200 * 1024 * 1024,
+        ) -> str:
+            proof = (
+                "INSTRUMENTATION_STATUS: jingdu.stability200MiB="
+                f"fixtureMiB=200;fixtureBytes={fixture_bytes};"
+                f"fixtureSha256={'e' * 64};normalizedSha256={'f' * 64};"
+                "pid=4321;"
+                "initialPosition=0;"
+                f"initialLayoutGeneration={initial_generation};"
+                "finalPosition=4096;"
+                f"finalLayoutGeneration={final_generation};"
+                f"searchHitCount={hits};"
+                "cleanCandidateCount=0;"
+                "operations=complete\n"
+                if complete
+                else ""
+            )
+            return proof + "INSTRUMENTATION_CODE: -1\n"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "stability.log"
+            logcat = root / "logcat.txt"
+            meminfo = root / "meminfo.txt"
+            exit_info = root / "exit-info.txt"
+            summary = root / "stability-200mib-slo.json"
+            meminfo.write_text(
+                "** MEMINFO in pid 4321 [com.junchen.jingdu] **\nTOTAL PSS: 123456\n",
+                encoding="utf-8",
+            )
+            exit_info.write_text("ACTIVITY MANAGER PROCESS EXIT INFO\n", encoding="utf-8")
+
+            common = [
+                sys.executable,
+                str(STABILITY_200_MIB_MODULE_PATH),
+                str(log),
+                str(logcat),
+                str(meminfo),
+                str(exit_info),
+                "--summary-json",
+                str(summary),
+                "--source-ref",
+                "v2.3.11",
+                "--source-sha",
+                source_sha,
+                "--manufacturer",
+                "Example",
+                "--model",
+                "Physical Device",
+                "--sdk",
+                "36",
+                "--fingerprint",
+                "example/device/fingerprint",
+            ]
+
+            log.write_text(instrumentation(), encoding="utf-8")
+            logcat.write_text("I/Jingdu: stability complete\n", encoding="utf-8")
+            passed = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, passed.returncode, passed.stdout)
+            payload = json.loads(summary.read_text(encoding="utf-8"))
+            self.assertTrue(payload["pass"])
+            self.assertEqual("200mib-open-search-clean-stability", payload["metric"])
+            self.assertEqual(200, payload["proof"]["fixtureMiB"])
+            self.assertEqual(209715200, payload["fixture"]["bytes"])
+            self.assertEqual("e" * 64, payload["fixture"]["sourceSha256"])
+            self.assertEqual("f" * 64, payload["fixture"]["normalizedSha256"])
+            self.assertGreater(payload["proof"]["searchHitCount"], 0)
+            self.assertEqual(0, payload["proof"]["cleanCandidateCount"])
+
+            log.write_text(instrumentation(fixture_bytes=199 * 1024 * 1024), encoding="utf-8")
+            undersized_200 = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, undersized_200.returncode, undersized_200.stdout)
+            self.assertIn("fixtureBytes=", undersized_200.stdout)
+            self.assertIn("minimum=209715200", undersized_200.stdout)
+            log.write_text(instrumentation(), encoding="utf-8")
+
+            logcat.write_text(
+                "E/AndroidRuntime: FATAL EXCEPTION: main\n"
+                "E/AndroidRuntime: Process: com.junchen.jingdu, PID: 4321\n"
+                "E/AndroidRuntime: java.lang.OutOfMemoryError: Failed to allocate\n",
+                encoding="utf-8",
+            )
+            oom = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, oom.returncode, oom.stdout)
+            self.assertIn("target OutOfMemoryError", oom.stdout)
+
+            logcat.write_text(
+                "E/AndroidRuntime: FATAL EXCEPTION: main\n"
+                "E/AndroidRuntime: Process: com.example.other, PID: 99\n"
+                "E/AndroidRuntime: java.lang.OutOfMemoryError: unrelated process\n",
+                encoding="utf-8",
+            )
+            unrelated = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(0, unrelated.returncode, unrelated.stdout)
+
+            logcat.write_text(
+                "E/ActivityManager: ANR in com.junchen.jingdu\n",
+                encoding="utf-8",
+            )
+            anr = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, anr.returncode, anr.stdout)
+            self.assertIn("target ANR", anr.stdout)
+
+            log.write_text(instrumentation(complete=False), encoding="utf-8")
+            logcat.write_text("I/Jingdu: no crash\n", encoding="utf-8")
+            missing = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, missing.returncode, missing.stdout)
+            self.assertIn("missing jingdu.stability200MiB", missing.stdout)
+
+            log.write_text(instrumentation(hits=0), encoding="utf-8")
+            no_hits = subprocess.run(
+                common,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(1, no_hits.returncode, no_hits.stdout)
+            self.assertIn("searchHitCount=0", no_hits.stdout)
+
     def test_physical_release_runner_is_shell_valid_and_release_only(self) -> None:
         result = subprocess.run(
             ["bash", "-n", str(PHYSICAL_RUNNER_PATH)],
@@ -922,6 +1095,12 @@ class AndroidPerformanceSloTest(unittest.TestCase):
         self.assertIn('--method ttsNextChunkMetric', source)
         self.assertIn('scripts/check-android-tts-next-chunk-slo.py "$TTS_NEXT_CHUNK_LOG"', source)
         self.assertIn('--summary-json "$RESULT_ROOT/tts-next-chunk-slo.json"', source)
+        self.assertIn('PhysicalReleaseStabilityTest', source)
+        self.assertIn('scripts/check-android-200mib-stability-slo.py', source)
+        self.assertIn('--summary-json "$RESULT_ROOT/stability-200mib-slo.json"', source)
+        self.assertIn('stability-200mib-logcat.txt', source)
+        self.assertIn('stability-200mib-meminfo.txt', source)
+        self.assertIn('stability-200mib-exit-info.txt', source)
         self.assertIn('BENCHMARK_JSON', source)
         self.assertNotIn("androidx.benchmark.suppressErrors EMULATOR", source)
 

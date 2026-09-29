@@ -284,6 +284,31 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     }
                 }
             }
+            "stability200Ops" -> {
+                val mib = (arg?.toIntOrNull() ?: 200).coerceIn(1, 256)
+                val source = sourceFixture(context.cacheDir, mib)
+                check(source.isFile) { "200 MiB stability source is not prepared: ${source.name}" }
+                val repository = BookRepository(context)
+                val sourceSha = sha256(source)
+                val book = repository.list().firstOrNull { it.id == sourceSha }
+                    ?: error("200 MiB stability source is not imported: ${source.name}")
+                ReaderController().use { reader ->
+                    reader.open(repository.normalizedFile(book), 0)
+                    val hits = reader.search(EXACT_SEARCH_QUERY)
+                    check(hits.isNotEmpty()) { "200 MiB stability exact search returned no hits" }
+                    val clean = reader.noiseCandidates()
+                    Bundle().apply {
+                        putString("bookId", book.id)
+                        putInt("mib", mib)
+                        putLong("bytes", book.size)
+                        putString("sourceSha256", book.sourceSha256)
+                        putString("normalizedSha256", book.normalizedSha256)
+                        putInt("searchHitCount", hits.size)
+                        putLong("firstOffset", hits.first().offset)
+                        putInt("cleanCandidateCount", clean.size)
+                    }
+                }
+            }
             "mode" -> {
                 val mode = when (arg?.lowercase()) {
                     "paged" -> ReaderMode.PAGED
