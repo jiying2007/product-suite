@@ -199,6 +199,12 @@ assert '--summary-json "$RESULT_ROOT/chapter-jump-slo.json"' in physical_runner,
 assert '--method indexedSearchMetric' in physical_runner, "physical Release must sample indexed exact search"
 assert 'scripts/check-android-indexed-search-slo.py "$INDEXED_SEARCH_LOG"' in physical_runner, "physical Release must enforce indexed-search P95"
 assert '--summary-json "$RESULT_ROOT/indexed-search-slo.json"' in physical_runner, "physical Release must retain machine-readable indexed-search evidence"
+assert '--method seedSmartClean --arg 20' in physical_runner and '--method seedSmartClean --arg 100' in physical_runner, "physical Release must seed representative Smart Clean fixtures"
+assert '--method smartCleanMetric' in physical_runner, "physical Release must sample real Smart Clean scans"
+assert 'scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_20_LOG"' in physical_runner, "physical Release must enforce Smart Clean 20 MiB target"
+assert 'scripts/check-android-smart-clean-slo.py "$SMART_CLEAN_100_LOG"' in physical_runner, "physical Release must enforce Smart Clean 100 MiB target"
+assert '--summary-json "$RESULT_ROOT/smart-clean-20mib-slo.json"' in physical_runner, "physical Release must retain Smart Clean 20 MiB evidence"
+assert '--summary-json "$RESULT_ROOT/smart-clean-100mib-slo.json"' in physical_runner, "physical Release must retain Smart Clean 100 MiB evidence"
 assert 'androidx.benchmark.suppressErrors EMULATOR' not in physical_runner, "physical Release gate must never suppress emulator errors"
 assert 'runs-on: [self-hosted, android, physical]' in physical_workflow
 assert 'workflow_dispatch:' in physical_workflow

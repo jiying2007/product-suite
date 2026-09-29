@@ -149,6 +149,56 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     }
                 }
             }
+            "seedSmartClean" -> {
+                val mib = (arg?.toIntOrNull() ?: 20).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Smart Clean ${mib} MiB.txt")
+                val target = mib.toLong() * 1024L * 1024L
+                if (!fixture.isFile || fixture.length() < target) writeSmartCleanFixture(fixture, target)
+                val repository = BookRepository(context)
+                val existing = repository.list().firstOrNull { it.name == fixture.name }
+                val book = existing ?: repository.importUri(Uri.fromFile(fixture), BookRepository.AUTO)
+                Bundle().apply {
+                    putString("bookId", book.id)
+                    putLong("bytes", fixture.length())
+                    putInt("mib", mib)
+                    putString("sha256", sha256(fixture))
+                    putString("normalizedSha256", book.normalizedSha256)
+                }
+            }
+            "smartCleanMetric" -> {
+                val mib = (arg?.toIntOrNull() ?: 20).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Smart Clean ${mib} MiB.txt")
+                check(fixture.isFile) { "Smart Clean benchmark fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("Smart Clean benchmark fixture is not imported: ${fixture.name}")
+                ReaderController().use { source ->
+                    source.open(repository.normalizedFile(book), 0)
+                    val startedNs = System.nanoTime()
+                    val candidates = source.noiseCandidates()
+                    val elapsedMs = (System.nanoTime() - startedNs) / 1_000_000.0
+                    check(candidates.isNotEmpty()) { "Smart Clean benchmark produced no candidates for noisy fixture" }
+                    val top = candidates.first()
+                    val candidateSha256 = candidateSha256(candidates)
+                    Bundle().apply {
+                        putString(
+                            "sample",
+                            buildString {
+                                append("metric=smart-clean-").append(mib).append("mib")
+                                append(";durationMs=").append(String.format(Locale.US, "%.3f", elapsedMs))
+                                append(";fixtureMiB=").append(mib)
+                                append(";fixtureBytes=").append(book.size)
+                                append(";fixtureSha256=").append(book.sourceSha256)
+                                append(";normalizedSha256=").append(book.normalizedSha256)
+                                append(";candidateCount=").append(candidates.size)
+                                append(";candidateSha256=").append(candidateSha256)
+                                append(";topScore=").append(top.score)
+                                append(";topReason=").append(top.reason.replace(';', '_'))
+                            },
+                        )
+                    }
+                }
+            }
             "mode" -> {
                 val mode = when (arg?.lowercase()) {
                     "paged" -> ReaderMode.PAGED
@@ -222,9 +272,13 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
             }
             "clear" -> {
                 val repository = BookRepository(context)
-                repository.list().filter { it.name.startsWith("Benchmark Novel ") }.forEach(repository::delete)
+                repository.list().filter {
+                    it.name.startsWith("Benchmark Novel ") || it.name.startsWith("Benchmark Smart Clean ")
+                }.forEach(repository::delete)
                 context.cacheDir.listFiles()?.filter {
-                    it.name.startsWith("Benchmark Novel ") || it.name.startsWith("Benchmark New Source ")
+                    it.name.startsWith("Benchmark Novel ") ||
+                        it.name.startsWith("Benchmark New Source ") ||
+                        it.name.startsWith("Benchmark Smart Clean ")
                 }?.forEach(File::delete)
                 Bundle.EMPTY
             }
@@ -255,6 +309,37 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
             }
             output.flush()
         }
+    }
+
+    private fun writeSmartCleanFixture(file: File, target: Long) {
+        val cleanLine = "这是用于净读 Smart Clean 性能验证的正文段落。The quick brown fox jumps over the lazy dog.\n"
+        val promoLine = "正文尾部推广提示：请收藏本站 www.reader-benchmark.invalid 最新网址 https://reader-benchmark.invalid\n"
+        FileOutputStream(file).buffered().use { output ->
+            var bytes = 0L
+            var line = 0
+            while (bytes < target) {
+                val value = if (line % 32 == 31) promoLine else cleanLine
+                val chunk = value.toByteArray(Charsets.UTF_8)
+                output.write(chunk)
+                bytes += chunk.size
+                line++
+            }
+            output.flush()
+        }
+    }
+
+    private fun candidateSha256(candidates: List<ReaderController.NoiseCandidate>): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        candidates.forEach { candidate ->
+            val packed = buildString {
+                append(candidate.score).append('\u001f')
+                append(candidate.count).append('\u001f')
+                append(candidate.reason).append('\u001f')
+                append(candidate.text).append('\u001e')
+            }
+            digest.update(packed.toByteArray(Charsets.UTF_8))
+        }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
     private fun sourceFixture(cacheDir: File, mib: Int): File =
