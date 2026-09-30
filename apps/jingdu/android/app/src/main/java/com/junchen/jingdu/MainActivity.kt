@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var fontStore: ReaderFontStore
     private lateinit var statsStore: ReaderStatsStore
     private lateinit var smartTocCache: SmartTocCacheStore
+    private lateinit var txtHealthStore: TxtHealthStore
     @Volatile private var proUnlocked = false
     @Volatile private var chapterWorkKey: String? = null
     private var reader: ReaderController
@@ -212,6 +213,7 @@ class MainActivity : ComponentActivity() {
         fontStore = ReaderFontStore(this)
         statsStore = ReaderStatsStore(this)
         smartTocCache = SmartTocCacheStore(this)
+        txtHealthStore = TxtHealthStore(this)
         ttsCatalog = TtsController(this)
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
@@ -319,6 +321,9 @@ class MainActivity : ComponentActivity() {
             id = book.id, name = book.name, encoding = book.encoding, sizeBytes = book.size,
             progress = book.progress, charCount = book.charCount, touchedAt = book.touchedAt,
             normalizedSha256 = book.normalizedSha256, favorite = metadata.favorite, tags = metadata.tags,
+            healthScore = txtHealthStore.load(book.id)?.score,
+            healthIssues = txtHealthStore.load(book.id)?.issueCount ?: 0,
+            optimized = bookRules(book).isNotEmpty(),
         )
     }
 
@@ -404,6 +409,7 @@ class MainActivity : ComponentActivity() {
             noiseCandidates = emptyList(),
             smartCleanAnalyzed = false,
             smartCleanUndoAvailable = cleanHistory.has(book.id),
+            txtHealthReport = null,
         )
 
         workers.execute {
@@ -435,7 +441,12 @@ class MainActivity : ComponentActivity() {
                     repository.pruneCleanRevisions(book, if (clean) file else null)
                     NativeIndexCache.pruneOrphans(repository.normalizedFile(book).parentFile)
                     previousReader.close()
-                    uiState = uiState.copy(busyLabel = null, currentBook = toCard(book), cleanMode = clean, smartCleanUndoAvailable = cleanHistory.has(book.id))
+                    uiState = uiState.copy(
+                        busyLabel = null,
+                        currentBook = toCard(book),
+                        cleanMode = clean,
+                        smartCleanUndoAvailable = cleanHistory.has(book.id),
+                    )
                     statsStore.begin(book.id, candidate.position())
                     refreshAnnotations()
                     render()
@@ -565,7 +576,7 @@ class MainActivity : ComponentActivity() {
             cleanMode = false, panel = null, busyLabel = null, searchQuery = "", searchResults = emptyList(),
             chapters = emptyList(), chaptersLoaded = false, bookmarks = emptyList(), repairRules = emptyList(),
             globalRules = ruleLibrary.load(), noiseCandidates = emptyList(), smartCleanAnalyzed = false,
-            smartCleanUndoAvailable = false,
+            smartCleanUndoAvailable = false, txtHealthReport = null,
         )
     }
 
@@ -587,8 +598,32 @@ class MainActivity : ComponentActivity() {
             ReaderPanel.BOOKMARKS -> refreshBookmarks()
             ReaderPanel.CLEAN -> refreshRules()
             ReaderPanel.SETTINGS -> refreshTtsVoices()
+            ReaderPanel.TXT_HEALTH -> diagnoseTxtHealth()
             else -> Unit
         }
+    }
+
+    private fun diagnoseTxtHealth() {
+        val book = currentBook ?: return
+        runWork(
+            label = getString(R.string.busy_txt_health),
+            task = {
+                ReaderController().use { source ->
+                    source.open(repository.normalizedFile(book), 0)
+                    TxtDoctor.diagnose(source, book)
+                }
+            },
+            success = { report ->
+                txtHealthStore.save(book.id, report)
+                uiState = uiState.copy(
+                    panel = ReaderPanel.TXT_HEALTH,
+                    txtHealthReport = report,
+                    currentBook = toCard(book),
+                )
+                refreshLibrary()
+            },
+            errorTitle = getString(R.string.error_txt_health),
+        )
     }
 
     private fun search(query: String) {
@@ -770,7 +805,6 @@ class MainActivity : ComponentActivity() {
 
     private fun applySmartClean() {
         val book = currentBook ?: return
-        if (!proUnlocked) { billing.purchase(); return }
         val selected = uiState.noiseCandidates.filter { it.selected }
         if (selected.isEmpty()) return showMessage(getString(R.string.select_clean_suggestion))
         cleanHistory.save(book.id, bookRulesPacked(book))
@@ -1122,6 +1156,7 @@ class MainActivity : ComponentActivity() {
         annotationStore.clearBook(book.id)
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
+        txtHealthStore.remove(book.id)
         currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
         uiState = uiState.copy(
             screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
@@ -1141,6 +1176,7 @@ class MainActivity : ComponentActivity() {
         annotationStore.clearBook(book.id)
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
+        txtHealthStore.remove(book.id)
         refreshLibrary()
         showMessage(getString(R.string.removed_from_library))
     }
