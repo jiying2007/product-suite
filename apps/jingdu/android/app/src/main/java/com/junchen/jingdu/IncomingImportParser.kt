@@ -29,7 +29,7 @@ internal object IncomingImportParser {
                             text = it,
                             displayName = TextMetadataSanitizer.displayName(
                                 intent.getCharSequenceExtra(Intent.EXTRA_TITLE)?.toString(),
-                                fallback = "Shared text.txt",
+                                fallback = "TXT",
                             ),
                         )
                     }
