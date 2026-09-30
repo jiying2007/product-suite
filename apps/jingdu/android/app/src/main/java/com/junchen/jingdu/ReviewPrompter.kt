@@ -29,11 +29,10 @@ internal class ReviewPrompter(private val activity: Activity) {
         val now = System.currentTimeMillis()
         val last = preferences.getLong(KEY_LAST_REQUEST, 0L)
         if (last != 0L && now - last < MIN_INTERVAL_MS) return
-        preferences.edit().putLong(KEY_LAST_REQUEST, now).apply()
-
         val manager = ReviewManagerFactory.create(activity)
         manager.requestReviewFlow().addOnCompleteListener { request ->
             if (!request.isSuccessful) return@addOnCompleteListener
+            preferences.edit().putLong(KEY_LAST_REQUEST, now).apply()
             manager.launchReviewFlow(activity, request.result)
         }
     }
