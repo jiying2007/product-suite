@@ -72,4 +72,5 @@
     <string name="tts_no_voice_match">没有匹配的离线 voice。</string>
     <string name="tts_preview_sample">净读会在你的设备上完成阅读与朗读处理。</string>
 
+    <string name="txt_health_nudge">可从阅读器菜单打开“TXT 健康”，一次检查编码、排版、目录和干扰文本。</string>
 </resources>
