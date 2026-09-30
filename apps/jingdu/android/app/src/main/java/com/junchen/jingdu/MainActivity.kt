@@ -176,6 +176,7 @@ class MainActivity : ComponentActivity() {
             onExportClean = ::exportClean,
             onEncodingSelected = ::redecode,
             onSettingsChanged = ::updateSettings,
+            onPreviewTtsVoice = { voice -> ttsCatalog.previewVoice(voice, getString(R.string.tts_preview_sample)) },
             onToggleTts = ::toggleTts,
             onToggleAutoPaging = ::toggleAutoPaging,
             onSleepTimer = ::setSleepTimer,
