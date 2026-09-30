@@ -452,7 +452,13 @@ class MainActivity : ComponentActivity() {
                     refreshAnnotations()
                     render()
                     refreshLibrary()
-                    if (!clean && previousBook?.id != book.id) reviewPrompter.recordBookOpened()
+                    if (!clean && previousBook?.id != book.id) {
+                        reviewPrompter.recordBookOpened()
+                        if (txtHealthStore.shouldNudge(book.id)) {
+                            txtHealthStore.markNudged(book.id)
+                            showMessage(getString(R.string.txt_health_nudge))
+                        }
+                    }
                 }
             } catch (error: Throwable) {
                 candidate.close()
