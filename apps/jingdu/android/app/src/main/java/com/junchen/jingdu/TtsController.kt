@@ -216,6 +216,18 @@ internal class TtsController(
         if (ready) applyDesiredVoice()
     }
 
+    fun previewVoice(voiceName: String, text: String): Boolean {
+        if (!ready || text.isBlank()) return false
+        val voice = tts.voices?.firstOrNull { !it.isNetworkConnectionRequired && it.name == voiceName } ?: return false
+        val previous = tts.voice
+        return try {
+            tts.voice = voice
+            tts.speak(text.take(240), TextToSpeech.QUEUE_FLUSH, Bundle(), "preview-${System.nanoTime()}") != TextToSpeech.ERROR
+        } finally {
+            if (previous != null) tts.voice = previous
+        }
+    }
+
     fun offlineVoices(): List<VoiceOption> {
         val voices = tts.voices ?: return emptyList()
         if (!ready) return emptyList()
