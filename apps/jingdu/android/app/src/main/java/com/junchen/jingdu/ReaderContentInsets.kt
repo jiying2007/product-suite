@@ -17,6 +17,7 @@ internal fun readerContentInsetsDp(
     cutoutRightDp: Float,
     bottomGestureDp: Float,
     showReadingStatus: Boolean,
+    fontScale: Float = 1f,
 ): ReaderContentInsetsDp {
     val gutter = 8f
     return ReaderContentInsetsDp(
@@ -24,8 +25,10 @@ internal fun readerContentInsetsDp(
         top = cutoutTopDp.coerceAtLeast(0f) + gutter,
         right = cutoutRightDp.coerceAtLeast(0f) + gutter,
         bottom = bottomGestureDp.coerceAtLeast(0f) + gutter +
-            if (showReadingStatus) READER_READING_STATUS_RESERVE_DP else 0f,
+            if (showReadingStatus) {
+                READER_READING_STATUS_BASE_RESERVE_DP * fontScale.coerceIn(1f, 2.5f)
+            } else 0f,
     )
 }
 
-internal const val READER_READING_STATUS_RESERVE_DP = 34f
+internal const val READER_READING_STATUS_BASE_RESERVE_DP = 34f
