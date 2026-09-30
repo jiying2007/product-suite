@@ -12,6 +12,10 @@ for match in re.finditer(r'^\s*implementation\s+"([^"]+)"', gradle, re.MULTILINE
     coordinate = match.group(1)
     if coordinate.count(":") >= 2:
         declared.add(coordinate)
+for match in re.finditer(r'platform\("([^"]+)"\)', gradle):
+    coordinate = match.group(1)
+    if coordinate.count(":") >= 2:
+        declared.add(coordinate)
 
 required_static = {
     "androidx.compose:compose-bom:2026.08.00",
