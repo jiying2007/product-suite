@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: SnackbarHostState) {
     val context = LocalContext.current
@@ -52,6 +53,7 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
     var libraryQuery by rememberSaveable { mutableStateOf("") }
     var sortName by rememberSaveable { mutableStateOf(LibrarySort.RECENT.name) }
     var sortMenu by remember { mutableStateOf(false) }
+    var collectionMenu by remember { mutableStateOf(false) }
     var libraryToolsMenu by remember { mutableStateOf(false) }
     var importChooser by rememberSaveable { mutableStateOf(false) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
@@ -212,6 +214,14 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
             sortName = sortName,
         )
     }
+    val collectionTags = remember(state.books) {
+        state.books.flatMap(BookCardModel::tags)
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinctBy { it.lowercase() }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            .take(40)
+    }
     val continueBook = remember(state.books) {
         state.books.filter { it.status == LibraryBookStatus.READING }.maxByOrNull(BookCardModel::touchedAt)
     }
@@ -259,27 +269,57 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                         }) else null,
                         placeholder = { Text(stringResource(R.string.search_hint)) },
                     )
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         LibraryFilterChip(filterName == "ALL", stringResource(R.string.library_filter_all)) { filterName = "ALL" }
                         LibraryFilterChip(filterName == "READING", stringResource(R.string.library_filter_reading)) { filterName = "READING" }
                         LibraryFilterChip(filterName == "FAVORITES", stringResource(R.string.library_filter_favorites)) { filterName = "FAVORITES" }
                         LibraryFilterChip(filterName == "FINISHED", stringResource(R.string.library_filter_finished)) { filterName = "FINISHED" }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
                         LibraryFilterChip(filterName == "ATTENTION", stringResource(R.string.library_filter_attention)) { filterName = "ATTENTION" }
                         LibraryFilterChip(filterName == "OPTIMIZED", stringResource(R.string.library_filter_optimized)) { filterName = "OPTIMIZED" }
+                        if (collectionTags.isNotEmpty()) {
+                            Box {
+                                val activeCollection = filterName
+                                    .takeIf { it.startsWith(LibraryQueryEngine.COLLECTION_PREFIX) }
+                                    ?.removePrefix(LibraryQueryEngine.COLLECTION_PREFIX)
+                                AssistChip(
+                                    onClick = { collectionMenu = true },
+                                    label = { Text(activeCollection ?: stringResource(R.string.library_collections)) },
+                                    leadingIcon = { Icon(Icons.Default.CollectionsBookmark, contentDescription = null) },
+                                )
+                                DropdownMenu(expanded = collectionMenu, onDismissRequest = { collectionMenu = false }) {
+                                    collectionTags.forEach { tag ->
+                                        DropdownMenuItem(
+                                            text = { Text(tag) },
+                                            trailingIcon = {
+                                                if (filterName == LibraryQueryEngine.COLLECTION_PREFIX + tag) {
+                                                    Icon(Icons.Default.Check, contentDescription = null)
+                                                }
+                                            },
+                                            onClick = {
+                                                filterName = LibraryQueryEngine.COLLECTION_PREFIX + tag
+                                                collectionMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Box {
-                            AssistChip(onClick = { sortMenu = true }, label = { Text("${stringResource(R.string.library_sort_label)} · ${sortLabel(sortName)}") })
+                            AssistChip(
+                                onClick = { sortMenu = true },
+                                label = { Text("${stringResource(R.string.library_sort_label)} · ${sortLabel(sortName)}") },
+                            )
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                LibrarySort.entries.forEach { sort -> DropdownMenuItem(text = { Text(sortLabel(sort.name)) }, onClick = { sortName = sort.name; sortMenu = false }) }
+                                LibrarySort.entries.forEach { sort ->
+                                    DropdownMenuItem(
+                                        text = { Text(sortLabel(sort.name)) },
+                                        onClick = { sortName = sort.name; sortMenu = false },
+                                    )
+                                }
                             }
                         }
                     }
