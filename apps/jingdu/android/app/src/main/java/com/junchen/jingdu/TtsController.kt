@@ -1,5 +1,8 @@
 package com.junchen.jingdu
 
+internal fun ttsUtteranceGeneration(utteranceId: String?): Long =
+    utteranceId?.toLongOrNull() ?: -1L
+
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -105,7 +108,7 @@ internal class TtsController(
             override fun onStart(utteranceId: String?) = Unit
 
             override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
                     val chunk = currentChunk
                     val activeListener = listener
@@ -130,7 +133,7 @@ internal class TtsController(
             }
 
             override fun onDone(utteranceId: String?) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
                     if (closed || token != generation.get() || pausedForFocus || reader == null) return@post
                     if (pendingNextOffset > offset) {
@@ -142,7 +145,7 @@ internal class TtsController(
             }
 
             override fun onError(utteranceId: String?, errorCode: Int) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
                     if (closed || token != generation.get()) return@post
                     stop("tts error: $errorCode")
@@ -151,7 +154,7 @@ internal class TtsController(
 
             @Deprecated("Deprecated in Android")
             override fun onError(utteranceId: String?) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
                     if (closed || token != generation.get()) return@post
                     stop("tts error")
@@ -380,7 +383,6 @@ internal class TtsController(
         }
     }
 
-    private fun parseToken(id: String?): Long = id?.toLongOrNull() ?: -1L
 
     private companion object {
         const val HANS_MARKERS = "这为后发国书读时会里还进对从个们来说现学与体门见风东语网无龙边开长"
