@@ -15,15 +15,17 @@ internal object TextMetadataSanitizer {
             while (offset < normalized.length && count < MAX_DISPLAY_NAME_CODE_POINTS) {
                 val cp = normalized.codePointAt(offset)
                 offset += Character.charCount(cp)
-                if (isUnsafe(cp)) continue
                 if (Character.isWhitespace(cp)) {
                     pendingSpace = isNotEmpty()
                     continue
                 }
-                if (pendingSpace) {
+                if (isUnsafe(cp)) continue
+                if (pendingSpace && count < MAX_DISPLAY_NAME_CODE_POINTS) {
                     append(' ')
+                    count++
                     pendingSpace = false
                 }
+                if (count >= MAX_DISPLAY_NAME_CODE_POINTS) break
                 appendCodePoint(cp)
                 count++
             }
