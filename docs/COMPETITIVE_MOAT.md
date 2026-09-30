@@ -71,7 +71,7 @@ Android can move read-aloud into an exported=false foreground mediaPlayback serv
 
 ### SAF folder library
 
-Library search/filter/sort stays metadata-only and has a 10,000-book regression guard. TXT Health summaries become smart-collection metadata rather than another payload scan.
+Library search/filter/sort stays metadata-only and has a 10,000-book regression guard. Existing local tags become user-owned Collections filters, while TXT Health summaries power Needs attention / Optimized smart collections; neither path opens book payloads.
 
 Folder roots are selected explicitly through the Storage Access Framework. Jingdu persists read-only URI permission and uses documentId + size + lastModified signatures to skip unchanged TXT files. It requests no broad storage permission.
 
