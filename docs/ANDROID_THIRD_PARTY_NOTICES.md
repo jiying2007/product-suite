@@ -12,6 +12,7 @@ The following direct production families are intentionally present and must rema
 
 - AndroidX Activity Compose — `androidx.activity:activity-compose:1.13.0`
 - Compose BOM — `androidx.compose:compose-bom:2026.08.00` (governs Compose runtime modules)
+- AndroidX Compose Adaptive — `androidx.compose.material3.adaptive:adaptive:1.3.0`
 - AndroidX Core KTX — `androidx.core:core-ktx:1.19.0`
 - AndroidX DataStore — `androidx.datastore:datastore:1.2.1`
 - AndroidX Room 3 — `androidx.room3:room3-runtime:3.0.3`
