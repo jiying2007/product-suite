@@ -334,9 +334,45 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
     var pronunciationDraft by rememberSaveable { mutableStateOf(pronunciationStore.raw()) }
     var showVoicePicker by rememberSaveable { mutableStateOf(false) }
     var voiceQuery by rememberSaveable { mutableStateOf("") }
+    var engineMenu by remember { mutableStateOf(false) }
 
     SettingSlider(stringResource(R.string.speech_rate), s.ttsRate, 0.5f..2f, "%.1f×".format(s.ttsRate)) { actions.onSettingsChanged(s.copy(ttsRate = it)) }
     SettingSlider(stringResource(R.string.speech_pitch), s.ttsPitch, 0.6f..1.6f, "%.1f×".format(s.ttsPitch)) { actions.onSettingsChanged(s.copy(ttsPitch = it)) }
+    Section(stringResource(R.string.local_tts_engine)) {
+        Text(
+            stringResource(R.string.local_tts_engine_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (state.proUnlocked) {
+            val selectedEngine = state.ttsEngines.firstOrNull { it.name == state.ttsEngineName }
+            Box {
+                OutlinedButton(onClick = { engineMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.RecordVoiceOver, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(selectedEngine?.label ?: stringResource(R.string.system_default))
+                }
+                DropdownMenu(expanded = engineMenu, onDismissRequest = { engineMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.system_default)) },
+                        trailingIcon = { if (state.ttsEngineName.isEmpty()) Icon(Icons.Outlined.Check, null) },
+                        onClick = { engineMenu = false; actions.onTtsEngineSelected("") },
+                    )
+                    state.ttsEngines.forEach { engine ->
+                        DropdownMenuItem(
+                            text = { Text(engine.label) },
+                            supportingText = { Text(engine.name, maxLines = 1) },
+                            trailingIcon = { if (state.ttsEngineName == engine.name) Icon(Icons.Outlined.Check, null) },
+                            onClick = { engineMenu = false; actions.onTtsEngineSelected(engine.name) },
+                        )
+                    }
+                }
+            }
+        } else {
+            OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text(stringResource(R.string.pro_badge)) }
+        }
+    }
+
     Section(stringResource(R.string.offline_voice)) {
         Text(
             stringResource(R.string.reader_tts_voice_privacy),
