@@ -65,7 +65,7 @@ None of those capabilities creates a second document identity. They compound the
 
 ### Professional TTS
 
-Android can move read-aloud into an exported=false foreground mediaPlayback service with MediaSession controls. Lock-screen/headset controls operate on source offsets. Current reading-window highlight is presentation-only. Literal local pronunciation overrides compose through the TTS source projection, so Chinese names/polyphones may be corrected without rewriting the book.
+Android can move read-aloud into an exported=false foreground mediaPlayback service with MediaSession controls. Pro may select any installed Android TTS engine; if a Piper or other neural provider exposes an offline Android TTS engine, Jingdu can use it without bundling an unqualified model or sending book text through a Jingdu service. Lock-screen/headset controls operate on source offsets. Current reading-window highlight is presentation-only. Literal local pronunciation overrides compose through the TTS source projection, so Chinese names/polyphones may be corrected without rewriting the book.
 
 ## P1 — retention and paid automation
 
