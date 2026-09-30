@@ -90,6 +90,7 @@ done
 
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
+python3 ./scripts/verify-android-third-party-inventory.py
 python3 ./scripts/verify-reader-profile-contract.py
 bash ./scripts/verify-reader.sh
 
