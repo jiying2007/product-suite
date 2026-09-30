@@ -330,6 +330,7 @@ internal fun ReaderScreen(
             WindowInsets.mandatorySystemGestures.getBottom(readerDensity),
         ) / readerDensity.density,
         showReadingStatus = settings.showReadingStatus,
+        fontScale = readerDensity.fontScale,
     )
     Box(Modifier.fillMaxSize().background(background)) {
         Box(
