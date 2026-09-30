@@ -73,4 +73,9 @@
     <string name="tts_preview_sample">净读会在你的设备上完成阅读与朗读处理。</string>
 
     <string name="txt_health_nudge">可从阅读器菜单打开“TXT 健康”，一次检查编码、排版、目录和干扰文本。</string>
+
+    <string name="local_tts_engine">本地 TTS 引擎</string>
+    <string name="local_tts_engine_hint">选择已安装的 Android TTS 引擎。离线或神经语音引擎可在提供方本地运行；净读自身不会通过网络发送书籍正文。</string>
+    <string name="tts_engine_unavailable">该 TTS 引擎已不可用，请选择其他引擎或系统默认。</string>
+
 </resources>
