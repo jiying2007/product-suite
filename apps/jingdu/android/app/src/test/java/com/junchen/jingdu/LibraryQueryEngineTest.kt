@@ -16,6 +16,20 @@ class LibraryQueryEngineTest {
         assertEquals(listOf("Book 2.txt"), LibraryQueryEngine.apply(books, "", "OPTIMIZED", "RECENT").map { it.name })
     }
 
+    @Test fun tagBackedCollectionsAreFirstClassFilters() {
+        val books = listOf(
+            book(1, health = 98, issues = 0, optimized = false).copy(tags = listOf("科幻", "待读")),
+            book(2, health = 98, issues = 0, optimized = false).copy(tags = listOf("武侠")),
+        )
+        val result = LibraryQueryEngine.apply(
+            books,
+            "",
+            LibraryQueryEngine.COLLECTION_PREFIX + "科幻",
+            "RECENT",
+        )
+        assertEquals(listOf("Book 1.txt"), result.map { it.name })
+    }
+
     @Test fun tenThousandBookMetadataQueryStaysInteractive() {
         val books = (0 until 10_000).map { index ->
             book(
