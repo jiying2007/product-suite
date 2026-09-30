@@ -79,6 +79,7 @@ data class NoiseCandidateModel(
 }
 
 data class TtsVoiceModel(val name: String, val label: String)
+data class TtsEngineModel(val name: String, val label: String)
 data class TtsPlaybackModel(
     val active: Boolean = false,
     val playing: Boolean = false,
@@ -122,6 +123,8 @@ data class AppUiState(
     val proConnected: Boolean = false,
     val proPrice: String? = null,
     val ttsVoices: List<TtsVoiceModel> = emptyList(),
+    val ttsEngines: List<TtsEngineModel> = emptyList(),
+    val ttsEngineName: String = "",
     val motion: ReaderMotionState = ReaderMotionState.IDLE,
     val tts: TtsPlaybackModel = TtsPlaybackModel(),
     val sleepMinutes: Int = 0,
