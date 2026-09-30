@@ -108,6 +108,44 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:1.3.0"
 }
 
+
+def approvedReleasePermissions = [
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+    "android.permission.INTERNET",
+] as Set
+
+tasks.register("verifyReleasePermissionAllowlist") {
+    group = "verification"
+    dependsOn "processReleaseMainManifest"
+    doLast {
+        def roots = [
+            file("$buildDir/intermediates/merged_manifest/release"),
+            file("$buildDir/intermediates/merged_manifests/release"),
+            file("$buildDir/intermediates/packaged_manifests/release"),
+        ].findAll { it.exists() }
+        def manifests = roots.collectMany { root ->
+            fileTree(root).matching { include "**/AndroidManifest.xml" }.files as List
+        }.findAll { it.isFile() }
+        if (manifests.isEmpty()) {
+            throw new GradleException("release merged manifest not found after processReleaseMainManifest")
+        }
+        def merged = manifests.max { it.lastModified() }
+        def text = merged.getText("UTF-8")
+        def matcher = text =~ /<uses-permission[^>]+android:name="([^"]+)"/
+        def declared = matcher.collect { it[1] }.toSet()
+        def unexpected = declared - approvedReleasePermissions
+        def missing = approvedReleasePermissions - declared
+        if (!unexpected.isEmpty()) {
+            throw new GradleException("unexpected release permissions: " + unexpected.sort().join(", "))
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("required release permissions missing: " + missing.sort().join(", "))
+        }
+        println("Release permission allowlist OK: " + declared.sort().join(", "))
+    }
+}
+
 tasks.register("validateStoreRelease") {
     group = "verification"
     doLast {
