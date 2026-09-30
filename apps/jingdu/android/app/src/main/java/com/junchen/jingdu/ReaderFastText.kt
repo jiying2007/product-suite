@@ -202,6 +202,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var longPressTriggered = false
     private var lastCenterTapAt = 0L
     private var flingRunning = false
+    private var lastBoundarySignalAt = 0L
     private var pendingScrollY = 0
     private var scrollScheduled = false
     private val applyPendingScroll = Runnable {
@@ -334,7 +335,11 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                 if (abs(totalX) > viewConfig.scaledTouchSlop || abs(totalY) > viewConfig.scaledTouchSlop) removeCallbacks(longPress)
                 val brightnessZone = settings.brightnessGestureEnabled && downX >= systemLeftInsetPx + 8f * density && downX <= systemLeftInsetPx + width * 0.14f
                 if (!brightnessZone && !scrolling && abs(totalY) > viewConfig.scaledTouchSlop && abs(totalY) > abs(totalX) * 1.10f) scrolling = true
-                if (scrolling) scrollModel?.let { model -> model.setOffset(model.offsetPx + (lastY - event.y)) }
+                if (scrolling) scrollModel?.let { model ->
+                    val requested = model.offsetPx + (lastY - event.y)
+                    model.setOffset(requested)
+                    signalBoundaryHandoff(requested, model)
+                }
                 lastY = event.y
                 return true
             }
@@ -361,6 +366,18 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             }
         }
         return true
+    }
+
+    private fun signalBoundaryHandoff(requestedOffset: Float, model: ReaderContinuousScrollModel) {
+        val overscroll = 18f * density
+        val hitTop = requestedOffset < -overscroll && model.offsetPx <= 1f
+        val hitBottom = requestedOffset > model.maxOffsetPx + overscroll &&
+            model.offsetPx >= (model.maxOffsetPx - 1f).coerceAtLeast(0f)
+        if (!hitTop && !hitBottom) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastBoundarySignalAt < 180L) return
+        lastBoundarySignalAt = now
+        onScrollSettled()
     }
 
     override fun performClick(): Boolean {
@@ -588,6 +605,23 @@ internal fun Text(
         val ready = layout
         if (fallback) {
             val fallbackScroll = rememberScrollState(initial = scrollModel.offsetPx.roundToInt().coerceAtLeast(0))
+            LaunchedEffect(fallbackScroll.value) {
+                scrollModel.setOffset(fallbackScroll.value.toFloat())
+            }
+            LaunchedEffect(fallbackScroll.isScrollInProgress) {
+                if (!fallbackScroll.isScrollInProgress) {
+                    scrollModel.setOffset(fallbackScroll.value.toFloat())
+                    onScrollSettled()
+                }
+            }
+            LaunchedEffect(text.text, ready) {
+                if (ready != null) {
+                    withFrameNanos { }
+                    fallbackScroll.scrollTo(
+                        scrollModel.offsetPx.roundToInt().coerceIn(0, fallbackScroll.maxValue),
+                    )
+                }
+            }
             androidx.compose.material3.Text(
                 text = text,
                 modifier = Modifier.fillMaxSize().verticalScroll(fallbackScroll),
