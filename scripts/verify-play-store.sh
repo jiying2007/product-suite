@@ -129,8 +129,13 @@ grep -q 'Purchase.PurchaseState.PURCHASED' apps/jingdu/android/app/src/main/java
 grep -q 'acknowledgePurchase' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
 
 grep -q 'R.string.scan_noise_free' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
-grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+grep -q 'R.string.apply_selected_preview' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+if grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt; then
+  echo 'single-book Smart Clean apply must remain Free; Pro begins at reusable/batch automation' >&2
+  exit 1
+fi
 grep -q 'R.string.offline_voice' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'R.string.local_tts_engine' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'R.string.local_asset_backup' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'R.string.privacy_policy' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'Intent.ACTION_VIEW' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
