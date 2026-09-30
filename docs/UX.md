@@ -14,7 +14,9 @@ All user-facing copy is resource-backed. Android supports Simplified Chinese, Tr
 - Supporting privacy promise is localized from resources rather than embedded in Compose source.
 - Primary action imports one TXT; batch import/folder library are secondary explicit SAF actions.
 - Cards prioritize title/progress; favorite/tags/TXT Health/optimization state/last-read are secondary. Encoding and byte size stay out of the normal card hierarchy.
-- Smart collections expose Needs attention / Optimized without a horizontally hidden filter rail.
+- User tags are exposed as **Collections** filters; editing tags therefore also edits local collection membership without duplicating metadata.
+- Smart collections expose Needs attention / Optimized.
+- Filter and collection controls wrap instead of living on a horizontally hidden rail, including at 200% font scale.
 - Empty state explains mojibake rescue, TXT Health/Clean and privacy before file selection.
 
 ## Reader
