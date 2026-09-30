@@ -265,4 +265,5 @@
     <string name="tts_no_voice_match">No matching offline voice.</string>
     <string name="tts_preview_sample">Jingdu keeps reading and speech processing on your device.</string>
 
+    <string name="txt_health_nudge">Check TXT Health from the Reader menu to review encoding, layout, TOC and noise.</string>
 </resources>
