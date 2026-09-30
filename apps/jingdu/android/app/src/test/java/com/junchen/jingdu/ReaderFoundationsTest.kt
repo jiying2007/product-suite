@@ -229,4 +229,27 @@ class ReaderFoundationsTest {
         assertEquals(false, readerContinuousBoundaryRequested(500f, 500f, 1000f, 18f))
     }
 
+    @Test fun continuousWindowAdvancesWhenCurrentWindowFitsEntireViewport() {
+        assertEquals(
+            true,
+            readerContinuousNeedsNextWindow(
+                scrollOffsetPx = 0f,
+                maxOffsetPx = 0f,
+                viewportHeightPx = 900,
+                windowEnd = 4_096,
+                documentLength = 100_000,
+            ),
+        )
+        assertEquals(
+            false,
+            readerContinuousNeedsNextWindow(
+                scrollOffsetPx = 0f,
+                maxOffsetPx = 0f,
+                viewportHeightPx = 900,
+                windowEnd = 100_000,
+                documentLength = 100_000,
+            ),
+        )
+    }
+
 }
