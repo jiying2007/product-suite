@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong
 internal class TtsController(
     context: Context,
     private val queueObserver: QueueObserver? = null,
+    engineName: String? = null,
 ) : AutoCloseable {
     interface Listener {
         fun onPosition(offset: Long)
@@ -26,6 +27,7 @@ internal class TtsController(
     }
 
     data class VoiceOption(val name: String, val label: String)
+    data class EngineOption(val name: String, val label: String)
 
     /** Benchmark/test observability only. Production callers use the default null observer. */
     interface QueueObserver {
@@ -82,7 +84,7 @@ internal class TtsController(
     private var chineseOverrides = ""
 
     init {
-        tts = TextToSpeech(context.applicationContext) { status ->
+        val initListener = TextToSpeech.OnInitListener { status ->
             ready = status == TextToSpeech.SUCCESS
             if (ready) {
                 applyDesiredVoice()
@@ -90,6 +92,12 @@ internal class TtsController(
                     main.post { runCatching { observer.onEngineReady() } }
                 }
             }
+        }
+        val requestedEngine = engineName?.trim().orEmpty()
+        tts = if (requestedEngine.isEmpty()) {
+            TextToSpeech(context.applicationContext, initListener)
+        } else {
+            TextToSpeech(context.applicationContext, initListener, requestedEngine)
         }
         tts.setAudioAttributes(attributes)
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -227,6 +235,12 @@ internal class TtsController(
             if (previous != null) tts.voice = previous
         }
     }
+
+    fun installedEngines(): List<EngineOption> =
+        tts.engines.orEmpty()
+            .map { EngineOption(it.name, it.label?.toString().orEmpty().ifBlank { it.name }) }
+            .distinctBy(EngineOption::name)
+            .sortedBy { it.label.lowercase(Locale.ROOT) }
 
     fun offlineVoices(): List<VoiceOption> {
         val voices = tts.voices ?: return emptyList()
