@@ -27,6 +27,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
     val report = state.txtHealthReport
+    val layoutPreview = remember(state.pageText) { SmartLayout.present(state.pageText) }
     ModalBottomSheet(onDismissRequest = actions.onClosePanel) {
         Column(
             Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 20.dp).padding(bottom = 28.dp),
@@ -86,6 +88,26 @@ internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
                     action = if (state.settings.compressBlankLines) stringResource(R.string.txt_health_layout_on) else stringResource(R.string.txt_health_enable),
                 ) {
                     actions.onSettingsChanged(state.settings.copy(compressBlankLines = true))
+                }
+
+                if (report.hardWrapDetected && layoutPreview.hardWrapDetected && layoutPreview.text != state.pageText) {
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(stringResource(R.string.txt_health_layout_preview), fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.txt_health_layout_before), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(state.pageText.take(520), style = MaterialTheme.typography.bodySmall, maxLines = 5)
+                            Text(stringResource(R.string.txt_health_layout_after), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(layoutPreview.text.take(520), style = MaterialTheme.typography.bodySmall, maxLines = 5)
+                            Text(
+                                stringResource(R.string.txt_health_layout_preview_note, layoutPreview.joinedBreaks),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
 
                 HealthStep(
