@@ -30,6 +30,7 @@ class TtsPlaybackService : MediaSessionService() {
     private var book: BookRepository.Book? = null
     private var lastProgressPersistAt = 0L
     private var lastProgressPersistOffset = -1L
+    @Volatile private var destroying = false
 
     override fun onCreate() {
         super.onCreate()
@@ -118,6 +119,7 @@ class TtsPlaybackService : MediaSessionService() {
     }
 
     private fun onPlayerState(state: ReaderTtsState) {
+        if (destroying) return
         book?.let { current ->
             if (state.offset >= 0) persistProgress(current, state.offset, force = !state.active || !state.playing)
         }
@@ -135,15 +137,19 @@ class TtsPlaybackService : MediaSessionService() {
     }
 
     private fun persistProgress(current: BookRepository.Book, offset: Long, force: Boolean) {
+        if (destroying || progressWorkers.isShutdown) return
         val now = SystemClock.elapsedRealtime()
         if (!force && now - lastProgressPersistAt < PROGRESS_SAVE_INTERVAL_MS &&
             abs(offset - lastProgressPersistOffset) < PROGRESS_SAVE_CHAR_DELTA) return
         lastProgressPersistAt = now
         lastProgressPersistOffset = offset
-        progressWorkers.execute { runCatching { repository.saveProgress(current, offset) } }
+        runCatching {
+            progressWorkers.execute { runCatching { repository.saveProgress(current, offset) } }
+        }
     }
 
     override fun onDestroy() {
+        destroying = true
         main.removeCallbacksAndMessages(null)
         if (::player.isInitialized) {
             val state = player.snapshot()
