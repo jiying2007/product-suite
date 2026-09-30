@@ -1,8 +1,5 @@
 package com.junchen.jingdu
 
-internal fun ttsUtteranceGeneration(utteranceId: String?): Long =
-    utteranceId?.toLongOrNull() ?: -1L
-
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -14,6 +11,9 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
+
+internal fun ttsUtteranceGeneration(utteranceId: String?): Long =
+    utteranceId?.toLongOrNull() ?: -1L
 
 /** Android TextToSpeech transport with exact source-offset projection for presented speech text. */
 internal class TtsController(
