@@ -332,7 +332,14 @@ internal fun PrivacySheet(state: AppUiState, actions: JingduActions) {
                 Spacer(Modifier.width(10.dp))
                 Column { Text(stringResource(R.string.privacy_verification), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.privacy_verification_body), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            PrivacyFact(stringResource(R.string.privacy_no_internet), audit.networkPermissionAbsent)
+            Text(
+                stringResource(
+                    if (audit.networkPermissionAbsent) R.string.privacy_network_absent
+                    else R.string.privacy_network_play_only
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             PrivacyFact(stringResource(R.string.privacy_auto_backup_disabled), audit.automaticBackupDisabled)
             PrivacyFact(stringResource(R.string.privacy_no_upload), !audit.bookTextUploadCapability)
             PrivacyFact(stringResource(R.string.privacy_no_analytics), !audit.analyticsSdkPresent)
