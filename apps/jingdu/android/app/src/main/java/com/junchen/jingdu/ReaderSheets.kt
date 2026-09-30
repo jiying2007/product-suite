@@ -82,7 +82,7 @@ import kotlin.math.roundToInt
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
-                            if (state.proUnlocked) AssistChip(onClick = {}, label = { Text("Pro") }, leadingIcon = { Icon(Icons.Outlined.WorkspacePremium, null) })
+                            if (state.proUnlocked) AssistChip(onClick = {}, label = { Text(stringResource(R.string.pro_badge)) }, leadingIcon = { Icon(Icons.Outlined.WorkspacePremium, null) })
                         }
                         OutlinedButton(onClick = actions.onAnalyzeSmartClean, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(if (state.smartCleanAnalyzed) R.string.rescan_noise else R.string.scan_noise_free))
@@ -112,24 +112,18 @@ import kotlin.math.roundToInt
                     NoiseCandidateCard(state.noiseCandidates[index], index, actions)
                 }
                 item {
-                    val suffix = state.proPrice?.let { stringResource(R.string.price_suffix, it) } ?: ""
                     Button(
-                        onClick = if (state.proUnlocked) actions.onApplySmartClean else actions.onUpgradePro,
+                        onClick = actions.onApplySmartClean,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = selectedCount > 0,
                     ) {
-                        if (!state.proUnlocked) {
-                            Icon(Icons.Outlined.Lock, null)
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(if (state.proUnlocked) stringResource(R.string.apply_selected_preview) else stringResource(R.string.unlock_pro_apply, suffix))
+                        Icon(Icons.Outlined.AutoFixHigh, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.apply_selected_preview))
                     }
                 }
                 if (state.smartCleanUndoAvailable) {
                     item { OutlinedButton(onClick = actions.onUndoSmartClean, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.smart_clean_undo)) } }
-                }
-                if (!state.proUnlocked) {
-                    item { TextButton(onClick = actions.onRestorePro, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.restore_pro_question)) } }
                 }
             } else if (state.smartCleanAnalyzed) {
                 item { Text(stringResource(R.string.no_noise_found), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -153,7 +147,7 @@ import kotlin.math.roundToInt
             if (state.repairRules.isNotEmpty()) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.book_rules_count, state.repairRules.size)); TextButton(onClick = actions.onClearRules) { Text(stringResource(R.string.clear)) } } }
             items(state.repairRules.indices.toList()) { i -> RuleCard(state.repairRules[i]) { actions.onDeleteRule(i) } }
             item { HorizontalDivider() }
-            item { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.global_rule_library), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Spacer(Modifier.width(8.dp)); AssistChip(onClick = {}, label = { Text("Pro") }) } }
+            item { Row(verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.global_rule_library), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Spacer(Modifier.width(8.dp)); AssistChip(onClick = {}, label = { Text(stringResource(R.string.pro_badge)) }) } }
             item { Text(stringResource(R.string.global_rule_body), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (!state.proUnlocked) item { ElevatedCard(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(stringResource(R.string.pro_lifetime_title), fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.pro_lifetime_body), color = MaterialTheme.colorScheme.onSurfaceVariant); val suffix = state.proPrice?.let { stringResource(R.string.price_suffix, it) } ?: ""; Button(onClick = actions.onUpgradePro, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.WorkspacePremium, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.unlock_jingdu_pro, suffix)) }; TextButton(onClick = actions.onRestorePro, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.restore_purchase)) } } } }
             else {
