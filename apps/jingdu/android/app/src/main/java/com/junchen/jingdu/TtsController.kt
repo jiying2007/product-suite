@@ -89,6 +89,7 @@ internal class TtsController(
 
     init {
         val initListener = TextToSpeech.OnInitListener { status ->
+            if (closed) return@OnInitListener
             ready = status == TextToSpeech.SUCCESS
             if (ready) {
                 applyDesiredVoice()
