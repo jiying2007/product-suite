@@ -11,7 +11,7 @@
     <string name="favorite_book">Favorite</string>
     <string name="unfavorite_book">Remove favorite</string>
     <string name="edit_tags">Edit tags / collections</string>
-    <string name="book_tags_title">Tags & collections</string>
+    <string name="book_tags_title">Tags &amp; collections</string>
     <string name="book_tags_body">Comma-separated local tags also become collection filters in Library. They stay on this device and portable Reader backup.</string>
     <string name="book_tags_hint">science fiction, reread, favorite author</string>
     <string name="save">Save</string>
