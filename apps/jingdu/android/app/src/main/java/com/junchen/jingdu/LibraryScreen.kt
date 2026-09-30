@@ -288,7 +288,7 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                                 AssistChip(
                                     onClick = { collectionMenu = true },
                                     label = { Text(activeCollection ?: stringResource(R.string.library_collections)) },
-                                    leadingIcon = { Icon(Icons.Default.CollectionsBookmark, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null) },
                                 )
                                 DropdownMenu(expanded = collectionMenu, onDismissRequest = { collectionMenu = false }) {
                                     collectionTags.forEach { tag ->
