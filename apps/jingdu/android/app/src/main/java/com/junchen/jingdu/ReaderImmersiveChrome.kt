@@ -77,7 +77,7 @@ internal fun ReaderImmersiveTopBar(
         { latestInteraction.value(); latestMore.value() }
     }
     Surface(
-        Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).fillMaxWidth(),
+        Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(horizontal = 10.dp, vertical = 6.dp).fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         tonalElevation = 0.dp,
@@ -156,7 +156,7 @@ internal fun ReaderImmersiveBottomDock(
     val ttsAction = remember { { latestInteraction.value(); latestTts.value() } }
     val autoPageAction = remember { { latestInteraction.value(); latestAutoPage.value() } }
 
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(horizontal = 12.dp, vertical = 8.dp)) {
         Surface(
             Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
