@@ -378,6 +378,7 @@ require_literal "$tts_controller" 'val observer = queueObserver' 'speakNext benc
 require_literal "$tts_controller" 'val speakResult = tts.speak(' 'real TextToSpeech queue boundary'
 require_literal "$tts_controller" 'val scheduleStartedNs = if (observer != null) System.nanoTime() else 0L' 'observer-only speakNext scheduling timer'
 require_literal "$tts_controller" 'observer.onChunkQueued(' 'benchmark queue completion observer'
+require_literal "$tts_controller" 'speakNext(generation.incrementAndGet())' 'unique TTS callback generation per spoken chunk'
 require_literal "$tts_controller" 'engine = tts.defaultEngine.orEmpty()' 'TTS engine identity evidence'
 require_literal "$tts_controller" 'voice = activeVoice?.name.orEmpty()' 'TTS voice identity evidence'
 require_literal "$tts_controller" 'locale = activeVoice?.locale?.toLanguageTag().orEmpty()' 'TTS locale identity evidence'
