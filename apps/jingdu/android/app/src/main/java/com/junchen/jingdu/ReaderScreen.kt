@@ -1036,6 +1036,7 @@ private fun ReaderMoreMenu(actions: JingduActions, onDismiss: () -> Unit) {
         fun close(action: () -> Unit) { onDismiss(); action() }
         when (page) {
             ReaderMoreMenuPage.MAIN -> {
+                DropdownMenuItem({ Text(stringResource(R.string.txt_health_title)) }, { close { actions.onOpenPanel(ReaderPanel.TXT_HEALTH) } }, leadingIcon = { Icon(Icons.Outlined.HealthAndSafety, null) })
                 DropdownMenuItem({ Text(stringResource(R.string.full_text_search)) }, { close { actions.onOpenPanel(ReaderPanel.SEARCH) } }, leadingIcon = { Icon(Icons.Default.Search, null) })
                 DropdownMenuItem({ Text(stringResource(R.string.reader_annotations)) }, { close { actions.onOpenPanel(ReaderPanel.ANNOTATIONS) } }, leadingIcon = { Icon(Icons.Outlined.EditNote, null) })
                 DropdownMenuItem({ Text(stringResource(R.string.reader_reading_history)) }, { close { actions.onOpenPanel(ReaderPanel.READING_HISTORY) } }, leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null) })
