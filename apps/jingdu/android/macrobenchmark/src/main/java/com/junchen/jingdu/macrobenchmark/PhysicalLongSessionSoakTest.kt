@@ -21,7 +21,7 @@ class PhysicalLongSessionSoakTest {
 
     @Test
     fun pagedReadingSoak() {
-        val minutes = instrumentation.arguments.getString(DURATION_ARG)?.toIntOrNull() ?: 60
+        val minutes = InstrumentationRegistry.getArguments().getString(DURATION_ARG)?.toIntOrNull() ?: 60
         check(minutes in 1..180) { "invalid soak duration: $minutes" }
 
         seedFixture(FIXTURE_MIB)
