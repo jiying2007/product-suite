@@ -318,7 +318,28 @@ internal fun ReaderScreen(
     val snackbarControlsShiftPx = with(LocalDensity.current) { 88.dp.toPx() }
     val background = readerBackground(settings.palette)
     val textColor = readerTextColor(settings.palette)
+    val readerDensity = LocalDensity.current
+    val readerLayoutDirection = LocalLayoutDirection.current
+    val displayCutout = WindowInsets.displayCutout
+    val readerInsets = readerContentInsetsDp(
+        cutoutLeftDp = displayCutout.getLeft(readerDensity, readerLayoutDirection) / readerDensity.density,
+        cutoutTopDp = displayCutout.getTop(readerDensity) / readerDensity.density,
+        cutoutRightDp = displayCutout.getRight(readerDensity, readerLayoutDirection) / readerDensity.density,
+        bottomGestureDp = maxOf(
+            WindowInsets.navigationBars.getBottom(readerDensity),
+            WindowInsets.mandatorySystemGestures.getBottom(readerDensity),
+        ) / readerDensity.density,
+        showReadingStatus = settings.showReadingStatus,
+    )
     Box(Modifier.fillMaxSize().background(background)) {
+        Box(
+            Modifier.fillMaxSize().padding(
+                start = readerInsets.left.dp,
+                top = readerInsets.top.dp,
+                end = readerInsets.right.dp,
+                bottom = readerInsets.bottom.dp,
+            ),
+        ) {
         if (settings.readingMode == ReaderMode.CONTINUOUS && !state.cleanMode) {
             ContinuousReaderPage(
                 state, actions, fontFamily, textColor, touchExploration,
@@ -352,6 +373,7 @@ internal fun ReaderScreen(
                     ::updateBrightness, ::resizeFont, { tick(); actions.onAddBookmark() }, ::acceptSelection,
                 )
             }
+        }
         }
 
         if (settings.extraDim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.extraDim.coerceIn(0f, 0.80f))))
