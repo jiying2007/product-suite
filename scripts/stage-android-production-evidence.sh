@@ -82,7 +82,8 @@ APK="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
 AAB="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
 MAPPING="$ANDROID_DIR/app/build/outputs/mapping/release/mapping.txt"
 SYMBOLS="$ANDROID_DIR/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip"
-for artifact in "$APK" "$AAB" "$MAPPING" "$SYMBOLS"; do
+DEPENDENCIES="$ANDROID_DIR/app/build/reports/jingdu-release-dependencies.txt"
+for artifact in "$APK" "$AAB" "$MAPPING" "$SYMBOLS" "$DEPENDENCIES"; do
   [[ -s "$artifact" ]] || {
     echo "required production evidence artifact missing: $artifact" >&2
     exit 1
@@ -139,11 +140,13 @@ APK_NAME="jingdu-$VERSION-release.apk"
 AAB_NAME="jingdu-$VERSION-release.aab"
 MAPPING_NAME="mapping-$VERSION.txt"
 SYMBOLS_NAME="native-debug-symbols-$VERSION.zip"
+DEPENDENCIES_NAME="release-dependencies-$VERSION.txt"
 
 cp "$APK" "$OUT/$APK_NAME"
 cp "$AAB" "$OUT/$AAB_NAME"
 cp "$MAPPING" "$OUT/$MAPPING_NAME"
 cp "$SYMBOLS" "$OUT/$SYMBOLS_NAME"
+cp "$DEPENDENCIES" "$OUT/$DEPENDENCIES_NAME"
 printf '%s\n' "$UPLOAD_CERT_SHA" > "$OUT/UPLOAD-CERT-SHA256.txt"
 
 SOURCE_MANIFEST_SHA="$(sha256sum "$SOURCE_MANIFEST" | awk '{print $1}')"
@@ -168,6 +171,7 @@ EOF
     "$AAB_NAME" \
     "$MAPPING_NAME" \
     "$SYMBOLS_NAME" \
+    "$DEPENDENCIES_NAME" \
     "UPLOAD-CERT-SHA256.txt" \
     "PROVENANCE.txt" > SHA256SUMS.txt
 )
