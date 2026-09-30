@@ -148,6 +148,19 @@ internal class ReaderContinuousLayout internal constructor(
  * Non-snapshot scroll model for the continuous hot path. Gesture deltas do not invalidate Compose;
  * the attached native viewport consumes offsets at most once per vsync.
  */
+internal fun readerContinuousBoundaryRequested(
+    requestedOffsetPx: Float,
+    currentOffsetPx: Float,
+    maxOffsetPx: Float,
+    overscrollPx: Float,
+): Boolean {
+    val overscroll = overscrollPx.coerceAtLeast(0f)
+    val hitTop = requestedOffsetPx < -overscroll && currentOffsetPx <= 1f
+    val hitBottom = requestedOffsetPx > maxOffsetPx + overscroll &&
+        currentOffsetPx >= (maxOffsetPx - 1f).coerceAtLeast(0f)
+    return hitTop || hitBottom
+}
+
 internal class ReaderContinuousScrollModel {
     var offsetPx: Float = 0f
         private set
@@ -371,10 +384,13 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
 
     private fun signalBoundaryHandoff(requestedOffset: Float, model: ReaderContinuousScrollModel) {
         val overscroll = 18f * density
-        val hitTop = requestedOffset < -overscroll && model.offsetPx <= 1f
-        val hitBottom = requestedOffset > model.maxOffsetPx + overscroll &&
-            model.offsetPx >= (model.maxOffsetPx - 1f).coerceAtLeast(0f)
-        if (!hitTop && !hitBottom) return
+        if (!readerContinuousBoundaryRequested(
+                requestedOffset,
+                model.offsetPx,
+                model.maxOffsetPx,
+                overscroll,
+            )
+        ) return
         val now = android.os.SystemClock.uptimeMillis()
         if (now - lastBoundarySignalAt < 180L) return
         lastBoundarySignalAt = now
