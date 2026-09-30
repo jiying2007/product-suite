@@ -30,4 +30,8 @@
     <string name="smart_clean_apply_warning">Only selected whole-line candidates are removed. Original TXT is never modified.</string>
     <string name="library_tagline_terminal">Long TXT · Smart Clean · Fully local</string>
     <string name="library_collections">Collections</string>
+    <string name="txt_health_layout_preview">Smart Layout preview</string>
+    <string name="txt_health_layout_before">Before</string>
+    <string name="txt_health_layout_after">After</string>
+    <string name="txt_health_layout_preview_note">Bounded current-page preview · %1$d likely hard-wrap joins</string>
 </resources>
