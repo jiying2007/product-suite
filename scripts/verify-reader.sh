@@ -171,7 +171,7 @@ require_literal "$screen" 'private data class ReaderPreparedPage' 'single prepar
 require_literal "$screen" 'val presented = ReaderPresentationPipeline.present(sourceText, settings)' 'prepared page presentation'
 require_literal "$screen" 'val snapshot = ReaderPageLayoutCache.measure' 'prepared page pagination'
 require_literal "$screen" 'val visibleText = if (visibleEnd <= 0)' 'prepared visible prefix'
-require_literal "$screen" 'readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, tts, settings)' 'annotation prepared after pagination'
+require_literal "$screen" 'readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, visualTts, settings)' 'annotation prepared after pagination with chunk-level TTS highlight'
 forbid_literal "$screen" 'produceState<ReaderPresentedText?>' 'two-stage paged presentation state'
 forbid_literal "$screen" 'produceState<PageLayoutSnapshot?>' 'two-stage paged layout state'
 forbid_literal "$screen" 'annotated.subSequence(0, visibleEnd)' 'post-annotation pagination'
