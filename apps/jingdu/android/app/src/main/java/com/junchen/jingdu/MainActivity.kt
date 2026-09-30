@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
     private val motionController = ReaderMotionController()
 
     private lateinit var repository: BookRepository
+    private lateinit var importCoordinator: ReaderImportCoordinator
     private lateinit var ttsCatalog: TtsController
     private lateinit var ttsEngineStore: TtsEngineStore
     private lateinit var readerPreferences: ReaderPreferences
@@ -206,6 +207,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         repository = BookRepository(this)
+        importCoordinator = ReaderImportCoordinator(repository)
         readerPreferences = ReaderPreferences(this)
         ruleLibrary = RuleLibrary(this)
         reviewPrompter = ReviewPrompter(this)
@@ -311,7 +313,7 @@ class MainActivity : ComponentActivity() {
     private fun importSharedText(text: String, displayName: String) {
         runWork(
             label = getString(R.string.busy_import_shared_text),
-            task = { repository.importSharedText(text, displayName) },
+            task = { importCoordinator.importSharedText(text, displayName) },
             success = { openBook(it, clean = false) },
             errorTitle = getString(R.string.error_import),
         )
@@ -348,30 +350,23 @@ class MainActivity : ComponentActivity() {
     private fun importUri(uri: Uri) {
         runWork(
             label = getString(R.string.busy_import),
-            task = { repository.importUri(uri, BookRepository.AUTO) },
+            task = { importCoordinator.importUri(uri) },
             success = { openBook(it, clean = false) },
             errorTitle = getString(R.string.error_import),
         )
     }
 
     private fun batchImportUris(uris: List<Uri>) {
-        val selected = uris.take(MAX_BATCH_IMPORT_FILES)
+        val selectedCount = minOf(uris.size, MAX_BATCH_IMPORT_FILES)
         runWork(
-            label = getString(R.string.busy_batch_import, selected.size),
-            task = {
-                var imported = 0
-                var failed = 0
-                selected.forEach { uri ->
-                    try { repository.importUri(uri, BookRepository.AUTO); imported++ } catch (_: Throwable) { failed++ }
-                }
-                imported to failed
-            },
-            success = { (imported, failed) ->
+            label = getString(R.string.busy_batch_import, selectedCount),
+            task = { importCoordinator.importBatch(uris, MAX_BATCH_IMPORT_FILES) },
+            success = { result ->
                 refreshLibrary()
                 showMessage(buildString {
-                    append(getString(R.string.batch_import_result, imported))
-                    if (failed > 0) append(getString(R.string.batch_import_failed_suffix, failed))
-                    if (uris.size > selected.size) append(getString(R.string.batch_import_limit_suffix, MAX_BATCH_IMPORT_FILES))
+                    append(getString(R.string.batch_import_result, result.imported))
+                    if (result.failed > 0) append(getString(R.string.batch_import_failed_suffix, result.failed))
+                    if (result.requested > result.selected) append(getString(R.string.batch_import_limit_suffix, MAX_BATCH_IMPORT_FILES))
                 })
             },
             errorTitle = getString(R.string.error_batch_import),
