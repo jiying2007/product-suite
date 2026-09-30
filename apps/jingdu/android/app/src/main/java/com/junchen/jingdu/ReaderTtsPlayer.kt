@@ -281,6 +281,6 @@ internal class ReaderTtsPlayer(
         const val MAX_RUNTIME_RETRIES = 3
         const val START_RETRY_MS = 250L
         const val RUNTIME_RETRY_MS = 450L
-        const val RANGE_PUBLISH_INTERVAL_MS = 90L
+        const val RANGE_PUBLISH_INTERVAL_MS = 400L
     }
 }
