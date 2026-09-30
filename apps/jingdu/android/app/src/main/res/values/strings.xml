@@ -266,4 +266,9 @@
     <string name="tts_preview_sample">Jingdu keeps reading and speech processing on your device.</string>
 
     <string name="txt_health_nudge">Check TXT Health from the Reader menu to review encoding, layout, TOC and noise.</string>
+
+    <string name="local_tts_engine">Local TTS engine</string>
+    <string name="local_tts_engine_hint">Choose an installed Android TTS engine. Offline or neural engines can stay fully on-device when their provider is local; Jingdu never sends book text to an engine over its own network.</string>
+    <string name="tts_engine_unavailable">That TTS engine is no longer installed. Choose another engine or System default.</string>
+
 </resources>
