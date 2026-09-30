@@ -63,6 +63,14 @@ The first-readable journeys and operation-level chapter/search/Smart Clean/TTS/s
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
 
 
+### Physical background TTS soak
+
+Long read-aloud stability is qualified separately from the next-chunk latency SLO. `.github/workflows/android-physical-tts-soak.yml` runs only on a self-hosted physical Android device against an explicit immutable `source_ref`, with a **30 or 60 minute** duration.
+
+The benchmark-only fixture provider starts the real production `TtsPlaybackService -> ReaderTtsPlayer -> TtsController` stack on the deterministic 100 MiB book, then the test backgrounds the Activity. Every retained minute must keep the same app PID, preserve monotonic persisted book progress, and continue advancing in at least 80% of retained samples. Peak total PSS must remain <= 512 MiB, and target ANR / fatal exception / OOM / foreground-service-timeout markers fail the run. Battery, thermal, meminfo, MediaSession and logcat evidence are retained.
+
+This workflow proves long-session stability only when it has actually run on a physical device with a working installed TTS engine. Repository presence is not a PASS.
+
 ### Physical long-session soak
 
 Long-session comfort is qualified independently from the short interaction SLO suite. `.github/workflows/android-physical-reader-soak.yml` dispatches only on a self-hosted physical Android runner against an explicit immutable `source_ref`, with a selectable **60 or 180 minute** duration. `PhysicalLongSessionSoakTest` opens the deterministic 100 MiB fixture and injects real `KEYCODE_VOLUME_DOWN` page turns every two seconds.
