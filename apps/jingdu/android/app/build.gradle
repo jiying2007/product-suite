@@ -113,6 +113,7 @@ def approvedReleasePermissions = [
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
     "android.permission.INTERNET",
+    "com.android.vending.BILLING",
 ] as Set
 
 tasks.register("verifyReleasePermissionAllowlist") {
