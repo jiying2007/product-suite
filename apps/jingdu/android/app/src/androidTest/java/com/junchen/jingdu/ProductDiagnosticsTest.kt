@@ -45,7 +45,8 @@ class ProductDiagnosticsTest {
             recentErrors = listOf(ProductErrorEvent(ProductErrorCode.BILLING_UNAVAILABLE, "billing.connect", 42)),
         )
         val payload = JSONObject(PrivacyAudit.toJson(context, result))
-        assertEquals(3, payload.getInt("schema"))
+        assertEquals(4, payload.getInt("schema"))
+        assertEquals("none", payload.getString("networkCapabilityScope"))
         assertTrue(payload.getBoolean("automaticBackupDisabled"))
         assertFalse(payload.getBoolean("containsBookText"))
         assertEquals("BILLING_UNAVAILABLE", payload.getJSONArray("recentErrors").getJSONObject(0).getString("code"))
