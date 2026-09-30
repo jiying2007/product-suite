@@ -38,7 +38,6 @@
     <string name="txt_health_title">TXT 健康</string>
     <string name="txt_health_subtitle">一次檢查編碼、排版、結構與干擾文字；全部分析只在本機完成。</string>
     <string name="txt_health_waiting">執行本機健康檢查後查看修復建議。</string>
-    <string name="txt_health_score">健康分 · %1$d/100</string>
     <string name="txt_health_good">這本 TXT 狀態良好，不需要高風險修復。</string>
     <string name="txt_health_notice">有少量問題可在不修改來源 TXT 的前提下改善。</string>
     <string name="txt_health_warning">這本 TXT 有值得在長時間閱讀前檢查的問題。</string>
