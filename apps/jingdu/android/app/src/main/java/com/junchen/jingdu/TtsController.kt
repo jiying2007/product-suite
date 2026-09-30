@@ -141,7 +141,7 @@ internal class TtsController(
                         offset = pendingNextOffset
                         listener?.onPosition(offset)
                     }
-                    speakNext(token)
+                    speakNext(generation.incrementAndGet())
                 }
             }
 
