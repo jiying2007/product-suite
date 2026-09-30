@@ -101,7 +101,7 @@ internal class BookRepository(context: Context) {
             return importTemporarySource(
                 sourceTemporary = sourceTemporary,
                 size = sourceTemporary.length(),
-                displayName = TextMetadataSanitizer.displayName(displayName, "Shared text.txt"),
+                displayName = TextMetadataSanitizer.displayName(displayName, "TXT"),
                 requestedEncoding = StandardCharsets.UTF_8.name(),
             )
         } catch (error: Throwable) {
