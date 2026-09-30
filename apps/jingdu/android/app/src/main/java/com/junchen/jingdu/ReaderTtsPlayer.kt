@@ -1,11 +1,5 @@
 package com.junchen.jingdu
 
-internal fun ttsRuntimeErrorRetryable(reason: String?): Boolean {
-    if (reason == "tts error" || reason == "tts error: speak failed") return true
-    if (reason?.startsWith("tts error: ") != true) return false
-    return reason.removePrefix("tts error: ").toIntOrNull() in setOf(-3, -4, -5, -6, -7)
-}
-
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -20,6 +14,12 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import java.io.File
+
+internal fun ttsRuntimeErrorRetryable(reason: String?): Boolean {
+    if (reason == "tts error" || reason == "tts error: speak failed") return true
+    if (reason?.startsWith("tts error: ") != true) return false
+    return reason.removePrefix("tts error: ").toIntOrNull() in setOf(-3, -4, -5, -6, -7)
+}
 
 internal data class ReaderTtsState(
     val active: Boolean = false,
