@@ -12,6 +12,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 - Single import, bounded Android shared-text import, SAF multi-select batch import and explicit user-selected folder roots are available without broad storage permission.
 - Removing a book never deletes the external TXT.
 - Favorites/tags remain local user metadata keyed by source identity.
+- Existing local tags double as user-owned **Collections** filters, so no second library taxonomy or migration is introduced; portable Reader asset backup retains them through the existing tag contract.
 - Smart collections expose Needs attention / Optimized without opening book payloads; library query/filter/sort remains metadata-only.
 
 ### Encoding / large files
