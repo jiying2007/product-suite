@@ -30,4 +30,8 @@
     <string name="smart_clean_apply_warning">仅删除已选中的整行候选；原始 TXT 永远不会被修改。</string>
     <string name="library_tagline_terminal">长篇 TXT · 智能净化 · 完全本地</string>
     <string name="library_collections">书架集合</string>
+    <string name="txt_health_layout_preview">智能排版前后预览</string>
+    <string name="txt_health_layout_before">修复前</string>
+    <string name="txt_health_layout_after">修复后</string>
+    <string name="txt_health_layout_preview_note">当前页有界预览 · 识别到约 %1$d 处硬换行合并</string>
 </resources>
