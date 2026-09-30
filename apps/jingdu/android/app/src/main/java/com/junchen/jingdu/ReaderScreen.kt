@@ -752,7 +752,7 @@ private fun ContinuousReaderPage(
         }
         val edge = (viewportHeight * 0.25f).roundToInt()
         val nearTop = y <= edge && currentWindow.start > 0
-        val nearBottom = scrollModel.maxOffsetPx > 0f &&
+        val nearBottom =
             scrollModel.maxOffsetPx - y.toFloat() <= edge.toFloat() &&
             currentWindow.start + currentWindow.map.sourceCodePoints < currentWindow.documentLength - 1
         if (nearTop || nearBottom) loadAround(absolute)
@@ -783,8 +783,10 @@ private fun ContinuousReaderPage(
             }
             if (samplePosition) settleContinuousPosition(scrollModel.offsetPx.roundToInt(), auto = true)
             val currentWindow = window ?: continue
-            if (scrollModel.maxOffsetPx > 0f && scrollModel.offsetPx >= scrollModel.maxOffsetPx - 1f &&
-                currentWindow.start + currentWindow.map.sourceCodePoints >= currentWindow.documentLength - 1) {
+            val atViewportEnd = scrollModel.offsetPx >= (scrollModel.maxOffsetPx - 1f).coerceAtLeast(0f)
+            val atDocumentEnd =
+                currentWindow.start + currentWindow.map.sourceCodePoints >= currentWindow.documentLength - 1
+            if (atViewportEnd && atDocumentEnd) {
                 actions.onSettingsChanged(settings.copy(autoScrollEnabled = false)); break
             }
         }
