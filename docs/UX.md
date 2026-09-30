@@ -77,7 +77,7 @@ Pro groups include:
 - searchable offline TTS voice selection with local preview, showing only voices the system engine marks as not requiring network;
 - portable local-user backup/restore.
 
-When no voice has been explicitly selected, Android infers a suitable `zh-CN`, `zh-TW`, `zh-HK` or English TTS locale from the current document text. A user-selected offline voice always has priority over automatic language selection.
+When no voice has been explicitly selected, Android infers a suitable `zh-CN`, `zh-TW`, `zh-HK` or English TTS locale from the current document text. Engine package selection is a device capability, not portable Reader backup state; changing engine clears an incompatible saved voice. A user-selected offline voice always has priority over automatic language selection.
 
 ## Portable backup UX
 
