@@ -11,7 +11,8 @@ SMART CLEAN, LOCALLY
 • Scan repeated lines, URLs, site promotion and common watermark/noise patterns entirely on-device
 • See the exact text, occurrence count and confidence before changing anything
 • Manual exact replace/delete rules remain available without Pro
-• Jingdu Pro can apply smart suggestions, use safe whole-line wildcard rules and maintain a reusable global rule library
+• Applying selected Smart Clean suggestions for the current book is Free, with one-step undo
+• Jingdu Pro adds safe whole-line wildcard rules, a reusable global rule library and batch automation
 • Clean preview never overwrites original reading progress or bookmark offsets
 • The external TXT is never modified; export a separate cleaned TXT whenever you want
 
@@ -28,7 +29,8 @@ READ COMFORTABLY
 • Reading progress, full-text search, generated chapters and revision-safe bookmarks
 
 LONG-SESSION TOOLS
-• Android system Text-to-Speech, using the TTS engine configured on your device
+• Choose an installed Android TTS engine; local/offline or neural engines stay on-device when their provider is local
+• Search and preview installed offline voices
 • Speech rate and pitch
 • Auto paging
 • Sleep timer
@@ -44,10 +46,10 @@ PRIVACY FIRST
 • External source files are never modified or deleted
 
 JINGDU PRO
-Core reading is not chopped into a paywall. Import, encoding recovery, large-file reading, search, chapters, bookmarks, typography, basic TTS and exact per-book Clean rules remain usable.
+Core reading is not chopped into a paywall. Import, encoding recovery, large-file reading, TXT Health, search, chapters, bookmarks, typography, basic TTS, exact per-book Clean rules and selected single-book Smart Clean apply/undo remain usable.
 
 Pro is a one-time purchase for local automation and reusable assets:
-• Apply Smart Clean suggestions
+• Batch diagnostics and explicit safe batch apply
 • Safe whole-line wildcard rules
 • Global Clean rule library
 • Recommended Chinese web-novel patterns

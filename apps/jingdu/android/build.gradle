@@ -15,6 +15,8 @@ tasks.register("androidCheck") {
             ":app:testDebugUnitTest",
             ":app:lintDebug",
             ":app:lintRelease",
+            ":app:verifyReleasePermissionAllowlist",
+            ":app:writeReleaseDependencyInventory",
             ":app:assembleDebug",
             ":app:bundleRelease",
             ":app:assembleDebugAndroidTest",
@@ -27,7 +29,7 @@ tasks.register("androidCheck") {
 tasks.register("androidStoreCheck") {
     group = "verification"
     description = "Validates final identity/signing and builds release APK/AAB."
-    dependsOn(":app:validateStoreRelease", ":app:lintRelease", ":app:assembleRelease", ":app:bundleRelease")
+    dependsOn(":app:validateStoreRelease", ":app:verifyReleasePermissionAllowlist", ":app:writeReleaseDependencyInventory", ":app:lintRelease", ":app:assembleRelease", ":app:bundleRelease")
 }
 
 tasks.register("stageAndroidRelease", Copy) {

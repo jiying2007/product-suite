@@ -10,10 +10,10 @@
     <string name="library_sort_label">排序</string>
     <string name="favorite_book">加入收藏</string>
     <string name="unfavorite_book">取消收藏</string>
-    <string name="edit_tags">编辑标签</string>
-    <string name="book_tags_title">本地标签</string>
-    <string name="book_tags_body">使用逗号分隔，标签只保存在本机。</string>
-    <string name="book_tags_hint">长篇、重读、喜欢的作者</string>
+    <string name="edit_tags">编辑标签 / 集合</string>
+    <string name="book_tags_title">标签与书架集合</string>
+    <string name="book_tags_body">用逗号分隔；本地标签也会成为书库中的集合筛选，并随 Reader 资产备份保留。</string>
+    <string name="book_tags_hint">科幻、重读、喜欢的作者</string>
     <string name="save">保存</string>
     <string name="status_unread">未读</string>
     <string name="status_reading">阅读中</string>
@@ -29,4 +29,9 @@
     <string name="smart_clean_undone">已恢复到上一次智能净化前的规则。</string>
     <string name="smart_clean_apply_warning">仅删除已选中的整行候选；原始 TXT 永远不会被修改。</string>
     <string name="library_tagline_terminal">长篇 TXT · 智能净化 · 完全本地</string>
+    <string name="library_collections">书架集合</string>
+    <string name="txt_health_layout_preview">智能排版前后预览</string>
+    <string name="txt_health_layout_before">修复前</string>
+    <string name="txt_health_layout_after">修复后</string>
+    <string name="txt_health_layout_preview_note">当前页有界预览 · 识别到约 %1$d 处硬换行合并</string>
 </resources>

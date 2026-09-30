@@ -66,6 +66,8 @@ Repository source:
 - `fastlane/metadata/android/zh-TW/`
 - `fastlane/metadata/android/zh-HK/`
 - `fastlane/metadata/android/en-US/`
+- `fastlane/metadata/android/ja-JP/`
+- `fastlane/metadata/android/ko-KR/`
 
 Expected titles:
 
@@ -73,6 +75,10 @@ Expected titles:
 - `zh-TW`: `淨讀 - TXT 小說閱讀器`
 - `zh-HK`: `淨讀 - TXT 小說閱讀器`
 - `en-US`: `Jingdu - TXT Novel Reader`
+- `ja-JP`: `Jingdu - TXT小説リーダー`
+- `ko-KR`: `Jingdu - TXT 소설 리더`
+
+Japanese/Korean are **store-discovery locales**, not claims of first-class in-app UI localization. Their full descriptions disclose that the current app UI is zh-Hans / zh-Hant / English and that unsupported system languages fall back to English.
 
 English localization communicates the same Chinese-TXT-depth product and must not imply EPUB/PDF/cloud catalog support.
 
@@ -165,7 +171,7 @@ Before uploading Android 2.3.x:
 - archive signed APK/AAB, mapping, SHA256 manifest and signing certificate fingerprint;
 - complete physical-device matrix and release SLO evidence from `PRODUCTION_READINESS.md`;
 - confirm Billing product and all four localized product descriptions are active before advertising Pro as purchasable;
-- confirm all four default listings and intended Custom Listings are uploaded from repository SSOT;
+- confirm all six default listings and intended Custom Listings are uploaded from repository SSOT;
 - confirm Data safety / privacy declarations remain consistent with no text upload, no advertising SDK and no analytics SDK;
 - complete the App content declarations in section 9, including the `mediaPlayback` foreground-service declaration;
 - capture actual GitHub `main`/`v*` protection evidence;
@@ -175,7 +181,7 @@ Before uploading Android 2.3.x:
 
 Verify in production Play:
 
-- `zh-CN / zh-TW / zh-HK / en-US` default titles/descriptions render correctly;
+- `zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR` default titles/descriptions render correctly;
 - search-keyword listings route to the intended localized page;
 - product title/description and price are localized correctly;
 - purchase/restore works on a real production-installed build;

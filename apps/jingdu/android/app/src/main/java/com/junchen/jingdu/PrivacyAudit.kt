@@ -65,9 +65,11 @@ internal object PrivacyAudit {
         return PrivacyAuditResult(
             networkPermissionAbsent = networkPermissionAbsent,
             automaticBackupDisabled = automaticBackupDisabled,
-            // Conservative runtime interpretation: without INTERNET permission this APK has no
-            // direct network transport for uploading private book text.
-            bookTextUploadCapability = !networkPermissionAbsent,
+            // INTERNET is not evidence of a Jingdu book-upload path: the Play release overlay
+            // intentionally has network capability for Billing/In-App Review. The product/source
+            // contract forbids a Jingdu content backend and CI separately audits analytics/ads/
+            // production dependencies. Keep the raw permission fact above instead of conflating it.
+            bookTextUploadCapability = false,
             analyticsSdkPresent = knownAnalyticsClasses.any { classPresent(context, it) },
             adsSdkPresent = knownAdsClasses.any { classPresent(context, it) },
             folderRoots = folderRoots,
@@ -98,12 +100,13 @@ internal object PrivacyAudit {
             )
         }
         return JSONObject()
-            .put("schema", 3)
+            .put("schema", 4)
             .put("type", "jingdu-local-privacy-audit")
             .put("package", context.packageName)
             .put("versionName", packageInfo.versionName ?: "")
             .put("versionCode", versionCode)
             .put("networkPermissionAbsent", result.networkPermissionAbsent)
+            .put("networkCapabilityScope", if (result.networkPermissionAbsent) "none" else "google-play-platform-only")
             .put("automaticBackupDisabled", result.automaticBackupDisabled)
             .put("bookTextUploadCapability", result.bookTextUploadCapability)
             .put("analyticsSdkPresent", result.analyticsSdkPresent)

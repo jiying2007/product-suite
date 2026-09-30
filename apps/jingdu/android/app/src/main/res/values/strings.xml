@@ -51,7 +51,7 @@
     <string name="original_text">Original</string>
     <string name="export_txt">Export TXT</string>
     <string name="smart_clean">Smart Clean</string>
-    <string name="smart_clean_body">Scan repeated lines, URLs, site promotions and watermarks locally. Scanning and preview are always free.</string>
+    <string name="smart_clean_body">Smart Clean scans and applies selected safe suggestions locally for every reader; source TXT is never changed. Pro is reserved for reusable and batch automation.</string>
     <string name="rescan_noise">Scan again</string>
     <string name="scan_noise_free">Scan distracting text</string>
     <string name="no_noise_found">No high-confidence distracting text found. You can still use manual rules.</string>
@@ -74,7 +74,7 @@
     <string name="global_rule_library">Global rule library</string>
     <string name="global_rule_body">Global rules participate in Clean generation for every book, so your personal ad/watermark cleanup assets improve over time.</string>
     <string name="pro_lifetime_title">One-time purchase, local advanced features for life</string>
-    <string name="pro_lifetime_body">Unlock one-tap Smart Clean application, whole-line wildcards, global rules, rule import/export, offline voice selection and local asset backup. Reading, search, chapters, bookmarks, typography and basic TTS stay free.</string>
+    <string name="pro_lifetime_body">One-time purchase for reusable local automation: whole-line wildcard rules, global rule library, batch diagnostics/apply, offline voice selection, rule import/export and local asset backup. Single-book Smart Clean, basic reading, search, TOC, bookmarks, layout and system TTS remain free.</string>
     <string name="unlock_jingdu_pro">Unlock Jingdu Pro%1$s</string>
     <string name="restore_purchase">Restore purchase</string>
     <string name="install_recommended_rules">Add recommended rules</string>
@@ -223,4 +223,51 @@
     <string name="import_mode_hint">Choose how you want to add books to your library.</string>
     <string name="single_import_hint">Choose one TXT and preview its text and encoding before opening.</string>
     <string name="batch_import_picker_hint">Choose several TXT files at once. If your system picker shows no checkboxes, long-press one file to start multi-select.</string>
+
+    <string name="pro_badge">Pro</string>
+    <string name="busy_import_shared_text">Importing shared text…</string>
+    <string name="busy_txt_health">Checking TXT health…</string>
+    <string name="error_txt_health">TXT health check failed</string>
+    <string name="txt_health_title">TXT Health</string>
+    <string name="txt_health_subtitle">Check encoding, layout, structure and noise in one place. All analysis stays on this device.</string>
+    <string name="txt_health_waiting">Run the local health check to see repair guidance.</string>
+    <string name="txt_health_good">This TXT is in good shape. No risky repair is required.</string>
+    <string name="txt_health_notice">A few issues can be improved without changing the source TXT.</string>
+    <string name="txt_health_warning">This TXT has issues worth reviewing before a long reading session.</string>
+    <string name="txt_health_encoding">Encoding</string>
+    <string name="txt_health_encoding_detail">%1$s · integrity %2$d/100</string>
+    <string name="txt_health_layout">Smart Layout</string>
+    <string name="txt_health_layout_detected">Likely fixed-width hard wrapping detected; about %1$d safe joins were found in bounded samples.</string>
+    <string name="txt_health_layout_good">No strong hard-wrap signal was found in bounded samples.</string>
+    <string name="txt_health_layout_on">Smart Layout on</string>
+    <string name="txt_health_enable">Enable Smart Layout</string>
+    <string name="txt_health_toc">Smart TOC</string>
+    <string name="txt_health_toc_detail">%1$d chapters · %2$d anomalies · score %3$d/100</string>
+    <string name="txt_health_clean">Smart Clean</string>
+    <string name="txt_health_clean_detail">%1$d candidate groups · score %2$d/100</string>
+    <string name="txt_health_clean_now">Review and clean</string>
+    <string name="txt_health_review">Review</string>
+    <string name="txt_health_source_safe">Your source TXT stays unchanged. Repairs are local, derived and reversible.</string>
+    <string name="txt_health_recheck">Recheck TXT health</string>
+    <string name="txt_health_details">Open detailed TXT Doctor</string>
+    <string name="library_filter_attention">Needs attention</string>
+    <string name="library_filter_optimized">Optimized</string>
+    <string name="library_health_issues">TXT Health %1$d · %2$d items</string>
+    <string name="library_health_good">TXT Health %1$d · good</string>
+    <string name="library_optimized_badge">Smart Clean rules applied</string>
+    <string name="reader_advanced_typography">Advanced typography</string>
+    <string name="tts_choose_voice">Choose offline voice</string>
+    <string name="tts_search_voice">Search voices</string>
+    <string name="tts_preview_voice">Preview</string>
+    <string name="tts_select_voice">Use this voice</string>
+    <string name="tts_use_system_default">Use system default</string>
+    <string name="tts_no_voice_match">No matching offline voice.</string>
+    <string name="tts_preview_sample">Jingdu keeps reading and speech processing on your device.</string>
+
+    <string name="txt_health_nudge">Check TXT Health from the Reader menu to review encoding, layout, TOC and noise.</string>
+
+    <string name="local_tts_engine">Local TTS engine</string>
+    <string name="local_tts_engine_hint">Choose an installed Android TTS engine. Offline or neural engines can stay fully on-device when their provider is local; Jingdu never sends book text to an engine over its own network.</string>
+    <string name="tts_engine_unavailable">That TTS engine is no longer installed. Choose another engine or System default.</string>
+
 </resources>

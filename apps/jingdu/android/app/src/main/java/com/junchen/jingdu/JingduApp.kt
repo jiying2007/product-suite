@@ -55,7 +55,10 @@ data class JingduActions(
     val onInstallRecommendedRules: () -> Unit, val onExportGlobalRules: () -> Unit, val onImportGlobalRules: () -> Unit,
     val onUpgradePro: () -> Unit, val onRestorePro: () -> Unit, val onExportBackup: () -> Unit, val onImportBackup: () -> Unit,
     val onToggleCleanPreview: () -> Unit, val onExportClean: () -> Unit, val onEncodingSelected: (String) -> Unit,
-    val onSettingsChanged: (ReaderSettings) -> Unit, val onToggleTts: () -> Unit, val onToggleAutoPaging: () -> Unit,
+    val onSettingsChanged: (ReaderSettings) -> Unit,
+    val onTtsEngineSelected: (String) -> Unit = {},
+    val onPreviewTtsVoice: (String) -> Unit = {},
+    val onToggleTts: () -> Unit, val onToggleAutoPaging: () -> Unit,
     val onSleepTimer: (Int) -> Unit, val onRequestDeleteCurrent: () -> Unit, val onDismissDelete: () -> Unit,
     val onConfirmDeleteCurrent: () -> Unit, val onMessageConsumed: () -> Unit,
 )
@@ -279,6 +282,7 @@ fun JingduApp(
                 ReaderPanel.ANNOTATIONS -> ReaderAnnotationsPanel(state, trackedActions)
                 ReaderPanel.READING_MAP -> ReaderReadingMapPanel(state, trackedActions)
                 ReaderPanel.READING_HISTORY -> ReaderReadingHistoryPanel(state, trackedActions)
+                ReaderPanel.TXT_HEALTH -> TxtHealthPanel(state, trackedActions)
                 ReaderPanel.CLEAN -> CleanSheet(state, trackedActions)
                 ReaderPanel.SETTINGS -> ReaderSettingsScreen(state, trackedActions)
                 ReaderPanel.ENCODING -> EncodingSheet(state, trackedActions)

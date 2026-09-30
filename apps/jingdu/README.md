@@ -1,6 +1,6 @@
 # Jingdu / 净读
 
-Jingdu is the repository's current release-bearing product: an offline, privacy-first TXT reader focused on opening messy Chinese TXT correctly, safely cleaning distracting repeated/promotional text, and sustaining comfortable long-form reading.
+Jingdu is the repository's current release-bearing product: an offline, privacy-first TXT reader focused on opening messy Chinese TXT correctly, surfacing encoding/layout/TOC/noise problems through TXT Health, safely repairing them, and sustaining comfortable long-form reading.
 
 ## Platforms
 
@@ -14,7 +14,8 @@ Jingdu is the repository's current release-bearing product: an offline, privacy-
 - Normalized/clean revisions are immutable and content-addressed; `.jdx` is disposable cache, not identity.
 - Read/search/chapter/repair/speech/Smart Clean semantics after normalization come from the shared text engine rather than platform forks.
 - UI locale and book language are independent.
-- Smart Clean changes derived output only after explicit user Apply.
+- TXT Health persists scores/counts only and guides encoding, Smart Layout, Smart TOC and Smart Clean repair without retaining sampled book text.
+- Smart Clean changes derived output only after explicit user Apply; selected single-book apply/undo is Free, while reusable/batch automation is Pro.
 - Source files are never modified. The core Reader `src/main` manifest remains network-free; the Google Play `src/release` overlay requests `INTERNET` only for optional Billing/In-App Review. Jingdu has no developer-operated content or analytics backend.
 - Free remains a complete reader; `jingdu_pro_lifetime` is the current one-time Pro entitlement.
 

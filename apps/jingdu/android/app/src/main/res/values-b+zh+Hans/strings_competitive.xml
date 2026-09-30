@@ -79,4 +79,6 @@
 
     <string name="competitive_ok">确定</string>
     <string name="competitive_close">关闭</string>
+    <string name="privacy_network_absent">当前安装包没有 Android INTERNET 权限；阅读与修复不依赖网络。</string>
+    <string name="privacy_network_play_only">当前 Play 安装包的 INTERNET 仅用于可选 Google Play Billing / In-App Review；净读没有书籍正文后端。</string>
 </resources>

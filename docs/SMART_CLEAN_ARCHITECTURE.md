@@ -50,7 +50,7 @@ A later decision replaces the earlier contribution instead of double-counting co
 
 ## Apply / undo / batch semantics
 
-Smart Clean converts selected whole-line candidates into explicit local repair rules. Before applying a set, Jingdu stores one rule-only snapshot so the latest apply remains reversible without retaining book text.
+Smart Clean converts selected whole-line candidates into explicit local repair rules. Single-book selected apply + one-step undo is Free; reusable wildcard/global rules and batch automation remain Pro. Before applying a set, Jingdu stores one rule-only snapshot so the latest apply remains reversible without retaining book text.
 
 Pro batch automation follows the same rules across at most 100 library books:
 
@@ -89,7 +89,7 @@ Reader settings may contain up to 200 `source => target` phrase overrides. Overr
 
 ## Performance and privacy constraints
 
-- No Android INTERNET permission.
+- The core Reader `src/main` manifest has no `INTERNET`; the Google Play `src/release` overlay adds `INTERNET` only for optional Billing/In-App Review, with no Jingdu-operated content/analytics backend.
 - No runtime analytics/ads/account dependency.
 - No remote inference or remote rule update.
 - OpenCC operates on bounded UI/TTS strings; the reader window remains 6,000 characters.

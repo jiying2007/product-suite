@@ -1,10 +1,10 @@
-# UX — Android 2.3.x / Reader
+# UX — Android Reader / 2.4 product track
 
 ## Design direction
 
 Jingdu is a calm Material 3 reading product, not an engineering toolbar and not a paywall-first app. Library and Reader are the two product states. TXT Doctor, Search, Smart TOC, annotations, Clean, encoding and settings are contextual/product surfaces around the reading loop.
 
-Commercial UX follows one rule: **show useful local results before asking for money**. Free users must be able to read normally and inspect Smart Clean candidates; Pro appears only when automation/reusable assets are requested.
+Commercial UX follows one rule: **show useful local results before asking for money**. Free users must be able to read normally, run TXT Health, inspect Smart Clean candidates and apply/undo selected single-book suggestions; Pro appears only when reusable/cross-book automation or other reusable assets are requested.
 
 All user-facing copy is resource-backed. Android supports Simplified Chinese, Traditional Chinese and English; layouts must tolerate wording expansion and 200% font scale without relying on fixed Chinese string lengths. UI locale and document language are separate concepts.
 
@@ -13,16 +13,19 @@ All user-facing copy is resource-backed. Android supports Simplified Chinese, Tr
 - In-app brand follows the active locale (`净读` / `淨讀` / `Jingdu`); store discovery titles may include localized TXT-reader keywords.
 - Supporting privacy promise is localized from resources rather than embedded in Compose source.
 - Primary action imports one TXT; batch import/folder library are secondary explicit SAF actions.
-- Cards prioritize title/progress; favorite/tags/encoding/size/last-read are secondary.
-- Empty state explains mojibake rescue, TXT Doctor/Clean and privacy before file selection.
+- Cards prioritize title/progress; favorite/tags/TXT Health/optimization state/last-read are secondary. Encoding and byte size stay out of the normal card hierarchy.
+- User tags are exposed as **Collections** filters; editing tags therefore also edits local collection membership without duplicating metadata.
+- Smart collections expose Needs attention / Optimized.
+- Filter and collection controls wrap instead of living on a horizontally hidden rail, including at 200% font scale.
+- Empty state explains mojibake rescue, TXT Health/Clean and privacy before file selection.
 
 ## Reader
 
 - Text owns the screen; controls are overlays and can auto-hide for immersive reading.
 - Paged and continuous modes share the same authoritative source-offset model.
-- Search, Smart TOC, annotations and reading settings remain discoverable without permanently consuming text space.
+- TXT Health is a first-level Reader tool; Search, Smart TOC, annotations and reading settings remain discoverable without permanently consuming text space.
 - Page tap zones, horizontal swipe and optional volume-key paging must arbitrate cleanly with text selection/TTS/auto motion.
-- Reader settings use categorized full-screen navigation for advanced configuration rather than one oversized sheet.
+- Reader settings use categorized full-screen navigation for advanced configuration rather than one oversized sheet; common typography remains visible while letter/paragraph spacing, custom font, indentation/alignment and named themes are progressively disclosed.
 - Selection/highlight/note ranges are mapped back to source coordinates even when display transformations are active.
 - Reading Map/history/remaining-time surfaces are local Reader aids, not analytics.
 - System back closes an active panel before Reader → Library; predictive back remains compatible.
@@ -35,8 +38,8 @@ All user-facing copy is resource-backed. Android supports Simplified Chinese, Tr
 2. The localized free-scan action runs locally.
 3. Results show localized reason plus exact text, count and confidence/model signals.
 4. User can include/exclude candidates and record KEEP/PROTECT/DELETE intent.
-5. Only applying selected suggestions asks for Pro when not owned.
-6. After purchase, the same selection is applied and Clean preview opens.
+5. Applying the selected suggestions for this book is Free and creates a reversible derived Clean revision.
+6. Pro is offered only for wildcard/global rules, batch automation, portable reusable assets or selectable installed offline voices.
 
 Core candidate reasons are stable codes; the Android UI maps those codes to the active locale. Smart Clean content detection itself covers Simplified and Traditional common promotion/watermark forms and never follows the UI locale.
 
@@ -73,10 +76,10 @@ Free groups include:
 5. sleep timer, gesture defaults and accessibility-oriented presets.
 
 Pro groups include:
-- offline TTS voice selection, showing only voices the system engine marks as not requiring network;
+- searchable offline TTS voice selection with local preview, showing only voices the system engine marks as not requiring network;
 - portable local-user backup/restore.
 
-When no voice has been explicitly selected, Android infers a suitable `zh-CN`, `zh-TW`, `zh-HK` or English TTS locale from the current document text. A user-selected offline voice always has priority over automatic language selection.
+When no voice has been explicitly selected, Android infers a suitable `zh-CN`, `zh-TW`, `zh-HK` or English TTS locale from the current document text. Engine package selection is a device capability, not portable Reader backup state; changing engine clears an incompatible saved voice. A user-selected offline voice always has priority over automatic language selection.
 
 ## Portable backup UX
 

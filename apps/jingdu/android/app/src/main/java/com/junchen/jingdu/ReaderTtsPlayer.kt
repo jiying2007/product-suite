@@ -32,11 +32,12 @@ internal data class ReaderTtsState(
 internal class ReaderTtsPlayer(
     context: Context,
     private val onState: (ReaderTtsState) -> Unit,
+    engineName: String? = null,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private val appContext = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val reader = ReaderController()
-    private val engine = TtsController(appContext)
+    private val engine = TtsController(appContext, engineName = engineName)
     private var active = false
     private var playing = false
     private var offset = 0L

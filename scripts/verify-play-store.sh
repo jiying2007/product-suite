@@ -10,7 +10,7 @@ app_gradle = (root / 'apps/jingdu/android/app/build.gradle').read_text(encoding=
 target_match = re.search(r'\btargetSdk\s*=\s*(\d+)', app_gradle)
 if target_match is None or int(target_match.group(1)) < 36:
     raise SystemExit('Google Play mobile release requires targetSdk >= 36')
-locales = ['zh-CN', 'zh-TW', 'zh-HK', 'en-US']
+locales = ['zh-CN', 'zh-TW', 'zh-HK', 'en-US', 'ja-JP', 'ko-KR']
 limits = {'title.txt': 30, 'short_description.txt': 80, 'full_description.txt': 4000}
 for locale in locales:
     base = root / 'fastlane' / 'metadata' / 'android' / locale
@@ -29,6 +29,8 @@ expected_titles = {
     'zh-TW': '淨讀 - TXT 小說閱讀器',
     'zh-HK': '淨讀 - TXT 小說閱讀器',
     'en-US': 'Jingdu - TXT Novel Reader',
+    'ja-JP': 'Jingdu - TXT小説リーダー',
+    'ko-KR': 'Jingdu - TXT 소설 리더',
 }
 for locale, expected in expected_titles.items():
     title = (root / f'fastlane/metadata/android/{locale}/title.txt').read_text(encoding='utf-8').strip()
@@ -129,8 +131,13 @@ grep -q 'Purchase.PurchaseState.PURCHASED' apps/jingdu/android/app/src/main/java
 grep -q 'acknowledgePurchase' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BillingManager.kt
 
 grep -q 'R.string.scan_noise_free' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
-grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+grep -q 'R.string.apply_selected_preview' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt
+if grep -q 'R.string.unlock_pro_apply' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSheets.kt; then
+  echo 'single-book Smart Clean apply must remain Free; Pro begins at reusable/batch automation' >&2
+  exit 1
+fi
 grep -q 'R.string.offline_voice' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
+grep -q 'R.string.local_tts_engine' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'R.string.local_asset_backup' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'R.string.privacy_policy' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt
 grep -q 'Intent.ACTION_VIEW' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSettingsScreen.kt

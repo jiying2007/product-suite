@@ -51,7 +51,9 @@ class MainActivity : ComponentActivity() {
     private val motionController = ReaderMotionController()
 
     private lateinit var repository: BookRepository
+    private lateinit var importCoordinator: ReaderImportCoordinator
     private lateinit var ttsCatalog: TtsController
+    private lateinit var ttsEngineStore: TtsEngineStore
     private lateinit var readerPreferences: ReaderPreferences
     private lateinit var ruleLibrary: RuleLibrary
     private lateinit var userBackup: UserBackup
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var fontStore: ReaderFontStore
     private lateinit var statsStore: ReaderStatsStore
     private lateinit var smartTocCache: SmartTocCacheStore
+    private lateinit var txtHealthStore: TxtHealthStore
     @Volatile private var proUnlocked = false
     @Volatile private var chapterWorkKey: String? = null
     private var reader: ReaderController
@@ -175,6 +178,8 @@ class MainActivity : ComponentActivity() {
             onExportClean = ::exportClean,
             onEncodingSelected = ::redecode,
             onSettingsChanged = ::updateSettings,
+            onTtsEngineSelected = ::selectTtsEngine,
+            onPreviewTtsVoice = { voice -> ttsCatalog.previewVoice(voice, getString(R.string.tts_preview_sample)) },
             onToggleTts = ::toggleTts,
             onToggleAutoPaging = ::toggleAutoPaging,
             onSleepTimer = ::setSleepTimer,
@@ -202,6 +207,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         repository = BookRepository(this)
+        importCoordinator = ReaderImportCoordinator(repository)
         readerPreferences = ReaderPreferences(this)
         ruleLibrary = RuleLibrary(this)
         reviewPrompter = ReviewPrompter(this)
@@ -212,7 +218,9 @@ class MainActivity : ComponentActivity() {
         fontStore = ReaderFontStore(this)
         statsStore = ReaderStatsStore(this)
         smartTocCache = SmartTocCacheStore(this)
-        ttsCatalog = TtsController(this)
+        txtHealthStore = TxtHealthStore(this)
+        ttsEngineStore = TtsEngineStore(this)
+        ttsCatalog = TtsController(this, engineName = ttsEngineStore.load().ifBlank { null })
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
         refreshLibrary()
@@ -294,15 +302,21 @@ class MainActivity : ComponentActivity() {
         openBook(book = book, clean = state.getBoolean(STATE_CLEAN_MODE, false), restoredOverride = restoredPosition)
     }
 
-    private fun handleIncomingIntent(intent: Intent?) { incomingUri(intent)?.let { importUri(it) } }
-
-    private fun incomingUri(intent: Intent?): Uri? = when (intent?.action) {
-        Intent.ACTION_VIEW -> intent.data
-        Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(Intent.EXTRA_STREAM)
+    private fun handleIncomingIntent(intent: Intent?) {
+        when (val incoming = IncomingImportParser.parse(intent)) {
+            is IncomingImport.UriSource -> importUri(incoming.uri)
+            is IncomingImport.SharedText -> importSharedText(incoming.text, incoming.displayName)
+            null -> Unit
         }
-        else -> null
+    }
+
+    private fun importSharedText(text: String, displayName: String) {
+        runWork(
+            label = getString(R.string.busy_import_shared_text),
+            task = { importCoordinator.importSharedText(text, displayName) },
+            success = { openBook(it, clean = false) },
+            errorTitle = getString(R.string.error_import),
+        )
     }
 
     private fun refreshLibrary() { uiState = uiState.copy(books = repository.list().map(::toCard)) }
@@ -313,6 +327,9 @@ class MainActivity : ComponentActivity() {
             id = book.id, name = book.name, encoding = book.encoding, sizeBytes = book.size,
             progress = book.progress, charCount = book.charCount, touchedAt = book.touchedAt,
             normalizedSha256 = book.normalizedSha256, favorite = metadata.favorite, tags = metadata.tags,
+            healthScore = txtHealthStore.load(book.id)?.score,
+            healthIssues = txtHealthStore.load(book.id)?.issueCount ?: 0,
+            optimized = bookRules(book).isNotEmpty(),
         )
     }
 
@@ -333,30 +350,23 @@ class MainActivity : ComponentActivity() {
     private fun importUri(uri: Uri) {
         runWork(
             label = getString(R.string.busy_import),
-            task = { repository.importUri(uri, BookRepository.AUTO) },
+            task = { importCoordinator.importUri(uri) },
             success = { openBook(it, clean = false) },
             errorTitle = getString(R.string.error_import),
         )
     }
 
     private fun batchImportUris(uris: List<Uri>) {
-        val selected = uris.take(MAX_BATCH_IMPORT_FILES)
+        val selectedCount = minOf(uris.size, MAX_BATCH_IMPORT_FILES)
         runWork(
-            label = getString(R.string.busy_batch_import, selected.size),
-            task = {
-                var imported = 0
-                var failed = 0
-                selected.forEach { uri ->
-                    try { repository.importUri(uri, BookRepository.AUTO); imported++ } catch (_: Throwable) { failed++ }
-                }
-                imported to failed
-            },
-            success = { (imported, failed) ->
+            label = getString(R.string.busy_batch_import, selectedCount),
+            task = { importCoordinator.importBatch(uris, MAX_BATCH_IMPORT_FILES) },
+            success = { result ->
                 refreshLibrary()
                 showMessage(buildString {
-                    append(getString(R.string.batch_import_result, imported))
-                    if (failed > 0) append(getString(R.string.batch_import_failed_suffix, failed))
-                    if (uris.size > selected.size) append(getString(R.string.batch_import_limit_suffix, MAX_BATCH_IMPORT_FILES))
+                    append(getString(R.string.batch_import_result, result.imported))
+                    if (result.failed > 0) append(getString(R.string.batch_import_failed_suffix, result.failed))
+                    if (result.requested > result.selected) append(getString(R.string.batch_import_limit_suffix, MAX_BATCH_IMPORT_FILES))
                 })
             },
             errorTitle = getString(R.string.error_batch_import),
@@ -398,6 +408,7 @@ class MainActivity : ComponentActivity() {
             noiseCandidates = emptyList(),
             smartCleanAnalyzed = false,
             smartCleanUndoAvailable = cleanHistory.has(book.id),
+            txtHealthReport = null,
         )
 
         workers.execute {
@@ -429,12 +440,23 @@ class MainActivity : ComponentActivity() {
                     repository.pruneCleanRevisions(book, if (clean) file else null)
                     NativeIndexCache.pruneOrphans(repository.normalizedFile(book).parentFile)
                     previousReader.close()
-                    uiState = uiState.copy(busyLabel = null, currentBook = toCard(book), cleanMode = clean, smartCleanUndoAvailable = cleanHistory.has(book.id))
+                    uiState = uiState.copy(
+                        busyLabel = null,
+                        currentBook = toCard(book),
+                        cleanMode = clean,
+                        smartCleanUndoAvailable = cleanHistory.has(book.id),
+                    )
                     statsStore.begin(book.id, candidate.position())
                     refreshAnnotations()
                     render()
                     refreshLibrary()
-                    if (!clean && previousBook?.id != book.id) reviewPrompter.recordBookOpened()
+                    if (!clean && previousBook?.id != book.id) {
+                        reviewPrompter.recordBookOpened()
+                        if (txtHealthStore.shouldNudge(book.id)) {
+                            txtHealthStore.markNudged(book.id)
+                            showMessage(getString(R.string.txt_health_nudge))
+                        }
+                    }
                 }
             } catch (error: Throwable) {
                 candidate.close()
@@ -559,7 +581,7 @@ class MainActivity : ComponentActivity() {
             cleanMode = false, panel = null, busyLabel = null, searchQuery = "", searchResults = emptyList(),
             chapters = emptyList(), chaptersLoaded = false, bookmarks = emptyList(), repairRules = emptyList(),
             globalRules = ruleLibrary.load(), noiseCandidates = emptyList(), smartCleanAnalyzed = false,
-            smartCleanUndoAvailable = false,
+            smartCleanUndoAvailable = false, txtHealthReport = null,
         )
     }
 
@@ -581,8 +603,32 @@ class MainActivity : ComponentActivity() {
             ReaderPanel.BOOKMARKS -> refreshBookmarks()
             ReaderPanel.CLEAN -> refreshRules()
             ReaderPanel.SETTINGS -> refreshTtsVoices()
+            ReaderPanel.TXT_HEALTH -> diagnoseTxtHealth()
             else -> Unit
         }
+    }
+
+    private fun diagnoseTxtHealth() {
+        val book = currentBook ?: return
+        runWork(
+            label = getString(R.string.busy_txt_health),
+            task = {
+                ReaderController().use { source ->
+                    source.open(repository.normalizedFile(book), 0)
+                    TxtDoctor.diagnose(source, book)
+                }
+            },
+            success = { report ->
+                txtHealthStore.save(book.id, report)
+                uiState = uiState.copy(
+                    panel = ReaderPanel.TXT_HEALTH,
+                    txtHealthReport = report,
+                    currentBook = toCard(book),
+                )
+                refreshLibrary()
+            },
+            errorTitle = getString(R.string.error_txt_health),
+        )
     }
 
     private fun search(query: String) {
@@ -764,7 +810,6 @@ class MainActivity : ComponentActivity() {
 
     private fun applySmartClean() {
         val book = currentBook ?: return
-        if (!proUnlocked) { billing.purchase(); return }
         val selected = uiState.noiseCandidates.filter { it.selected }
         if (selected.isEmpty()) return showMessage(getString(R.string.select_clean_suggestion))
         cleanHistory.save(book.id, bookRulesPacked(book))
@@ -981,7 +1026,35 @@ class MainActivity : ComponentActivity() {
         return (fraction * (newLength - 1).toDouble()).roundToLong().coerceIn(0, newLength - 1)
     }
 
-    private fun refreshTtsVoices() { uiState = uiState.copy(ttsVoices = ttsCatalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) }) }
+    private fun refreshTtsVoices() {
+        uiState = uiState.copy(
+            ttsVoices = ttsCatalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) },
+            ttsEngines = ttsCatalog.installedEngines().map { TtsEngineModel(it.name, it.label) },
+            ttsEngineName = ttsEngineStore.load(),
+        )
+    }
+
+    private fun selectTtsEngine(packageName: String) {
+        if (!proUnlocked) { billing.purchase(); return }
+        val selected = packageName.trim().take(255)
+        if (selected.isNotEmpty() && ttsCatalog.installedEngines().none { it.name == selected }) {
+            showMessage(getString(R.string.tts_engine_unavailable))
+            return
+        }
+        stopTts()
+        runCatching { stopService(Intent(this, TtsPlaybackService::class.java)) }
+        ttsEngineStore.save(selected)
+        ttsCatalog.close()
+        ttsCatalog = TtsController(this, engineName = selected.ifBlank { null })
+        val reset = uiState.settings.copy(ttsVoiceName = "")
+        readerPreferences.save(reset)
+        uiState = uiState.copy(
+            settings = reset,
+            ttsEngineName = selected,
+            ttsVoices = emptyList(),
+        )
+        main.postDelayed(::refreshTtsVoices, 750L)
+    }
 
     private fun updateSettings(settings: ReaderSettings) {
         if (settings.ttsVoiceName != uiState.settings.ttsVoiceName && !proUnlocked) { billing.purchase(); return }
@@ -1116,6 +1189,7 @@ class MainActivity : ComponentActivity() {
         annotationStore.clearBook(book.id)
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
+        txtHealthStore.remove(book.id)
         currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
         uiState = uiState.copy(
             screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
@@ -1135,6 +1209,7 @@ class MainActivity : ComponentActivity() {
         annotationStore.clearBook(book.id)
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
+        txtHealthStore.remove(book.id)
         refreshLibrary()
         showMessage(getString(R.string.removed_from_library))
     }

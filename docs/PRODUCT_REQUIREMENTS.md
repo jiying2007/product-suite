@@ -1,4 +1,4 @@
-# Product Requirements — Android 2.3.x / Reader
+# Product Requirements — Android Reader / 2.4 product track
 
 ## Objective
 
@@ -8,10 +8,12 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 
 ### Library / import
 - Normal launch lands on Library.
-- Cards show title, encoding, size, last activity and progress.
-- Single import, SAF multi-select batch import and explicit user-selected folder roots are available without broad storage permission.
+- Cards prioritize title, reading state, last activity and progress; tags, TXT Health and optimization state are secondary metadata rather than encoding/size clutter.
+- Single import, bounded Android shared-text import, SAF multi-select batch import and explicit user-selected folder roots are available without broad storage permission.
 - Removing a book never deletes the external TXT.
 - Favorites/tags remain local user metadata keyed by source identity.
+- Existing local tags double as user-owned **Collections** filters, so no second library taxonomy or migration is introduced; portable Reader asset backup retains them through the existing tag contract.
+- Smart collections expose Needs attention / Optimized without opening book payloads; library query/filter/sort remains metadata-only.
 
 ### Encoding / large files
 - AUTO is default; manual re-decode works from retained private source bytes.
@@ -31,15 +33,16 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 
 ## P0 Smart Clean requirements
 
-### Free value demonstration
+### Free single-book rescue
 - Smart Clean scan is fully local and available to Free users.
 - It detects bounded-line high-frequency repetition, URLs/domains and common promotional/watermark markers.
 - Candidate UI shows exact text, reason, occurrence count and confidence before any purchase request.
 - User controls candidate selection; scan never modifies content.
+- Applying selected candidates for the current book and one-step undo remain Free and create only local derived rules/revisions.
 - KEEP/DELETE/PROTECT correction memory stores one-way fingerprints and decisions, never candidate/book text.
 
 ### Pro automation
-- Applying selected Smart Clean candidates requires Pro.
+- Pro begins at reusable/cross-book automation, not at repairing one book.
 - Safe whole-line wildcard rules use `*` matching and run in the shared Core; arbitrary regex is not accepted.
 - Existing exact literal rules remain Free.
 - Whole-line wildcard export must preserve ordinary content and change only matching lines.
@@ -73,7 +76,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 ## P1 retention requirements
 
 - Batch import handles partial failure and reports success/failure counts.
-- Pro can select from system TTS voices that report `isNetworkConnectionRequired == false`; Free keeps system-default TTS.
+- Pro can select an installed Android TTS engine and then select/search/preview voices that engine reports as not requiring network; Free keeps system-default TTS. Device-local engine package choice is not portable backup identity and falls back safely when unavailable.
 - Reading sessions/history/pace are local-only and never require analytics SDK/network upload.
 - Play In-App Review is milestone based after meaningful use; no first-launch prompt and no sentiment pre-screen.
 - Review request frequency is locally throttled.
@@ -81,9 +84,10 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 ## P0 ASO/store requirements
 
 - Default Simplified Chinese store title: `净读 - TXT 小说阅读器`.
+- Default Play discovery listings are maintained for zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR; ja-JP/ko-KR copy must disclose that the current in-app UI falls back to English.
 - Store metadata obeys Play title/short/full description length limits and avoids promotional superlatives in title.
 - Four search-intent Custom Listing specs exist: TXT reader, encoding rescue, Smart Clean/noise removal, local/private novel reading.
-- Screenshot brief tells a problem/solution story: mojibake rescue, TXT Doctor/noise detection, one-tap Pro automation, reading comfort, navigation, long-session tools, privacy.
+- Screenshot brief tells a problem/solution story: TXT Health, mojibake/layout/TOC/noise rescue, optional Pro batch automation, reading comfort, navigation, long-session tools and privacy.
 - Store claims must be supported by product behavior/device evidence; no unverifiable “秒开/最快/#1” claims.
 
 ## Privacy requirements
@@ -115,4 +119,4 @@ Source merge/source release is not Google Play production readiness. Before prod
 - active `jingdu_pro_lifetime` plus license-test purchase/pending/cancel/restore/offline/no-ownership behavior;
 - localized listing/policy state;
 - internal/closed Play-installed testing;
-- staged rollout with Vitals/crash/ANR evidence and source-tag/AAB-checksum traceability.
+- first-production publication or staged-update rollout evidence (as applicable), with Vitals/crash/ANR signals and source-tag/AAB-checksum traceability.

@@ -34,7 +34,7 @@ class TtsPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         repository = BookRepository(this)
-        player = ReaderTtsPlayer(this, ::onPlayerState)
+        player = ReaderTtsPlayer(this, ::onPlayerState, TtsEngineStore(this).load().ifBlank { null })
         val sessionActivity = PendingIntent.getActivity(
             this,
             0,

@@ -1,7 +1,7 @@
 package com.junchen.jingdu
 
 enum class AppScreen { LIBRARY, READER }
-enum class ReaderPanel { QUICK_SETTINGS, SEARCH, CHAPTERS, BOOKMARKS, ANNOTATIONS, READING_MAP, READING_HISTORY, CLEAN, SETTINGS, ENCODING, DOCTOR, SMART_CLEAN_LAB, PRIVACY }
+enum class ReaderPanel { QUICK_SETTINGS, SEARCH, CHAPTERS, BOOKMARKS, ANNOTATIONS, READING_MAP, READING_HISTORY, TXT_HEALTH, CLEAN, SETTINGS, ENCODING, DOCTOR, SMART_CLEAN_LAB, PRIVACY }
 enum class RepairRuleMode { LITERAL, LINE_GLOB }
 enum class LibraryBookStatus { UNREAD, READING, FINISHED }
 enum class LibrarySort { RECENT, NAME, PROGRESS }
@@ -19,6 +19,9 @@ data class BookCardModel(
     val normalizedSha256: String,
     val favorite: Boolean = false,
     val tags: List<String> = emptyList(),
+    val healthScore: Int? = null,
+    val healthIssues: Int = 0,
+    val optimized: Boolean = false,
 ) {
     val progressFraction: Float get() = if (charCount <= 0) 0f else (progress.toDouble() / charCount.toDouble()).toFloat().coerceIn(0f, 1f)
     val status: LibraryBookStatus get() = when {
@@ -76,6 +79,7 @@ data class NoiseCandidateModel(
 }
 
 data class TtsVoiceModel(val name: String, val label: String)
+data class TtsEngineModel(val name: String, val label: String)
 data class TtsPlaybackModel(
     val active: Boolean = false,
     val playing: Boolean = false,
@@ -113,11 +117,14 @@ data class AppUiState(
     val noiseCandidates: List<NoiseCandidateModel> = emptyList(),
     val smartCleanAnalyzed: Boolean = false,
     val smartCleanUndoAvailable: Boolean = false,
+    val txtHealthReport: TxtDoctorReport? = null,
     val proUnlocked: Boolean = false,
     val proAvailable: Boolean = false,
     val proConnected: Boolean = false,
     val proPrice: String? = null,
     val ttsVoices: List<TtsVoiceModel> = emptyList(),
+    val ttsEngines: List<TtsEngineModel> = emptyList(),
+    val ttsEngineName: String = "",
     val motion: ReaderMotionState = ReaderMotionState.IDLE,
     val tts: TtsPlaybackModel = TtsPlaybackModel(),
     val sleepMinutes: Int = 0,

@@ -75,9 +75,51 @@ internal class BookRepository(context: Context) {
     @Throws(Exception::class)
     fun importUri(uri: Uri, requestedEncoding: String?): Book {
         val sourceTemporary = File.createTempFile(".source-", ".tmp", root)
-        var normalizedTemporary: File? = null
         try {
             val size = copyUri(uri, sourceTemporary)
+            return importTemporarySource(
+                sourceTemporary = sourceTemporary,
+                size = size,
+                displayName = displayName(uri),
+                requestedEncoding = requestedEncoding,
+            )
+        } catch (error: Throwable) {
+            errorLog.record(ProductErrorClassifier.importFailure(error), "book.import")
+            throw error
+        } finally {
+            deleteTemporary(sourceTemporary)
+        }
+    }
+
+    @Synchronized
+    @Throws(Exception::class)
+    fun importSharedText(text: String, displayName: String): Book {
+        val sourceTemporary = File.createTempFile(".shared-", ".txt", root)
+        try {
+            val bounded = text.take(IncomingImportParser.MAX_SHARED_TEXT_CHARS)
+            sourceTemporary.outputStream().bufferedWriter(StandardCharsets.UTF_8).use { it.write(bounded) }
+            return importTemporarySource(
+                sourceTemporary = sourceTemporary,
+                size = sourceTemporary.length(),
+                displayName = TextMetadataSanitizer.displayName(displayName, "TXT"),
+                requestedEncoding = StandardCharsets.UTF_8.name(),
+            )
+        } catch (error: Throwable) {
+            errorLog.record(ProductErrorClassifier.importFailure(error), "book.import.shared-text")
+            throw error
+        } finally {
+            deleteTemporary(sourceTemporary)
+        }
+    }
+
+    private fun importTemporarySource(
+        sourceTemporary: File,
+        size: Long,
+        displayName: String,
+        requestedEncoding: String?,
+    ): Book {
+        var normalizedTemporary: File? = null
+        try {
             val sourceSha = NativeCore.fileSha256(sourceTemporary)
             val existing = findById(sourceSha)
             val directory = directory(sourceSha)
@@ -97,7 +139,7 @@ internal class BookRepository(context: Context) {
             val sameRevision = existing?.normalizedSha256 == normalizedSha
             val book = Book(
                 id = sourceSha,
-                name = displayName(uri),
+                name = TextMetadataSanitizer.displayName(displayName),
                 encoding = encoding,
                 size = size,
                 sourceSha256 = sourceSha,
@@ -109,11 +151,7 @@ internal class BookRepository(context: Context) {
             upsert(book)
             prewarmChapterIndex(book)
             return book
-        } catch (error: Throwable) {
-            errorLog.record(ProductErrorClassifier.importFailure(error), "book.import")
-            throw error
         } finally {
-            deleteTemporary(sourceTemporary)
             deleteTemporary(normalizedTemporary)
         }
     }
@@ -338,10 +376,12 @@ internal class BookRepository(context: Context) {
     private fun displayName(uri: Uri): String {
         runCatching {
             context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0)?.trim()?.takeIf(String::isNotEmpty)?.let { return it }
+                if (cursor.moveToFirst()) {
+                    return TextMetadataSanitizer.displayName(cursor.getString(0), uri.lastPathSegment ?: "TXT")
+                }
             }
         }
-        return uri.lastPathSegment ?: "TXT"
+        return TextMetadataSanitizer.displayName(uri.lastPathSegment, "TXT")
     }
 
     private fun directory(id: String): File = File(root, id)

@@ -120,6 +120,7 @@ internal fun SettingsList(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun TypographySettings(state: AppUiState, actions: JingduActions) = SettingsList {
     val s = state.settings
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
     fun visual(value: ReaderSettings) = actions.onSettingsChanged(value.copy(preset = ReaderPreset.CUSTOM, activeThemeId = ""))
     TypographyPreview(s)
     Section(stringResource(R.string.reader_preset)) {
@@ -129,23 +130,54 @@ private fun TypographySettings(state: AppUiState, actions: JingduActions) = Sett
             }
         }
     }
-    Section(stringResource(R.string.page_tone)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderPalette.entries) { value -> FilterChip(s.palette == value, { visual(s.copy(palette = value)) }, label = { Text(paletteLabel(value)) }) } } }
+    Section(stringResource(R.string.page_tone)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(ReaderPalette.entries) { value -> FilterChip(s.palette == value, { visual(s.copy(palette = value)) }, label = { Text(paletteLabel(value)) }) }
+        }
+    }
     Section(stringResource(R.string.font)) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderTypeface.entries) { value -> FilterChip(s.typeface == value, { visual(s.copy(typeface = value)) }, label = { Text(typefaceLabel(value)) }) } }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderFontWeight.entries) { value -> FilterChip(s.fontWeight == value, { visual(s.copy(fontWeight = value)) }, label = { Text(weightLabel(value)) }) } }
-        OutlinedButton(actions.onImportFont, Modifier.fillMaxWidth()) { Icon(Icons.Outlined.FontDownload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.reader_import_font)) }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(ReaderTypeface.entries.filter { it != ReaderTypeface.CUSTOM }) { value ->
+                FilterChip(s.typeface == value, { visual(s.copy(typeface = value)) }, label = { Text(typefaceLabel(value)) })
+            }
+        }
     }
     SettingSlider(stringResource(R.string.font_size), s.fontSizeSp, 14f..40f, "${s.fontSizeSp.roundToInt()}sp") { visual(s.copy(fontSizeSp = it)) }
     SettingSlider(stringResource(R.string.line_spacing), s.lineHeightMultiplier, 1.15f..2.2f, "%.2f×".format(s.lineHeightMultiplier)) { visual(s.copy(lineHeightMultiplier = it)) }
-    SettingSlider(stringResource(R.string.reader_letter_spacing), s.letterSpacingEm, -0.02f..0.12f, "%.2fem".format(s.letterSpacingEm)) { visual(s.copy(letterSpacingEm = it)) }
-    SettingSlider(stringResource(R.string.reader_paragraph_spacing), s.paragraphSpacingEm, 0f..1.5f, "%.2fem".format(s.paragraphSpacingEm)) { visual(s.copy(paragraphSpacingEm = it)) }
     SettingSlider(stringResource(R.string.side_margins), s.horizontalPaddingDp, 8f..56f, "${s.horizontalPaddingDp.roundToInt()}dp") { visual(s.copy(horizontalPaddingDp = it)) }
-    SettingSlider(stringResource(R.string.reader_vertical_margins), s.verticalPaddingDp, 4f..56f, "${s.verticalPaddingDp.roundToInt()}dp") { visual(s.copy(verticalPaddingDp = it)) }
-    SettingSlider(stringResource(R.string.reader_first_line_indent), s.firstLineIndentEm, 0f..3f, stringResource(R.string.reader_indent_value, s.firstLineIndentEm)) { visual(s.copy(firstLineIndentEm = it)) }
-    Section(stringResource(R.string.reader_text_alignment)) { LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(ReaderTextAlignment.entries) { value -> FilterChip(s.textAlignment == value, { visual(s.copy(textAlignment = value)) }, label = { Text(stringResource(if (value == ReaderTextAlignment.START) R.string.reader_align_start else R.string.reader_align_justify)) }) } } }
-    SettingSwitch(stringResource(R.string.reader_compress_blank_lines), s.compressBlankLines) { visual(s.copy(compressBlankLines = it)) }
-    SettingSwitch(stringResource(R.string.reader_emphasize_headings), s.emphasizeHeadings) { visual(s.copy(emphasizeHeadings = it)) }
-    NamedThemes(s, actions)
+
+    OutlinedButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
+        Icon(if (showAdvanced) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.reader_advanced_typography))
+    }
+
+    if (showAdvanced) {
+        Section(stringResource(R.string.reader_advanced_typography)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ReaderFontWeight.entries) { value -> FilterChip(s.fontWeight == value, { visual(s.copy(fontWeight = value)) }, label = { Text(weightLabel(value)) }) }
+            }
+            OutlinedButton(actions.onImportFont, Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.FontDownload, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.reader_import_font))
+            }
+        }
+        SettingSlider(stringResource(R.string.reader_letter_spacing), s.letterSpacingEm, -0.02f..0.12f, "%.2fem".format(s.letterSpacingEm)) { visual(s.copy(letterSpacingEm = it)) }
+        SettingSlider(stringResource(R.string.reader_paragraph_spacing), s.paragraphSpacingEm, 0f..1.5f, "%.2fem".format(s.paragraphSpacingEm)) { visual(s.copy(paragraphSpacingEm = it)) }
+        SettingSlider(stringResource(R.string.reader_vertical_margins), s.verticalPaddingDp, 4f..56f, "${s.verticalPaddingDp.roundToInt()}dp") { visual(s.copy(verticalPaddingDp = it)) }
+        SettingSlider(stringResource(R.string.reader_first_line_indent), s.firstLineIndentEm, 0f..3f, stringResource(R.string.reader_indent_value, s.firstLineIndentEm)) { visual(s.copy(firstLineIndentEm = it)) }
+        Section(stringResource(R.string.reader_text_alignment)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(ReaderTextAlignment.entries) { value ->
+                    FilterChip(s.textAlignment == value, { visual(s.copy(textAlignment = value)) }, label = { Text(stringResource(if (value == ReaderTextAlignment.START) R.string.reader_align_start else R.string.reader_align_justify)) })
+                }
+            }
+        }
+        SettingSwitch(stringResource(R.string.reader_compress_blank_lines), s.compressBlankLines) { visual(s.copy(compressBlankLines = it)) }
+        SettingSwitch(stringResource(R.string.reader_emphasize_headings), s.emphasizeHeadings) { visual(s.copy(emphasizeHeadings = it)) }
+        NamedThemes(s, actions)
+    }
 }
 
 @Composable
@@ -300,8 +332,51 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
     val context = LocalContext.current
     val pronunciationStore = remember(context) { TtsPronunciationStore(context) }
     var pronunciationDraft by rememberSaveable { mutableStateOf(pronunciationStore.raw()) }
+    var showVoicePicker by rememberSaveable { mutableStateOf(false) }
+    var voiceQuery by rememberSaveable { mutableStateOf("") }
+    var engineMenu by remember { mutableStateOf(false) }
+
     SettingSlider(stringResource(R.string.speech_rate), s.ttsRate, 0.5f..2f, "%.1f×".format(s.ttsRate)) { actions.onSettingsChanged(s.copy(ttsRate = it)) }
     SettingSlider(stringResource(R.string.speech_pitch), s.ttsPitch, 0.6f..1.6f, "%.1f×".format(s.ttsPitch)) { actions.onSettingsChanged(s.copy(ttsPitch = it)) }
+    Section(stringResource(R.string.local_tts_engine)) {
+        Text(
+            stringResource(R.string.local_tts_engine_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (state.proUnlocked) {
+            val selectedEngine = state.ttsEngines.firstOrNull { it.name == state.ttsEngineName }
+            Box {
+                OutlinedButton(onClick = { engineMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.RecordVoiceOver, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(selectedEngine?.label ?: stringResource(R.string.system_default))
+                }
+                DropdownMenu(expanded = engineMenu, onDismissRequest = { engineMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.system_default)) },
+                        trailingIcon = { if (state.ttsEngineName.isEmpty()) Icon(Icons.Outlined.Check, null) },
+                        onClick = { engineMenu = false; actions.onTtsEngineSelected("") },
+                    )
+                    state.ttsEngines.forEach { engine ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(engine.label)
+                                    Text(engine.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                }
+                            },
+                            trailingIcon = { if (state.ttsEngineName == engine.name) Icon(Icons.Outlined.Check, null) },
+                            onClick = { engineMenu = false; actions.onTtsEngineSelected(engine.name) },
+                        )
+                    }
+                }
+            }
+        } else {
+            OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text(stringResource(R.string.pro_badge)) }
+        }
+    }
+
     Section(stringResource(R.string.offline_voice)) {
         Text(
             stringResource(R.string.reader_tts_voice_privacy),
@@ -309,10 +384,72 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (state.proUnlocked) {
-            FilterChip(s.ttsVoiceName.isEmpty(), { actions.onSettingsChanged(s.copy(ttsVoiceName = "")) }, label = { Text(stringResource(R.string.system_default)) })
-            state.ttsVoices.take(20).forEach { voice -> FilterChip(s.ttsVoiceName == voice.name, { actions.onSettingsChanged(s.copy(ttsVoiceName = voice.name)) }, label = { Text(voice.label) }) }
-        } else OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text("Pro") }
+            val selected = state.ttsVoices.firstOrNull { it.name == s.ttsVoiceName }
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(selected?.label ?: stringResource(R.string.system_default), fontWeight = FontWeight.SemiBold)
+                    OutlinedButton({ showVoicePicker = true }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.tts_choose_voice)) }
+                }
+            }
+        } else {
+            OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text(stringResource(R.string.pro_badge)) }
+        }
     }
+
+    if (showVoicePicker) {
+        val filtered = state.ttsVoices.filter { voiceQuery.isBlank() || it.label.contains(voiceQuery, ignoreCase = true) || it.name.contains(voiceQuery, ignoreCase = true) }
+        ModalBottomSheet(onDismissRequest = { showVoicePicker = false }) {
+            Column(Modifier.fillMaxWidth().fillMaxHeight(0.82f).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+                Text(stringResource(R.string.tts_choose_voice), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = voiceQuery,
+                    onValueChange = { voiceQuery = it.take(120) },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                    label = { Text(stringResource(R.string.tts_search_voice)) },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.system_default)) },
+                    trailingContent = {
+                        if (s.ttsVoiceName.isEmpty()) Icon(Icons.Outlined.Check, null)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedButton(
+                    onClick = { actions.onSettingsChanged(s.copy(ttsVoiceName = "")); showVoicePicker = false },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.tts_use_system_default)) }
+                if (filtered.isEmpty()) {
+                    Text(stringResource(R.string.tts_no_voice_match), modifier = Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyColumn(Modifier.weight(1f)) {
+                        items(filtered, key = { it.name }) { voice ->
+                            ListItem(
+                                headlineContent = { Text(voice.label) },
+                                supportingContent = { Text(voice.name, maxLines = 1) },
+                                trailingContent = {
+                                    Row {
+                                        TextButton(onClick = { actions.onPreviewTtsVoice(voice.name) }) { Text(stringResource(R.string.tts_preview_voice)) }
+                                        if (s.ttsVoiceName == voice.name) Icon(Icons.Outlined.Check, null)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextButton(
+                                onClick = { actions.onSettingsChanged(s.copy(ttsVoiceName = voice.name)); showVoicePicker = false },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(stringResource(R.string.tts_select_voice)) }
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Section(stringResource(R.string.reader_tts_pronunciation)) {
         Text(stringResource(R.string.reader_tts_pronunciation_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
@@ -341,7 +478,7 @@ private fun DataSettings(state: AppUiState, actions: JingduActions) = SettingsLi
         if (state.proUnlocked) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(actions.onExportBackup, Modifier.weight(1f)) { Icon(Icons.Outlined.FileUpload, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.export_backup)) }
             OutlinedButton(actions.onImportBackup, Modifier.weight(1f)) { Icon(Icons.Outlined.FileDownload, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.restore_backup)) }
-        } else OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text("Pro") }
+        } else OutlinedButton(actions.onUpgradePro, Modifier.fillMaxWidth()) { Text(stringResource(R.string.pro_badge)) }
     }
     Section(stringResource(R.string.privacy_policy)) {
         Text(stringResource(R.string.privacy_policy_summary), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

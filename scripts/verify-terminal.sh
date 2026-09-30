@@ -90,6 +90,7 @@ done
 
 python3 ./scripts/verify-android-i18n.py
 python3 ./scripts/verify-release-version.py
+python3 ./scripts/verify-android-third-party-inventory.py
 python3 ./scripts/verify-reader-profile-contract.py
 bash ./scripts/verify-reader.sh
 
@@ -118,6 +119,8 @@ grep -q 'consumeRestoredProgress' apps/jingdu/android/app/src/main/java/com/junc
 grep -q 'jingdu-reading-stats' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserAssetBackup.kt
 grep -q 'jingdu-smartclean-feedback' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartCleanFeedbackStore.kt
 bash -n scripts/stage-android-production-evidence.sh
+bash -n scripts/run-android-physical-reader-soak.sh
+python3 -m py_compile scripts/check-android-reader-soak.py scripts/verify-android-third-party-inventory.py
 grep -Fq 'source ref must be an annotated immutable release tag' scripts/stage-android-production-evidence.sh
 grep -Fq 'UPLOAD-CERT-SHA256.txt' scripts/stage-android-production-evidence.sh
 grep -Fq 'release APK/AAB signing certificate mismatch' scripts/stage-android-production-evidence.sh

@@ -76,6 +76,8 @@ grep -q 'MAX_PREVIEW_BYTES = 512 \* 1024' apps/jingdu/android/app/src/main/java/
 grep -q 'ActivityResultContracts.OpenDocumentTree' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/LibraryScreen.kt
 grep -q 'MAX_BOOKS = 100' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BatchAutomation.kt
 grep -q 'Manifest.permission.INTERNET !in permissions' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
+grep -q 'bookTextUploadCapability = false' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
+grep -q 'google-play-platform-only' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
 grep -q 'enum class SmartCleanFeedback { NONE, KEEP, DELETE, PROTECT }' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartCleanFeedbackStore.kt
 grep -q 'TinyLocalSemanticCandidateClassifier' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SemanticCandidateClassifier.kt
 python3 scripts/train-smartclean-model.py --verify-source apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SemanticCandidateClassifier.kt

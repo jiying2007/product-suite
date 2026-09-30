@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: SnackbarHostState) {
     val context = LocalContext.current
@@ -52,6 +53,7 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
     var libraryQuery by rememberSaveable { mutableStateOf("") }
     var sortName by rememberSaveable { mutableStateOf(LibrarySort.RECENT.name) }
     var sortMenu by remember { mutableStateOf(false) }
+    var collectionMenu by remember { mutableStateOf(false) }
     var libraryToolsMenu by remember { mutableStateOf(false) }
     var importChooser by rememberSaveable { mutableStateOf(false) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
@@ -205,23 +207,20 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
     }
 
     val filteredBooks = remember(state.books, filterName, sortName, libraryQuery) {
-        val query = libraryQuery.trim().lowercase()
-        val filtered = state.books.filter { book ->
-            val matchesQuery = query.isEmpty() || stripTxt(book.name).lowercase().contains(query) ||
-                book.tags.any { it.lowercase().contains(query) }
-            val matchesFilter = when (filterName) {
-                "FAVORITES" -> book.favorite
-                "READING" -> book.status == LibraryBookStatus.READING
-                "FINISHED" -> book.status == LibraryBookStatus.FINISHED
-                else -> true
-            }
-            matchesQuery && matchesFilter
-        }
-        when (runCatching { LibrarySort.valueOf(sortName) }.getOrDefault(LibrarySort.RECENT)) {
-            LibrarySort.RECENT -> filtered.sortedByDescending(BookCardModel::touchedAt)
-            LibrarySort.NAME -> filtered.sortedBy { stripTxt(it.name).lowercase() }
-            LibrarySort.PROGRESS -> filtered.sortedByDescending(BookCardModel::progressFraction)
-        }
+        LibraryQueryEngine.apply(
+            books = state.books,
+            query = libraryQuery,
+            filterName = filterName,
+            sortName = sortName,
+        )
+    }
+    val collectionTags = remember(state.books) {
+        state.books.flatMap(BookCardModel::tags)
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinctBy { it.lowercase() }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            .take(40)
     }
     val continueBook = remember(state.books) {
         state.books.filter { it.status == LibraryBookStatus.READING }.maxByOrNull(BookCardModel::touchedAt)
@@ -270,19 +269,57 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                         }) else null,
                         placeholder = { Text(stringResource(R.string.search_hint)) },
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         LibraryFilterChip(filterName == "ALL", stringResource(R.string.library_filter_all)) { filterName = "ALL" }
                         LibraryFilterChip(filterName == "READING", stringResource(R.string.library_filter_reading)) { filterName = "READING" }
                         LibraryFilterChip(filterName == "FAVORITES", stringResource(R.string.library_filter_favorites)) { filterName = "FAVORITES" }
                         LibraryFilterChip(filterName == "FINISHED", stringResource(R.string.library_filter_finished)) { filterName = "FINISHED" }
+                        LibraryFilterChip(filterName == "ATTENTION", stringResource(R.string.library_filter_attention)) { filterName = "ATTENTION" }
+                        LibraryFilterChip(filterName == "OPTIMIZED", stringResource(R.string.library_filter_optimized)) { filterName = "OPTIMIZED" }
+                        if (collectionTags.isNotEmpty()) {
+                            Box {
+                                val activeCollection = filterName
+                                    .takeIf { it.startsWith(LibraryQueryEngine.COLLECTION_PREFIX) }
+                                    ?.removePrefix(LibraryQueryEngine.COLLECTION_PREFIX)
+                                AssistChip(
+                                    onClick = { collectionMenu = true },
+                                    label = { Text(activeCollection ?: stringResource(R.string.library_collections)) },
+                                    leadingIcon = { Icon(Icons.Default.Bookmarks, contentDescription = null) },
+                                )
+                                DropdownMenu(expanded = collectionMenu, onDismissRequest = { collectionMenu = false }) {
+                                    collectionTags.forEach { tag ->
+                                        DropdownMenuItem(
+                                            text = { Text(tag) },
+                                            trailingIcon = {
+                                                if (filterName == LibraryQueryEngine.COLLECTION_PREFIX + tag) {
+                                                    Icon(Icons.Default.Check, contentDescription = null)
+                                                }
+                                            },
+                                            onClick = {
+                                                filterName = LibraryQueryEngine.COLLECTION_PREFIX + tag
+                                                collectionMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Box {
-                            AssistChip(onClick = { sortMenu = true }, label = { Text("${stringResource(R.string.library_sort_label)} · ${sortLabel(sortName)}") })
+                            AssistChip(
+                                onClick = { sortMenu = true },
+                                label = { Text("${stringResource(R.string.library_sort_label)} · ${sortLabel(sortName)}") },
+                            )
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                LibrarySort.entries.forEach { sort -> DropdownMenuItem(text = { Text(sortLabel(sort.name)) }, onClick = { sortName = sort.name; sortMenu = false }) }
+                                LibrarySort.entries.forEach { sort ->
+                                    DropdownMenuItem(
+                                        text = { Text(sortLabel(sort.name)) },
+                                        onClick = { sortName = sort.name; sortMenu = false },
+                                    )
+                                }
                             }
                         }
                     }
@@ -553,6 +590,18 @@ private fun BookCard(book: BookCardModel, onOpen: () -> Unit, onDelete: () -> Un
                     }
                 }
                 Text("${statusLabel(book.status)} · ${formatTouched(book.touchedAt, stringResource(R.string.not_read))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                book.healthScore?.let { score ->
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        if (book.healthIssues > 0) stringResource(R.string.library_health_issues, score, book.healthIssues)
+                        else stringResource(R.string.library_health_good, score),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (book.healthIssues > 0 || score < 90) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (book.optimized) {
+                    Text(stringResource(R.string.library_optimized_badge), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
                 if (book.tags.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
                     Text(book.tags.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)

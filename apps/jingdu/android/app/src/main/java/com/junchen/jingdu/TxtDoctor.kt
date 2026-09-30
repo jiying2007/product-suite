@@ -15,6 +15,8 @@ data class TxtDoctorReport(
     val noiseCandidates: Int,
     val garbledWindows: Int,
     val replacementCharacters: Int,
+    val hardWrapDetected: Boolean,
+    val estimatedJoinedBreaks: Int,
     val sizeBytes: Long,
     val encoding: String,
 ) {
@@ -47,6 +49,8 @@ internal object TxtDoctor {
         var suspiciousControls = 0
         var totalCodePoints = 0L
         var garbledWindows = 0
+        var hardWrapDetected = false
+        var estimatedJoinedBreaks = 0
         val length = reader.length().coerceAtLeast(1)
 
         repeat(SAMPLE_WINDOWS) { index ->
@@ -68,6 +72,11 @@ internal object TxtDoctor {
                 }
             }
             if (localTotal > 0 && localBad.toDouble() / localTotal.toDouble() >= 0.01) garbledWindows++
+            val layout = SmartLayout.present(text)
+            if (layout.hardWrapDetected) {
+                hardWrapDetected = true
+                estimatedJoinedBreaks += layout.joinedBreaks
+            }
         }
 
         val badRatio = if (totalCodePoints == 0L) 0.0 else (replacements + suspiciousControls).toDouble() / totalCodePoints.toDouble()
@@ -104,6 +113,8 @@ internal object TxtDoctor {
             noiseCandidates = noise.size,
             garbledWindows = garbledWindows,
             replacementCharacters = replacements,
+            hardWrapDetected = hardWrapDetected,
+            estimatedJoinedBreaks = estimatedJoinedBreaks,
             sizeBytes = book.size,
             encoding = book.encoding,
         )
