@@ -15,6 +15,8 @@ Every release is qualified with deterministic or representative files at four ti
 
 The release-device corpus additionally includes UTF-8, GB18030/GBK and Big5 source imports where device evidence is required. Source files are never rewritten in place.
 
+Library metadata scale is a separate workload: hosted unit coverage constructs 10,000 `BookCardModel` rows and repeatedly exercises search/filter/sort without opening book payloads.
+
 ## Android physical Release SLOs
 
 Measure the release-derived minified Benchmark target on the physical device classes listed in `DEVICE_MATRIX.md`. Report median and P95 where the tool supports repeated measurements.
@@ -31,6 +33,7 @@ Measure the release-derived minified Benchmark target on the physical device cla
 | Smart Clean scan, 100 MiB | < 3.0 s target |
 | TTS next-chunk scheduling | P95 < 150 ms |
 | 200 MiB open/search/Clean qualification | no OOM / ANR |
+| 60 / 180 minute paged Reader soak | same PID, forward progress, peak total PSS <= 512 MiB, no target OOM / ANR / fatal crash |
 
 The Reader frame-tail product SLO is independently enforced for every frame-producing journey:
 
@@ -58,6 +61,15 @@ Physical Release qualification now has nine independent authorities:
 The first-readable journeys and operation-level chapter/search/Smart Clean/TTS/stability evidence are physical-only and excluded from Hosted Reader performance CI so they cannot widen or contaminate emulator frame regression authority. Hosted thresholds cannot satisfy any physical gate. Repository automation now represents every physical Release SLO tracked in #134; each row still stays fail-closed until retained evidence passes from an immutable candidate containing the corresponding harness.
 
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
+
+
+### Physical long-session soak
+
+Long-session comfort is qualified independently from the short interaction SLO suite. `.github/workflows/android-physical-reader-soak.yml` dispatches only on a self-hosted physical Android runner against an explicit immutable `source_ref`, with a selectable **60 or 180 minute** duration. `PhysicalLongSessionSoakTest` opens the deterministic 100 MiB fixture and injects real `KEYCODE_VOLUME_DOWN` page turns every two seconds.
+
+`scripts/check-android-reader-soak.py` fails closed unless retained evidence proves one stable process PID, forward Reader position, the duration-specific sample floor, sufficient physical page-turn input and peak total PSS <= 512 MiB. Target ANR/OOM/fatal-crash markers are rejected. The runner also retains before/after `dumpsys battery` and `dumpsys thermalservice` evidence. Battery and thermal values are intentionally **evidence-only** until multiple real devices provide a normalized baseline; no arbitrary battery-percentage marketing claim is manufactured from one device.
+
+Hosted emulator runs cannot satisfy this soak authority.
 
 ## Host Core regression gates
 
@@ -126,6 +138,6 @@ Macrobenchmark frame measurement runs first against the release-derived R8 targe
 3. Immutable normalized/Clean revisions are content addressed; unchanged content reuses index/cache work.
 4. Import, normalization, search, chapters, Clean, re-decode and export never perform file-size-proportional work on the UI thread.
 5. First readable page and background indexing are separate product milestones; full-book secondary work must not unnecessarily block reading.
-6. Library rendering uses metadata only and never opens every book to draw the grid.
+6. Library rendering/querying uses metadata only and never opens every book to draw the grid; the 10,000-book regression guard protects this assumption.
 7. A performance cache can always be discarded/rebuilt without changing product identity or user data.
 8. Hosted emulator thresholds and physical Release SLOs are separate authorities and cannot substitute for each other.
