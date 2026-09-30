@@ -17,9 +17,9 @@ internal object IncomingImportParser {
     const val MAX_SHARED_TEXT_CHARS = 512 * 1024
 
     fun parse(intent: Intent?): IncomingImport? = when (intent?.action) {
-        Intent.ACTION_VIEW -> intent.data?.let(IncomingImport::UriSource)
+        Intent.ACTION_VIEW -> intent.data?.let { IncomingImport.UriSource(it) }
         Intent.ACTION_SEND -> {
-            incomingStream(intent)?.let(IncomingImport::UriSource)
+            incomingStream(intent)?.let { IncomingImport.UriSource(it) }
                 ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)
                     ?.toString()
                     ?.take(MAX_SHARED_TEXT_CHARS)
