@@ -10,10 +10,10 @@
     <string name="library_sort_label">排序</string>
     <string name="favorite_book">加入收藏</string>
     <string name="unfavorite_book">取消收藏</string>
-    <string name="edit_tags">編輯標籤</string>
-    <string name="book_tags_title">本機標籤</string>
-    <string name="book_tags_body">使用逗號分隔，標籤只保存在本機。</string>
-    <string name="book_tags_hint">長篇、重讀、喜歡的作者</string>
+    <string name="edit_tags">編輯標籤 / 集合</string>
+    <string name="book_tags_title">標籤與書架集合</string>
+    <string name="book_tags_body">使用逗號分隔；本機標籤也會成為書庫中的集合篩選，並隨 Reader 資產備份保留。</string>
+    <string name="book_tags_hint">科幻、重讀、喜歡的作者</string>
     <string name="save">儲存</string>
     <string name="status_unread">未讀</string>
     <string name="status_reading">閱讀中</string>
@@ -29,4 +29,5 @@
     <string name="smart_clean_undone">已恢復到上一次智慧淨化前的規則。</string>
     <string name="smart_clean_apply_warning">僅刪除已選取的整行候選；原始 TXT 永遠不會被修改。</string>
     <string name="library_tagline_terminal">長篇 TXT · 智慧淨化 · 完全本機</string>
+    <string name="library_collections">書架集合</string>
 </resources>
