@@ -75,7 +75,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 ## P1 retention requirements
 
 - Batch import handles partial failure and reports success/failure counts.
-- Pro can select from system TTS voices that report `isNetworkConnectionRequired == false`; Free keeps system-default TTS.
+- Pro can select an installed Android TTS engine and then select/search/preview voices that engine reports as not requiring network; Free keeps system-default TTS. Device-local engine package choice is not portable backup identity and falls back safely when unavailable.
 - Reading sessions/history/pace are local-only and never require analytics SDK/network upload.
 - Play In-App Review is milestone based after meaningful use; no first-launch prompt and no sentiment pre-screen.
 - Review request frequency is locally throttled.
@@ -83,6 +83,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 ## P0 ASO/store requirements
 
 - Default Simplified Chinese store title: `净读 - TXT 小说阅读器`.
+- Default Play discovery listings are maintained for zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR; ja-JP/ko-KR copy must disclose that the current in-app UI falls back to English.
 - Store metadata obeys Play title/short/full description length limits and avoids promotional superlatives in title.
 - Four search-intent Custom Listing specs exist: TXT reader, encoding rescue, Smart Clean/noise removal, local/private novel reading.
 - Screenshot brief tells a problem/solution story: TXT Health, mojibake/layout/TOC/noise rescue, optional Pro batch automation, reading comfort, navigation, long-session tools and privacy.
