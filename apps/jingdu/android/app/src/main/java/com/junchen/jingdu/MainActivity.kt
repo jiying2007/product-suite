@@ -294,15 +294,21 @@ class MainActivity : ComponentActivity() {
         openBook(book = book, clean = state.getBoolean(STATE_CLEAN_MODE, false), restoredOverride = restoredPosition)
     }
 
-    private fun handleIncomingIntent(intent: Intent?) { incomingUri(intent)?.let { importUri(it) } }
-
-    private fun incomingUri(intent: Intent?): Uri? = when (intent?.action) {
-        Intent.ACTION_VIEW -> intent.data
-        Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(Intent.EXTRA_STREAM)
+    private fun handleIncomingIntent(intent: Intent?) {
+        when (val incoming = IncomingImportParser.parse(intent)) {
+            is IncomingImport.UriSource -> importUri(incoming.uri)
+            is IncomingImport.SharedText -> importSharedText(incoming.text, incoming.displayName)
+            null -> Unit
         }
-        else -> null
+    }
+
+    private fun importSharedText(text: String, displayName: String) {
+        runWork(
+            label = getString(R.string.busy_import_shared_text),
+            task = { repository.importSharedText(text, displayName) },
+            success = { openBook(it, clean = false) },
+            errorTitle = getString(R.string.error_import),
+        )
     }
 
     private fun refreshLibrary() { uiState = uiState.copy(books = repository.list().map(::toCard)) }
