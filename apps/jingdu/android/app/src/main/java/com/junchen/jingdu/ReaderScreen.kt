@@ -668,6 +668,7 @@ private fun ContinuousReaderPage(
     val book = state.currentBook ?: return
     val settings = state.settings
     val engine = remember(book.id) { ReaderViewportEngine(context, book.id) }
+    val scope = rememberCoroutineScope()
     val scrollModel = remember(book.id) { ReaderContinuousScrollModel() }
     val settleEvents = remember(book.id) { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val density = LocalDensity.current
@@ -679,24 +680,40 @@ private fun ContinuousReaderPage(
     var viewportHeight by remember { mutableIntStateOf(0) }
     var widthPx by remember { mutableIntStateOf(0) }
     var loading by remember(book.id) { mutableStateOf(false) }
+    var pendingLoadTarget by remember(book.id) { mutableLongStateOf(Long.MIN_VALUE) }
     var lastCommitted by remember(book.id) { mutableLongStateOf(state.position) }
     val localPosition = remember(book.id) { AtomicLong(state.position) }
 
     suspend fun loadAround(target: Long) {
-        if (loading) return
+        if (loading) {
+            pendingLoadTarget = target
+            return
+        }
         loading = true
         try {
-            val next = withContext(Dispatchers.IO) { engine.readAround(target, settings) }
-            window = next
-            localPosition.set(target.coerceIn(0L, (next.documentLength - 1).coerceAtLeast(0L)))
-            layoutResult = null
-        } finally { loading = false }
+            var requested = target
+            while (true) {
+                pendingLoadTarget = Long.MIN_VALUE
+                val next = withContext(Dispatchers.IO) { engine.readAround(requested, settings) }
+                val bounded = requested.coerceIn(0L, (next.documentLength - 1).coerceAtLeast(0L))
+                window = next
+                localPosition.set(bounded)
+                layoutResult = null
+                scope.launch(Dispatchers.IO) {
+                    runCatching { engine.prefetch(bounded, settings) }
+                }
+                val pending = pendingLoadTarget
+                if (pending == Long.MIN_VALUE || abs(pending - requested) < 64L) break
+                requested = pending
+            }
+        } finally {
+            loading = false
+        }
     }
     DisposableEffect(engine) { onDispose { engine.close() } }
     LaunchedEffect(book.id, settings.chineseMode, settings.chineseOverrides, settings.compressBlankLines, settings.paragraphSpacingEm) {
         withContext(Dispatchers.IO) { engine.clear() }
         loadAround(state.position)
-        withContext(Dispatchers.IO) { engine.prefetch(state.position, settings) }
     }
     LaunchedEffect(state.tts.offset, state.tts.active) {
         if (state.tts.active && state.tts.offset >= 0 && abs(state.tts.offset - localPosition.get()) > 128) loadAround(state.tts.offset)
@@ -738,7 +755,7 @@ private fun ContinuousReaderPage(
         val nearBottom = scrollModel.maxOffsetPx > 0f &&
             scrollModel.maxOffsetPx - y.toFloat() <= edge.toFloat() &&
             currentWindow.start + currentWindow.map.sourceCodePoints < currentWindow.documentLength - 1
-        if (!loading && (nearTop || nearBottom)) loadAround(absolute)
+        if (nearTop || nearBottom) loadAround(absolute)
     }
 
     // A manual swipe can emit dozens of scroll deltas. Position/source mapping is not visual work;
