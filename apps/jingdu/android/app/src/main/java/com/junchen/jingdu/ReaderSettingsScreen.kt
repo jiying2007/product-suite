@@ -360,8 +360,12 @@ private fun SpeechSettings(state: AppUiState, actions: JingduActions) = Settings
                     )
                     state.ttsEngines.forEach { engine ->
                         DropdownMenuItem(
-                            text = { Text(engine.label) },
-                            supportingText = { Text(engine.name, maxLines = 1) },
+                            text = {
+                                Column {
+                                    Text(engine.label)
+                                    Text(engine.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                }
+                            },
                             trailingIcon = { if (state.ttsEngineName == engine.name) Icon(Icons.Outlined.Check, null) },
                             onClick = { engineMenu = false; actions.onTtsEngineSelected(engine.name) },
                         )
