@@ -38,7 +38,6 @@
     <string name="txt_health_title">TXT 健康</string>
     <string name="txt_health_subtitle">一次检查编码、排版、结构与干扰文本；全部分析仅在本机完成。</string>
     <string name="txt_health_waiting">运行本地健康检查后查看修复建议。</string>
-    <string name="txt_health_score">健康分 · %1$d/100</string>
     <string name="txt_health_good">这本 TXT 状态良好，无需高风险修复。</string>
     <string name="txt_health_notice">有少量问题可在不修改来源 TXT 的前提下改善。</string>
     <string name="txt_health_warning">这本 TXT 存在值得在长时间阅读前检查的问题。</string>
