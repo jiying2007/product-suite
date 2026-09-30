@@ -3,6 +3,7 @@ package com.junchen.jingdu
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -13,6 +14,12 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import java.io.File
+
+internal fun ttsRuntimeErrorRetryable(reason: String?): Boolean {
+    if (reason == "tts error" || reason == "tts error: speak failed") return true
+    if (reason?.startsWith("tts error: ") != true) return false
+    return reason.removePrefix("tts error: ").toIntOrNull() in setOf(-3, -4, -5, -6, -7)
+}
 
 internal data class ReaderTtsState(
     val active: Boolean = false,
@@ -49,6 +56,8 @@ internal class ReaderTtsPlayer(
     private var chineseMode = ChineseDisplayMode.ORIGINAL
     private var chineseOverrides = ""
     private var startRetries = 0
+    private var runtimeRetries = 0
+    private var lastRangePublishAt = 0L
     private var lastReason: String? = null
 
     private val commands = Player.Commands.Builder()
@@ -91,6 +100,8 @@ internal class ReaderTtsPlayer(
         active = true
         playing = true
         startRetries = 0
+        runtimeRetries = 0
+        lastRangePublishAt = 0L
         publish()
         startSpeechWithRetry()
     }
@@ -203,7 +214,10 @@ internal class ReaderTtsPlayer(
         if (!active || !playing) return
         engine.start(reader, offset, chineseMode, chineseOverrides, object : TtsController.Listener {
             override fun onPosition(offset: Long) {
+                val previous = this@ReaderTtsPlayer.offset
                 this@ReaderTtsPlayer.offset = offset.coerceAtLeast(0)
+                if (this@ReaderTtsPlayer.offset > previous) runtimeRetries = 0
+                startRetries = 0
                 nextOffset = runCatching { reader.speech(offset, chineseMode, chineseOverrides).nextOffset }.getOrDefault(offset)
                 publish()
             }
@@ -211,7 +225,11 @@ internal class ReaderTtsPlayer(
             override fun onRange(sourceStart: Long, sourceEnd: Long) {
                 rangeStart = sourceStart.coerceAtLeast(0)
                 rangeEnd = sourceEnd.coerceAtLeast(rangeStart + 1)
-                publish()
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastRangePublishAt >= RANGE_PUBLISH_INTERVAL_MS) {
+                    lastRangePublishAt = now
+                    publish()
+                }
             }
 
             override fun onPaused() {
@@ -229,7 +247,14 @@ internal class ReaderTtsPlayer(
             override fun onStopped(reason: String?) {
                 if (reason == "TTS engine not ready" && startRetries < MAX_START_RETRIES && active && playing) {
                     startRetries++
-                    main.postDelayed(::startSpeechWithRetry, RETRY_MS)
+                    main.postDelayed(::startSpeechWithRetry, START_RETRY_MS)
+                    return
+                }
+                if (ttsRuntimeErrorRetryable(reason) &&
+                    runtimeRetries < MAX_RUNTIME_RETRIES && active && playing
+                ) {
+                    runtimeRetries++
+                    main.postDelayed(::startSpeechWithRetry, RUNTIME_RETRY_MS * runtimeRetries)
                     return
                 }
                 active = false
@@ -253,6 +278,9 @@ internal class ReaderTtsPlayer(
 
     private companion object {
         const val MAX_START_RETRIES = 12
-        const val RETRY_MS = 250L
+        const val MAX_RUNTIME_RETRIES = 3
+        const val START_RETRY_MS = 250L
+        const val RUNTIME_RETRY_MS = 450L
+        const val RANGE_PUBLISH_INTERVAL_MS = 400L
     }
 }

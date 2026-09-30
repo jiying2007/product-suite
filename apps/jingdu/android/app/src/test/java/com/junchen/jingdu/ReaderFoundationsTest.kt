@@ -208,4 +208,58 @@ class ReaderFoundationsTest {
         assertEquals(ReaderTextAlignment.START, lowVision.textAlignment)
         assertTrue(lowVision.focusRulerLines >= 3)
     }
+    @Test fun readerSafeContentInsetsReserveCutoutGestureAndStatusSpace() {
+        val insets = readerContentInsetsDp(
+            cutoutLeftDp = 0f,
+            cutoutTopDp = 32f,
+            cutoutRightDp = 0f,
+            bottomGestureDp = 24f,
+            showReadingStatus = true,
+        )
+        assertEquals(8f, insets.left, 0.001f)
+        assertEquals(40f, insets.top, 0.001f)
+        assertEquals(8f, insets.right, 0.001f)
+        assertEquals(66f, insets.bottom, 0.001f)
+
+        val largeText = readerContentInsetsDp(
+            cutoutLeftDp = 0f,
+            cutoutTopDp = 0f,
+            cutoutRightDp = 0f,
+            bottomGestureDp = 24f,
+            showReadingStatus = true,
+            fontScale = 2f,
+        )
+        assertEquals(100f, largeText.bottom, 0.001f)
+    }
+
+    @Test fun continuousBoundaryPolicyRequestsHandoffBeforeUserMustLiftFinger() {
+        assertEquals(true, readerContinuousBoundaryRequested(1040f, 1000f, 1000f, 18f))
+        assertEquals(true, readerContinuousBoundaryRequested(-24f, 0f, 1000f, 18f))
+        assertEquals(false, readerContinuousBoundaryRequested(990f, 990f, 1000f, 18f))
+        assertEquals(false, readerContinuousBoundaryRequested(500f, 500f, 1000f, 18f))
+    }
+
+    @Test fun continuousWindowAdvancesWhenCurrentWindowFitsEntireViewport() {
+        assertEquals(
+            true,
+            readerContinuousNeedsNextWindow(
+                scrollOffsetPx = 0f,
+                maxOffsetPx = 0f,
+                viewportHeightPx = 900,
+                windowEnd = 4_096,
+                documentLength = 100_000,
+            ),
+        )
+        assertEquals(
+            false,
+            readerContinuousNeedsNextWindow(
+                scrollOffsetPx = 0f,
+                maxOffsetPx = 0f,
+                viewportHeightPx = 900,
+                windowEnd = 100_000,
+                documentLength = 100_000,
+            ),
+        )
+    }
+
 }

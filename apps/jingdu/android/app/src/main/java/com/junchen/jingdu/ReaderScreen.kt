@@ -318,7 +318,29 @@ internal fun ReaderScreen(
     val snackbarControlsShiftPx = with(LocalDensity.current) { 88.dp.toPx() }
     val background = readerBackground(settings.palette)
     val textColor = readerTextColor(settings.palette)
+    val readerDensity = LocalDensity.current
+    val readerLayoutDirection = LocalLayoutDirection.current
+    val displayCutout = WindowInsets.displayCutout
+    val readerInsets = readerContentInsetsDp(
+        cutoutLeftDp = displayCutout.getLeft(readerDensity, readerLayoutDirection) / readerDensity.density,
+        cutoutTopDp = displayCutout.getTop(readerDensity) / readerDensity.density,
+        cutoutRightDp = displayCutout.getRight(readerDensity, readerLayoutDirection) / readerDensity.density,
+        bottomGestureDp = maxOf(
+            WindowInsets.navigationBars.getBottom(readerDensity),
+            WindowInsets.mandatorySystemGestures.getBottom(readerDensity),
+        ) / readerDensity.density,
+        showReadingStatus = settings.showReadingStatus,
+        fontScale = readerDensity.fontScale,
+    )
     Box(Modifier.fillMaxSize().background(background)) {
+        Box(
+            Modifier.fillMaxSize().padding(
+                start = readerInsets.left.dp,
+                top = readerInsets.top.dp,
+                end = readerInsets.right.dp,
+                bottom = readerInsets.bottom.dp,
+            ),
+        ) {
         if (settings.readingMode == ReaderMode.CONTINUOUS && !state.cleanMode) {
             ContinuousReaderPage(
                 state, actions, fontFamily, textColor, touchExploration,
@@ -353,6 +375,7 @@ internal fun ReaderScreen(
                 )
             }
         }
+        }
 
         if (settings.extraDim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.extraDim.coerceIn(0f, 0.80f))))
 
@@ -366,7 +389,7 @@ internal fun ReaderScreen(
                 ReaderTopBar(book.name, currentChapter, actions, { more = true }, ::keepChromeAlive)
             }
             if (more) Box(
-                Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 56.dp, end = 8.dp),
+                Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top = 56.dp, end = 8.dp),
             ) { ReaderMoreMenu(actions) { more = false } }
             Box(Modifier.align(Alignment.BottomCenter)) {
                 ReaderBottomBar(
@@ -413,7 +436,7 @@ internal fun ReaderScreen(
         )
         if (state.autoScrolling) AutoScrollLiveControl(
             settings, actions,
-            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 42.dp).graphicsLayer {
+            Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(bottom = 42.dp).graphicsLayer {
                 translationY = if (controlsVisible) READER_HIDDEN_LAYER_OFFSET_PX.toFloat() else 0f
                 alpha = if (controlsVisible) 0f else 1f
             },
@@ -504,6 +527,12 @@ private fun PagedReaderPage(
     val spec = remember(settings) { ReaderTypographySpec.from(settings) }
     val style = spec.composeTextStyle(textColor, fontFamily)
     val typeface = remember(settings.typeface, settings.customFontId, settings.fontWeight) { spec.androidTypeface(context) }
+    val visualTts = remember(tts.active, tts.offset, tts.nextOffset) {
+        tts.copy(
+            rangeStart = tts.offset,
+            rangeEnd = tts.nextOffset.coerceAtLeast(tts.offset),
+        )
+    }
     var widthPx by remember { mutableIntStateOf(0) }
     var heightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -524,7 +553,7 @@ private fun PagedReaderPage(
         sourceText,
         settings,
         annotations,
-        tts,
+        visualTts,
         widthPx,
         heightPx,
         columns,
@@ -546,7 +575,7 @@ private fun PagedReaderPage(
             )
             val visibleEnd = snapshot.displayedEndUtf16.coerceIn(0, presented.displayText.length)
             val visibleText = if (visibleEnd <= 0) "" else presented.displayText.substring(0, visibleEnd)
-            val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, tts, settings)
+            val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, visualTts, settings)
             ReaderPreparedPage(
                 snapshot = snapshot,
                 annotated = ReaderSelectionController.annotatedForSelection(sourceStart, visual, presented.map),
@@ -645,36 +674,59 @@ private fun ContinuousReaderPage(
     val context = LocalContext.current
     val book = state.currentBook ?: return
     val settings = state.settings
-    val engine = remember(book.id) { ReaderViewportEngine(context, book.id) }
-    val scrollModel = remember(book.id) { ReaderContinuousScrollModel() }
-    val settleEvents = remember(book.id) { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
+    val engine = remember(book.id, book.normalizedSha256) { ReaderViewportEngine(context, book.id) }
+    val scope = rememberCoroutineScope()
+    val scrollModel = remember(book.id, book.normalizedSha256) { ReaderContinuousScrollModel() }
+    val settleEvents = remember(book.id, book.normalizedSha256) { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemLeft = WindowInsets.systemGestures.getLeft(density, layoutDirection)
     val systemRight = WindowInsets.systemGestures.getRight(density, layoutDirection)
-    var window by remember(book.id) { mutableStateOf<ReaderDisplayWindow?>(null) }
+    var window by remember(book.id, book.normalizedSha256) { mutableStateOf<ReaderDisplayWindow?>(null) }
     var layoutResult by remember(book.id) { mutableStateOf<ReaderContinuousLayout?>(null) }
     var viewportHeight by remember { mutableIntStateOf(0) }
     var widthPx by remember { mutableIntStateOf(0) }
-    var loading by remember(book.id) { mutableStateOf(false) }
-    var lastCommitted by remember(book.id) { mutableLongStateOf(state.position) }
-    val localPosition = remember(book.id) { AtomicLong(state.position) }
+    var loading by remember(book.id, book.normalizedSha256) { mutableStateOf(false) }
+    var pendingLoadTarget by remember(book.id, book.normalizedSha256) { mutableLongStateOf(Long.MIN_VALUE) }
+    var lastCommitted by remember(book.id, book.normalizedSha256) { mutableLongStateOf(state.position) }
+    val localPosition = remember(book.id, book.normalizedSha256) { AtomicLong(state.position) }
 
     suspend fun loadAround(target: Long) {
-        if (loading) return
+        if (loading) {
+            pendingLoadTarget = target
+            return
+        }
         loading = true
+        var finalPrefetchTarget: Long? = null
         try {
-            val next = withContext(Dispatchers.IO) { engine.readAround(target, settings) }
-            window = next
-            localPosition.set(target.coerceIn(0L, (next.documentLength - 1).coerceAtLeast(0L)))
-            layoutResult = null
-        } finally { loading = false }
+            var requested = target
+            while (true) {
+                pendingLoadTarget = Long.MIN_VALUE
+                val next = withContext(Dispatchers.IO) { engine.readAround(requested, settings) }
+                val bounded = requested.coerceIn(0L, (next.documentLength - 1).coerceAtLeast(0L))
+                window = next
+                localPosition.set(bounded)
+                layoutResult = null
+                val pending = pendingLoadTarget
+                if (pending == Long.MIN_VALUE || abs(pending - requested) < 64L) {
+                    finalPrefetchTarget = bounded
+                    break
+                }
+                requested = pending
+            }
+        } finally {
+            loading = false
+        }
+        finalPrefetchTarget?.let { targetToWarm ->
+            scope.launch(Dispatchers.IO) {
+                runCatching { engine.prefetch(targetToWarm, settings) }
+            }
+        }
     }
     DisposableEffect(engine) { onDispose { engine.close() } }
-    LaunchedEffect(book.id, settings.chineseMode, settings.chineseOverrides, settings.compressBlankLines, settings.paragraphSpacingEm) {
+    LaunchedEffect(book.id, book.normalizedSha256, settings.chineseMode, settings.chineseOverrides, settings.compressBlankLines, settings.paragraphSpacingEm) {
         withContext(Dispatchers.IO) { engine.clear() }
         loadAround(state.position)
-        withContext(Dispatchers.IO) { engine.prefetch(state.position, settings) }
     }
     LaunchedEffect(state.tts.offset, state.tts.active) {
         if (state.tts.active && state.tts.offset >= 0 && abs(state.tts.offset - localPosition.get()) > 128) loadAround(state.tts.offset)
@@ -713,10 +765,14 @@ private fun ContinuousReaderPage(
         }
         val edge = (viewportHeight * 0.25f).roundToInt()
         val nearTop = y <= edge && currentWindow.start > 0
-        val nearBottom = scrollModel.maxOffsetPx > 0f &&
-            scrollModel.maxOffsetPx - y.toFloat() <= edge.toFloat() &&
-            currentWindow.start + currentWindow.map.sourceCodePoints < currentWindow.documentLength - 1
-        if (!loading && (nearTop || nearBottom)) loadAround(absolute)
+        val nearBottom = readerContinuousNeedsNextWindow(
+            scrollOffsetPx = y.toFloat(),
+            maxOffsetPx = scrollModel.maxOffsetPx,
+            viewportHeightPx = viewportHeight,
+            windowEnd = currentWindow.start + currentWindow.map.sourceCodePoints,
+            documentLength = currentWindow.documentLength,
+        )
+        if (nearTop || nearBottom) loadAround(absolute)
     }
 
     // A manual swipe can emit dozens of scroll deltas. Position/source mapping is not visual work;
@@ -744,8 +800,10 @@ private fun ContinuousReaderPage(
             }
             if (samplePosition) settleContinuousPosition(scrollModel.offsetPx.roundToInt(), auto = true)
             val currentWindow = window ?: continue
-            if (scrollModel.maxOffsetPx > 0f && scrollModel.offsetPx >= scrollModel.maxOffsetPx - 1f &&
-                currentWindow.start + currentWindow.map.sourceCodePoints >= currentWindow.documentLength - 1) {
+            val atViewportEnd = scrollModel.offsetPx >= (scrollModel.maxOffsetPx - 1f).coerceAtLeast(0f)
+            val atDocumentEnd =
+                currentWindow.start + currentWindow.map.sourceCodePoints >= currentWindow.documentLength - 1
+            if (atViewportEnd && atDocumentEnd) {
                 actions.onSettingsChanged(settings.copy(autoScrollEnabled = false)); break
             }
         }
@@ -757,10 +815,16 @@ private fun ContinuousReaderPage(
     val map = w?.map ?: SourceDisplayMap.between("", "")
     val spec = remember(settings) { ReaderTypographySpec.from(settings) }
     val style = spec.composeTextStyle(textColor, fontFamily)
-    val annotated = remember(start, display, state.annotations, state.tts, settings.emphasizeHeadings, spec.fingerprint) {
+    val visualTts = remember(state.tts.active, state.tts.offset, state.tts.nextOffset) {
+        state.tts.copy(
+            rangeStart = state.tts.offset,
+            rangeEnd = state.tts.nextOffset.coerceAtLeast(state.tts.offset),
+        )
+    }
+    val annotated = remember(start, display, state.annotations, visualTts, settings.emphasizeHeadings, spec.fingerprint) {
         ReaderSelectionController.annotatedForSelection(
             start,
-            readerAnnotatedText(start, display, map, state.annotations, state.tts, settings),
+            readerAnnotatedText(start, display, map, state.annotations, visualTts, settings),
             map,
         )
     }
@@ -1180,7 +1244,7 @@ private fun ReaderReadingStatus(state: AppUiState, color: Color, background: Col
         clock?.let(::add)
         battery?.let(::add)
     }
-    Surface(modifier.navigationBarsPadding().padding(bottom = 6.dp), color = background.copy(alpha = 0.80f), shape = MaterialTheme.shapes.small) {
+    Surface(modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(bottom = 6.dp), color = background.copy(alpha = 0.80f), shape = MaterialTheme.shapes.small) {
         Text(pieces.joinToString(" · "), Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.75f), maxLines = 1)
     }
 }
@@ -1245,6 +1309,18 @@ private fun ReaderHud(text: String, modifier: Modifier = Modifier) {
     Surface(modifier, color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.90f), contentColor = MaterialTheme.colorScheme.inverseOnSurface, shape = MaterialTheme.shapes.large, tonalElevation = 8.dp) {
         Text(text, Modifier.padding(horizontal = 18.dp, vertical = 12.dp), style = MaterialTheme.typography.titleMedium)
     }
+}
+
+internal fun readerContinuousNeedsNextWindow(
+    scrollOffsetPx: Float,
+    maxOffsetPx: Float,
+    viewportHeightPx: Int,
+    windowEnd: Long,
+    documentLength: Long,
+): Boolean {
+    if (documentLength <= 0 || windowEnd >= documentLength - 1) return false
+    val edgePx = viewportHeightPx.coerceAtLeast(0) * 0.25f
+    return maxOffsetPx.coerceAtLeast(0f) - scrollOffsetPx.coerceAtLeast(0f) <= edgePx
 }
 
 private const val MAX_CHAPTER_TICKS = 96

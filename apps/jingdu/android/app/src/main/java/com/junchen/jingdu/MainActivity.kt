@@ -564,7 +564,7 @@ class MainActivity : ComponentActivity() {
         val bounded = offset.coerceIn(0L, (reader.length() - 1).coerceAtLeast(0L))
         if (bounded == reader.position()) return
         reader.jump(bounded)
-        if (uiState.settings.readingMode == ReaderMode.CONTINUOUS && !uiState.tts.active) publishPositionOnly(book, bounded)
+        if (uiState.settings.readingMode == ReaderMode.CONTINUOUS) publishPositionOnly(book, bounded)
         else render()
     }
 

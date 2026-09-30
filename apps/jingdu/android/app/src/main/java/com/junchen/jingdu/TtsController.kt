@@ -12,6 +12,9 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
+internal fun ttsUtteranceGeneration(utteranceId: String?): Long =
+    utteranceId?.toLongOrNull() ?: -1L
+
 /** Android TextToSpeech transport with exact source-offset projection for presented speech text. */
 internal class TtsController(
     context: Context,
@@ -70,6 +73,7 @@ internal class TtsController(
     private val tts: TextToSpeech
 
     @Volatile private var ready = false
+    @Volatile private var closed = false
     private var pausedForFocus = false
     private var resumeOnFocusGain = false
     private var desiredVoiceName = ""
@@ -85,6 +89,7 @@ internal class TtsController(
 
     init {
         val initListener = TextToSpeech.OnInitListener { status ->
+            if (closed) return@OnInitListener
             ready = status == TextToSpeech.SUCCESS
             if (ready) {
                 applyDesiredVoice()
@@ -104,11 +109,11 @@ internal class TtsController(
             override fun onStart(utteranceId: String?) = Unit
 
             override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
                     val chunk = currentChunk
                     val activeListener = listener
-                    if (token != generation.get() || activeListener == null || chunk == null || chunk.text.isEmpty()) return@post
+                    if (closed || token != generation.get() || activeListener == null || chunk == null || chunk.text.isEmpty()) return@post
                     val relative = ReaderTextPresentation.sourceRangeForDisplayUtf16(
                         chunk.text,
                         chunk.projection,
@@ -129,24 +134,32 @@ internal class TtsController(
             }
 
             override fun onDone(utteranceId: String?) {
-                val token = parseToken(utteranceId)
+                val token = ttsUtteranceGeneration(utteranceId)
                 main.post {
-                    if (token != generation.get() || pausedForFocus || reader == null) return@post
+                    if (closed || token != generation.get() || pausedForFocus || reader == null) return@post
                     if (pendingNextOffset > offset) {
                         offset = pendingNextOffset
                         listener?.onPosition(offset)
                     }
-                    speakNext(token)
+                    speakNext(generation.incrementAndGet())
                 }
             }
 
             override fun onError(utteranceId: String?, errorCode: Int) {
-                main.post { stop("tts error: $errorCode") }
+                val token = ttsUtteranceGeneration(utteranceId)
+                main.post {
+                    if (closed || token != generation.get()) return@post
+                    stop("tts error: $errorCode")
+                }
             }
 
             @Deprecated("Deprecated in Android")
             override fun onError(utteranceId: String?) {
-                main.post { stop("tts error") }
+                val token = ttsUtteranceGeneration(utteranceId)
+                main.post {
+                    if (closed || token != generation.get()) return@post
+                    stop("tts error")
+                }
             }
         })
     }
@@ -158,6 +171,10 @@ internal class TtsController(
         overrides: String,
         listener: Listener,
     ) {
+        if (closed) {
+            listener.onStopped("tts error: controller closed")
+            return
+        }
         stop(null)
         if (!ready) {
             listener.onStopped("TTS engine not ready")
@@ -290,7 +307,7 @@ internal class TtsController(
 
     private fun speakNext(token: Long) {
         val activeReader = reader ?: return
-        if (pausedForFocus || token != generation.get()) return
+        if (closed || pausedForFocus || token != generation.get()) return
         val observer = queueObserver
         val scheduleStartedNs = if (observer != null) System.nanoTime() else 0L
         try {
@@ -335,8 +352,11 @@ internal class TtsController(
     }
 
     override fun close() {
+        if (closed) return
         stop(null)
-        tts.shutdown()
+        closed = true
+        main.removeCallbacksAndMessages(null)
+        runCatching { tts.shutdown() }
     }
 
     private fun detectDocumentLocale(text: String): Locale {
@@ -364,7 +384,6 @@ internal class TtsController(
         }
     }
 
-    private fun parseToken(id: String?): Long = id?.toLongOrNull() ?: -1L
 
     private companion object {
         const val HANS_MARKERS = "这为后发国书读时会里还进对从个们来说现学与体门见风东语网无龙边开长"
