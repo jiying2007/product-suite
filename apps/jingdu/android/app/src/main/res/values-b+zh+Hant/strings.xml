@@ -72,4 +72,5 @@
     <string name="tts_no_voice_match">沒有符合的離線 voice。</string>
     <string name="tts_preview_sample">淨讀會在你的裝置上完成閱讀與朗讀處理。</string>
 
+    <string name="txt_health_nudge">可從閱讀器選單開啟「TXT 健康」，一次檢查編碼、排版、目錄與干擾文字。</string>
 </resources>
