@@ -220,6 +220,16 @@ class ReaderFoundationsTest {
         assertEquals(40f, insets.top, 0.001f)
         assertEquals(8f, insets.right, 0.001f)
         assertEquals(66f, insets.bottom, 0.001f)
+
+        val largeText = readerContentInsetsDp(
+            cutoutLeftDp = 0f,
+            cutoutTopDp = 0f,
+            cutoutRightDp = 0f,
+            bottomGestureDp = 24f,
+            showReadingStatus = true,
+            fontScale = 2f,
+        )
+        assertEquals(100f, largeText.bottom, 0.001f)
     }
 
     @Test fun continuousBoundaryPolicyRequestsHandoffBeforeUserMustLiftFinger() {
