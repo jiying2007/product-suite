@@ -38,11 +38,18 @@ internal class TxtHealthStore(context: Context) {
             .apply()
     }
 
+    fun shouldNudge(bookId: String): Boolean = !prefs.getBoolean("$bookId.nudged", false)
+
+    fun markNudged(bookId: String) {
+        prefs.edit().putBoolean("$bookId.nudged", true).apply()
+    }
+
     fun remove(bookId: String) {
         prefs.edit()
             .remove("$bookId.score")
             .remove("$bookId.issues")
             .remove("$bookId.checked")
+            .remove("$bookId.nudged")
             .apply()
     }
 
