@@ -10,10 +10,10 @@
     <string name="library_sort_label">Sort</string>
     <string name="favorite_book">Favorite</string>
     <string name="unfavorite_book">Remove favorite</string>
-    <string name="edit_tags">Edit tags</string>
-    <string name="book_tags_title">Local tags</string>
-    <string name="book_tags_body">Comma-separated tags are stored only on this device.</string>
-    <string name="book_tags_hint">fiction, reread, favorite author</string>
+    <string name="edit_tags">Edit tags / collections</string>
+    <string name="book_tags_title">Tags & collections</string>
+    <string name="book_tags_body">Comma-separated local tags also become collection filters in Library. They stay on this device and portable Reader backup.</string>
+    <string name="book_tags_hint">science fiction, reread, favorite author</string>
     <string name="save">Save</string>
     <string name="status_unread">Unread</string>
     <string name="status_reading">Reading</string>
@@ -29,4 +29,5 @@
     <string name="smart_clean_undone">Restored the rules from before the last Smart Clean.</string>
     <string name="smart_clean_apply_warning">Only selected whole-line candidates are removed. Original TXT is never modified.</string>
     <string name="library_tagline_terminal">Long TXT · Smart Clean · Fully local</string>
+    <string name="library_collections">Collections</string>
 </resources>
