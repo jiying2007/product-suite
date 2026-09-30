@@ -146,6 +146,27 @@ tasks.register("verifyReleasePermissionAllowlist") {
     }
 }
 
+
+tasks.register("writeReleaseDependencyInventory") {
+    group = "verification"
+    doLast {
+        def output = layout.buildDirectory.file("reports/jingdu-release-dependencies.txt").get().asFile
+        output.parentFile.mkdirs()
+        def artifacts = configurations.getByName("releaseRuntimeClasspath")
+            .resolvedConfiguration.resolvedArtifacts
+            .collect { artifact ->
+                def id = artifact.moduleVersion.id
+                "${id.group}:${artifact.name}:${id.version}"
+            }
+            .findAll { !it.startsWith("jiying2007:") }
+            .toSet()
+            .toList()
+            .sort()
+        output.setText(artifacts.join(System.lineSeparator()) + System.lineSeparator(), "UTF-8")
+        println("Wrote exact release dependency inventory: ${output} (${artifacts.size()} artifacts)")
+    }
+}
+
 tasks.register("validateStoreRelease") {
     group = "verification"
     doLast {
