@@ -79,4 +79,6 @@
 
     <string name="competitive_ok">OK</string>
     <string name="competitive_close">Close</string>
+    <string name="privacy_network_absent">This package has no Android INTERNET permission; reading and repair are network-independent.</string>
+    <string name="privacy_network_play_only">This Play package has INTERNET only for optional Google Play Billing/In-App Review; Jingdu has no book-content backend.</string>
 </resources>
