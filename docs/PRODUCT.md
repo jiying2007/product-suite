@@ -23,6 +23,7 @@ Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨
 - Active product track: **2.4 Guided TXT Rescue** — TXT Health, guided repair, smart collections and long-session evidence.
 - Portable local-user backup schema: **v4** (`schema=4`, Reader; schema 3 remains importable for pre-production testers).
 - First-class Android UI locales: **zh-Hans / zh-Hant / en-US**.
+- Play discovery listings: **zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR**; Japanese/Korean listings disclose English in-app fallback.
 
 Detailed intelligence architecture lives in `SMART_CLEAN_ARCHITECTURE.md` and `COMPETITIVE_MOAT.md`.
 
@@ -259,7 +260,7 @@ Pro includes:
 - reusable global rule library / recommended patterns;
 - global-rule JSON import/export;
 - batch diagnostics + explicit safe batch apply;
-- selectable installed offline TTS voices;
+- selectable installed Android TTS engine plus offline voice search/preview;
 - portable local-user backup/restore.
 
 No subscription is justified while there is no recurring cloud/server service. Do not move basic reading, Smart Layout, search, TXT Doctor, Smart TOC, bookmarks, themes, local pronunciation correction or base TTS behind Pro.
