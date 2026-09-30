@@ -527,6 +527,12 @@ private fun PagedReaderPage(
     val spec = remember(settings) { ReaderTypographySpec.from(settings) }
     val style = spec.composeTextStyle(textColor, fontFamily)
     val typeface = remember(settings.typeface, settings.customFontId, settings.fontWeight) { spec.androidTypeface(context) }
+    val visualTts = remember(tts.active, tts.offset, tts.nextOffset) {
+        tts.copy(
+            rangeStart = tts.offset,
+            rangeEnd = tts.nextOffset.coerceAtLeast(tts.offset),
+        )
+    }
     var widthPx by remember { mutableIntStateOf(0) }
     var heightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -547,7 +553,7 @@ private fun PagedReaderPage(
         sourceText,
         settings,
         annotations,
-        tts,
+        visualTts,
         widthPx,
         heightPx,
         columns,
@@ -569,7 +575,7 @@ private fun PagedReaderPage(
             )
             val visibleEnd = snapshot.displayedEndUtf16.coerceIn(0, presented.displayText.length)
             val visibleText = if (visibleEnd <= 0) "" else presented.displayText.substring(0, visibleEnd)
-            val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, tts, settings)
+            val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, visualTts, settings)
             ReaderPreparedPage(
                 snapshot = snapshot,
                 annotated = ReaderSelectionController.annotatedForSelection(sourceStart, visual, presented.map),
@@ -809,10 +815,16 @@ private fun ContinuousReaderPage(
     val map = w?.map ?: SourceDisplayMap.between("", "")
     val spec = remember(settings) { ReaderTypographySpec.from(settings) }
     val style = spec.composeTextStyle(textColor, fontFamily)
-    val annotated = remember(start, display, state.annotations, state.tts, settings.emphasizeHeadings, spec.fingerprint) {
+    val visualTts = remember(state.tts.active, state.tts.offset, state.tts.nextOffset) {
+        state.tts.copy(
+            rangeStart = state.tts.offset,
+            rangeEnd = state.tts.nextOffset.coerceAtLeast(state.tts.offset),
+        )
+    }
+    val annotated = remember(start, display, state.annotations, visualTts, settings.emphasizeHeadings, spec.fingerprint) {
         ReaderSelectionController.annotatedForSelection(
             start,
-            readerAnnotatedText(start, display, map, state.annotations, state.tts, settings),
+            readerAnnotatedText(start, display, map, state.annotations, visualTts, settings),
             map,
         )
     }
