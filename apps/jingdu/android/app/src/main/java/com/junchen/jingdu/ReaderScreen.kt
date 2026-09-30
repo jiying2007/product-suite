@@ -690,6 +690,7 @@ private fun ContinuousReaderPage(
             return
         }
         loading = true
+        var finalPrefetchTarget: Long? = null
         try {
             var requested = target
             while (true) {
@@ -699,15 +700,20 @@ private fun ContinuousReaderPage(
                 window = next
                 localPosition.set(bounded)
                 layoutResult = null
-                scope.launch(Dispatchers.IO) {
-                    runCatching { engine.prefetch(bounded, settings) }
-                }
                 val pending = pendingLoadTarget
-                if (pending == Long.MIN_VALUE || abs(pending - requested) < 64L) break
+                if (pending == Long.MIN_VALUE || abs(pending - requested) < 64L) {
+                    finalPrefetchTarget = bounded
+                    break
+                }
                 requested = pending
             }
         } finally {
             loading = false
+        }
+        finalPrefetchTarget?.let { targetToWarm ->
+            scope.launch(Dispatchers.IO) {
+                runCatching { engine.prefetch(targetToWarm, settings) }
+            }
         }
     }
     DisposableEffect(engine) { onDispose { engine.close() } }
