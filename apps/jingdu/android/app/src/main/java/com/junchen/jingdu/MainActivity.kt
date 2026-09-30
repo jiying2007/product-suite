@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: BookRepository
     private lateinit var ttsCatalog: TtsController
+    private lateinit var ttsEngineStore: TtsEngineStore
     private lateinit var readerPreferences: ReaderPreferences
     private lateinit var ruleLibrary: RuleLibrary
     private lateinit var userBackup: UserBackup
@@ -176,6 +177,7 @@ class MainActivity : ComponentActivity() {
             onExportClean = ::exportClean,
             onEncodingSelected = ::redecode,
             onSettingsChanged = ::updateSettings,
+            onTtsEngineSelected = ::selectTtsEngine,
             onPreviewTtsVoice = { voice -> ttsCatalog.previewVoice(voice, getString(R.string.tts_preview_sample)) },
             onToggleTts = ::toggleTts,
             onToggleAutoPaging = ::toggleAutoPaging,
@@ -215,7 +217,8 @@ class MainActivity : ComponentActivity() {
         statsStore = ReaderStatsStore(this)
         smartTocCache = SmartTocCacheStore(this)
         txtHealthStore = TxtHealthStore(this)
-        ttsCatalog = TtsController(this)
+        ttsEngineStore = TtsEngineStore(this)
+        ttsCatalog = TtsController(this, engineName = ttsEngineStore.load().ifBlank { null })
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
         refreshLibrary()
@@ -1028,7 +1031,35 @@ class MainActivity : ComponentActivity() {
         return (fraction * (newLength - 1).toDouble()).roundToLong().coerceIn(0, newLength - 1)
     }
 
-    private fun refreshTtsVoices() { uiState = uiState.copy(ttsVoices = ttsCatalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) }) }
+    private fun refreshTtsVoices() {
+        uiState = uiState.copy(
+            ttsVoices = ttsCatalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) },
+            ttsEngines = ttsCatalog.installedEngines().map { TtsEngineModel(it.name, it.label) },
+            ttsEngineName = ttsEngineStore.load(),
+        )
+    }
+
+    private fun selectTtsEngine(packageName: String) {
+        if (!proUnlocked) { billing.purchase(); return }
+        val selected = packageName.trim().take(255)
+        if (selected.isNotEmpty() && ttsCatalog.installedEngines().none { it.name == selected }) {
+            showMessage(getString(R.string.tts_engine_unavailable))
+            return
+        }
+        stopTts()
+        runCatching { stopService(Intent(this, TtsPlaybackService::class.java)) }
+        ttsEngineStore.save(selected)
+        ttsCatalog.close()
+        ttsCatalog = TtsController(this, engineName = selected.ifBlank { null })
+        val reset = uiState.settings.copy(ttsVoiceName = "")
+        readerPreferences.save(reset)
+        uiState = uiState.copy(
+            settings = reset,
+            ttsEngineName = selected,
+            ttsVoices = emptyList(),
+        )
+        main.postDelayed(::refreshTtsVoices, 750L)
+    }
 
     private fun updateSettings(settings: ReaderSettings) {
         if (settings.ttsVoiceName != uiState.settings.ttsVoiceName && !proUnlocked) { billing.purchase(); return }
