@@ -752,9 +752,13 @@ private fun ContinuousReaderPage(
         }
         val edge = (viewportHeight * 0.25f).roundToInt()
         val nearTop = y <= edge && currentWindow.start > 0
-        val nearBottom =
-            scrollModel.maxOffsetPx - y.toFloat() <= edge.toFloat() &&
-            currentWindow.start + currentWindow.map.sourceCodePoints < currentWindow.documentLength - 1
+        val nearBottom = readerContinuousNeedsNextWindow(
+            scrollOffsetPx = y.toFloat(),
+            maxOffsetPx = scrollModel.maxOffsetPx,
+            viewportHeightPx = viewportHeight,
+            windowEnd = currentWindow.start + currentWindow.map.sourceCodePoints,
+            documentLength = currentWindow.documentLength,
+        )
         if (nearTop || nearBottom) loadAround(absolute)
     }
 
@@ -1286,6 +1290,18 @@ private fun ReaderHud(text: String, modifier: Modifier = Modifier) {
     Surface(modifier, color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.90f), contentColor = MaterialTheme.colorScheme.inverseOnSurface, shape = MaterialTheme.shapes.large, tonalElevation = 8.dp) {
         Text(text, Modifier.padding(horizontal = 18.dp, vertical = 12.dp), style = MaterialTheme.typography.titleMedium)
     }
+}
+
+internal fun readerContinuousNeedsNextWindow(
+    scrollOffsetPx: Float,
+    maxOffsetPx: Float,
+    viewportHeightPx: Int,
+    windowEnd: Long,
+    documentLength: Long,
+): Boolean {
+    if (documentLength <= 0 || windowEnd >= documentLength - 1) return false
+    val edgePx = viewportHeightPx.coerceAtLeast(0) * 0.25f
+    return maxOffsetPx.coerceAtLeast(0f) - scrollOffsetPx.coerceAtLeast(0f) <= edgePx
 }
 
 private const val MAX_CHAPTER_TICKS = 96
