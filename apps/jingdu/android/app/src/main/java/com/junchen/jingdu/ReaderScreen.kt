@@ -388,7 +388,7 @@ internal fun ReaderScreen(
                 ReaderTopBar(book.name, currentChapter, actions, { more = true }, ::keepChromeAlive)
             }
             if (more) Box(
-                Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 56.dp, end = 8.dp),
+                Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)).padding(top = 56.dp, end = 8.dp),
             ) { ReaderMoreMenu(actions) { more = false } }
             Box(Modifier.align(Alignment.BottomCenter)) {
                 ReaderBottomBar(
@@ -435,7 +435,7 @@ internal fun ReaderScreen(
         )
         if (state.autoScrolling) AutoScrollLiveControl(
             settings, actions,
-            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 42.dp).graphicsLayer {
+            Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(bottom = 42.dp).graphicsLayer {
                 translationY = if (controlsVisible) READER_HIDDEN_LAYER_OFFSET_PX.toFloat() else 0f
                 alpha = if (controlsVisible) 0f else 1f
             },
@@ -1219,7 +1219,7 @@ private fun ReaderReadingStatus(state: AppUiState, color: Color, background: Col
         clock?.let(::add)
         battery?.let(::add)
     }
-    Surface(modifier.navigationBarsPadding().padding(bottom = 6.dp), color = background.copy(alpha = 0.80f), shape = MaterialTheme.shapes.small) {
+    Surface(modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(bottom = 6.dp), color = background.copy(alpha = 0.80f), shape = MaterialTheme.shapes.small) {
         Text(pieces.joinToString(" · "), Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.75f), maxLines = 1)
     }
 }
