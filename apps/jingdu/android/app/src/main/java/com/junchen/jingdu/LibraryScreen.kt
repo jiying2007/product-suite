@@ -213,6 +213,8 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                 "FAVORITES" -> book.favorite
                 "READING" -> book.status == LibraryBookStatus.READING
                 "FINISHED" -> book.status == LibraryBookStatus.FINISHED
+                "ATTENTION" -> book.healthScore != null && (book.healthScore < 90 || book.healthIssues > 0)
+                "OPTIMIZED" -> book.optimized
                 else -> true
             }
             matchesQuery && matchesFilter
@@ -271,7 +273,7 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                         placeholder = { Text(stringResource(R.string.search_hint)) },
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -279,6 +281,14 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
                         LibraryFilterChip(filterName == "READING", stringResource(R.string.library_filter_reading)) { filterName = "READING" }
                         LibraryFilterChip(filterName == "FAVORITES", stringResource(R.string.library_filter_favorites)) { filterName = "FAVORITES" }
                         LibraryFilterChip(filterName == "FINISHED", stringResource(R.string.library_filter_finished)) { filterName = "FINISHED" }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LibraryFilterChip(filterName == "ATTENTION", stringResource(R.string.library_filter_attention)) { filterName = "ATTENTION" }
+                        LibraryFilterChip(filterName == "OPTIMIZED", stringResource(R.string.library_filter_optimized)) { filterName = "OPTIMIZED" }
                         Box {
                             AssistChip(onClick = { sortMenu = true }, label = { Text("${stringResource(R.string.library_sort_label)} · ${sortLabel(sortName)}") })
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
@@ -553,6 +563,18 @@ private fun BookCard(book: BookCardModel, onOpen: () -> Unit, onDelete: () -> Un
                     }
                 }
                 Text("${statusLabel(book.status)} · ${formatTouched(book.touchedAt, stringResource(R.string.not_read))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                book.healthScore?.let { score ->
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        if (book.healthIssues > 0) stringResource(R.string.library_health_issues, score, book.healthIssues)
+                        else stringResource(R.string.library_health_good, score),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (book.healthIssues > 0 || score < 90) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (book.optimized) {
+                    Text(stringResource(R.string.library_optimized_badge), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
                 if (book.tags.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
                     Text(book.tags.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
