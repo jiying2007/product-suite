@@ -73,4 +73,9 @@
     <string name="tts_preview_sample">淨讀會在你的裝置上完成閱讀與朗讀處理。</string>
 
     <string name="txt_health_nudge">可從閱讀器選單開啟「TXT 健康」，一次檢查編碼、排版、目錄與干擾文字。</string>
+
+    <string name="local_tts_engine">本機 TTS 引擎</string>
+    <string name="local_tts_engine_hint">選擇已安裝的 Android TTS 引擎。離線或神經語音引擎可由提供者在本機運行；淨讀本身不會透過網路傳送書籍正文。</string>
+    <string name="tts_engine_unavailable">此 TTS 引擎已不可用，請選擇其他引擎或系統預設。</string>
+
 </resources>
