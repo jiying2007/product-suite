@@ -93,7 +93,10 @@ internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
                     title = stringResource(R.string.txt_health_toc),
                     detail = stringResource(R.string.txt_health_toc_detail, report.chapterCount, report.tocAnomalies, report.tocScore),
                     action = stringResource(R.string.txt_health_review),
-                ) { actions.onOpenPanel(ReaderPanel.CHAPTERS) }
+                ) {
+                    actions.onClosePanel()
+                    actions.onOpenPanel(ReaderPanel.CHAPTERS)
+                }
 
                 HealthStep(
                     icon = { Icon(Icons.Outlined.AutoFixHigh, null) },
