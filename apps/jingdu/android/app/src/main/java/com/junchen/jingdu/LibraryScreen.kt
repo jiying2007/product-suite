@@ -205,25 +205,12 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
     }
 
     val filteredBooks = remember(state.books, filterName, sortName, libraryQuery) {
-        val query = libraryQuery.trim().lowercase()
-        val filtered = state.books.filter { book ->
-            val matchesQuery = query.isEmpty() || stripTxt(book.name).lowercase().contains(query) ||
-                book.tags.any { it.lowercase().contains(query) }
-            val matchesFilter = when (filterName) {
-                "FAVORITES" -> book.favorite
-                "READING" -> book.status == LibraryBookStatus.READING
-                "FINISHED" -> book.status == LibraryBookStatus.FINISHED
-                "ATTENTION" -> book.healthScore != null && (book.healthScore < 90 || book.healthIssues > 0)
-                "OPTIMIZED" -> book.optimized
-                else -> true
-            }
-            matchesQuery && matchesFilter
-        }
-        when (runCatching { LibrarySort.valueOf(sortName) }.getOrDefault(LibrarySort.RECENT)) {
-            LibrarySort.RECENT -> filtered.sortedByDescending(BookCardModel::touchedAt)
-            LibrarySort.NAME -> filtered.sortedBy { stripTxt(it.name).lowercase() }
-            LibrarySort.PROGRESS -> filtered.sortedByDescending(BookCardModel::progressFraction)
-        }
+        LibraryQueryEngine.apply(
+            books = state.books,
+            query = libraryQuery,
+            filterName = filterName,
+            sortName = sortName,
+        )
     }
     val continueBook = remember(state.books) {
         state.books.filter { it.status == LibraryBookStatus.READING }.maxByOrNull(BookCardModel::touchedAt)
