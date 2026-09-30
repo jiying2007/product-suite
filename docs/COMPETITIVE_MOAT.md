@@ -10,8 +10,8 @@ The terminal product loop is:
 select TXT / folder
   -> first-readable bounded preview
   -> private immutable import + normalization/index
-  -> TXT Doctor health diagnosis
-  -> Smart Layout presentation repair
+  -> TXT Health guided diagnosis
+  -> TXT Doctor + Smart Layout presentation repair
   -> Smart TOC structure intelligence
   -> Smart Clean 4 explainable cleanup
   -> long-session reading / background TTS
@@ -23,6 +23,12 @@ The competitive promise is not “support more formats.” It is: **take a TXT t
 The source TXT is never modified or deleted. Book text is never uploaded. The core Reader remains network-independent; the Google Play release overlay adds `INTERNET` only for optional Billing/In-App Review and does not introduce a Jingdu-operated content or analytics backend.
 
 ## P0 — immediate differentiated value
+
+### TXT Health / Guided Repair
+
+TXT Health is the first-class discovery surface over the existing repair stack. One explicit local check summarizes encoding integrity, hard-wrap/layout evidence, TOC quality and Smart Clean candidates, then routes the reader directly to the relevant repair surface. Only score/count/issue metadata is persisted; sampled text remains transient. The Library can therefore expose **Needs attention** and **Optimized** smart collections without opening every book.
+
+Single-book repair is a trust feature: selected Smart Clean candidates may be applied and undone in Free. Pro starts where saved repetitive work begins — wildcard/global rules, batch diagnostics/apply, portable assets and selectable installed offline voices.
 
 ### TXT Doctor
 
@@ -64,6 +70,8 @@ Android can move read-aloud into an exported=false foreground mediaPlayback serv
 ## P1 — retention and paid automation
 
 ### SAF folder library
+
+Library search/filter/sort stays metadata-only and has a 10,000-book regression guard. TXT Health summaries become smart-collection metadata rather than another payload scan.
 
 Folder roots are selected explicitly through the Storage Access Framework. Jingdu persists read-only URI permission and uses documentId + size + lastModified signatures to skip unchanged TXT files. It requests no broad storage permission.
 
