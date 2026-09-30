@@ -19,7 +19,8 @@ Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨
 - Smart Clean: **generation 4**.
 - Built-in deterministic clean signature pack: **v3**.
 - Chinese display conversion: OpenCC-compatible **OpenccJava 1.4.2**.
-- Android product line/source release: **2.3.x / Reader**.
+- Current immutable source baseline: **2.3.11 / Reader**.
+- Active product track: **2.4 Guided TXT Rescue** — TXT Health, guided repair, smart collections and long-session evidence.
 - Portable local-user backup schema: **v4** (`schema=4`, Reader; schema 3 remains importable for pre-production testers).
 - First-class Android UI locales: **zh-Hans / zh-Hant / en-US**.
 
@@ -40,8 +41,8 @@ Detailed intelligence architecture lives in `SMART_CLEAN_ARCHITECTURE.md` and `C
 TXT / user-selected TXT folder
   -> bounded first-readable preview
   -> immutable private source + normalized revision/index
-  -> TXT Doctor
-  -> Smart Layout
+  -> TXT Health / guided diagnosis
+  -> TXT Doctor + Smart Layout
   -> Smart TOC
   -> Smart Clean 4
   -> reading / OpenCC display / background TTS
@@ -50,7 +51,7 @@ TXT / user-selected TXT folder
 
 ## Open it correctly and quickly
 
-- Single TXT import, multi-select import and user-selected SAF folder roots.
+- Single TXT import, Android shared-text import, multi-select import and user-selected SAF folder roots.
 - AUTO encoding detection plus manual re-decode from the retained private source copy.
 - Source bytes are never modified or deleted.
 - New single-book import can render a disposable bounded preview from at most 512 KiB / 12,000 code points before full canonical private import/normalization/indexing completes.
@@ -217,7 +218,7 @@ The app can export a privacy audit containing configuration/counts and bounded s
 
 ## Performance position
 
-Performance is a product feature. Qualification uses 1–5 / 20 / 100 / 200 MiB workloads, with 300 MiB as an extended stress class.
+Performance is a product feature. Qualification uses 1–5 / 20 / 100 / 200 MiB workloads, with 300 MiB as an extended stress class. Metadata-only Library search/filter/sort is regression-tested at 10,000 books, and physical 60/180-minute Reader soak automation retains process/PSS/battery/thermal evidence.
 
 Architectural invariants:
 
@@ -237,7 +238,7 @@ Release-device targets and hosted Core gates remain defined in `PERFORMANCE_SLO.
 ### Free is a complete reader
 
 Free includes:
-- import/re-decode and folder library;
+- import/re-decode, bounded shared-text import and folder library;
 - large-file reading/index cache;
 - TXT Doctor, Smart Layout and Smart TOC;
 - search, chapters, bookmarks, progress;
@@ -245,15 +246,16 @@ Free includes:
 - OpenCC display conversion and local phrase overrides;
 - basic system TTS, local pronunciation overrides, auto paging and sleep timer;
 - exact per-book Clean rules;
-- Smart Clean scan/preview and local correction visibility.
+- TXT Health guided encoding/layout/TOC/noise diagnosis;
+- Smart Clean scan/preview, selected single-book apply + one-step undo, and local correction visibility.
 
 ### Pro Lifetime sells automation and reusable local assets
 
 One-time Google Play product: `jingdu_pro_lifetime`.
 
 Pro includes:
-- one-action application of selected Smart Clean suggestions and one-step rule undo;
 - safe whole-line wildcard rules;
+- reusable automation beyond one book;
 - reusable global rule library / recommended patterns;
 - global-rule JSON import/export;
 - batch diagnostics + explicit safe batch apply;
