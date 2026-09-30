@@ -667,22 +667,22 @@ private fun ContinuousReaderPage(
     val context = LocalContext.current
     val book = state.currentBook ?: return
     val settings = state.settings
-    val engine = remember(book.id) { ReaderViewportEngine(context, book.id) }
+    val engine = remember(book.id, book.normalizedSha256) { ReaderViewportEngine(context, book.id) }
     val scope = rememberCoroutineScope()
-    val scrollModel = remember(book.id) { ReaderContinuousScrollModel() }
-    val settleEvents = remember(book.id) { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
+    val scrollModel = remember(book.id, book.normalizedSha256) { ReaderContinuousScrollModel() }
+    val settleEvents = remember(book.id, book.normalizedSha256) { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemLeft = WindowInsets.systemGestures.getLeft(density, layoutDirection)
     val systemRight = WindowInsets.systemGestures.getRight(density, layoutDirection)
-    var window by remember(book.id) { mutableStateOf<ReaderDisplayWindow?>(null) }
+    var window by remember(book.id, book.normalizedSha256) { mutableStateOf<ReaderDisplayWindow?>(null) }
     var layoutResult by remember(book.id) { mutableStateOf<ReaderContinuousLayout?>(null) }
     var viewportHeight by remember { mutableIntStateOf(0) }
     var widthPx by remember { mutableIntStateOf(0) }
-    var loading by remember(book.id) { mutableStateOf(false) }
-    var pendingLoadTarget by remember(book.id) { mutableLongStateOf(Long.MIN_VALUE) }
-    var lastCommitted by remember(book.id) { mutableLongStateOf(state.position) }
-    val localPosition = remember(book.id) { AtomicLong(state.position) }
+    var loading by remember(book.id, book.normalizedSha256) { mutableStateOf(false) }
+    var pendingLoadTarget by remember(book.id, book.normalizedSha256) { mutableLongStateOf(Long.MIN_VALUE) }
+    var lastCommitted by remember(book.id, book.normalizedSha256) { mutableLongStateOf(state.position) }
+    val localPosition = remember(book.id, book.normalizedSha256) { AtomicLong(state.position) }
 
     suspend fun loadAround(target: Long) {
         if (loading) {
@@ -717,7 +717,7 @@ private fun ContinuousReaderPage(
         }
     }
     DisposableEffect(engine) { onDispose { engine.close() } }
-    LaunchedEffect(book.id, settings.chineseMode, settings.chineseOverrides, settings.compressBlankLines, settings.paragraphSpacingEm) {
+    LaunchedEffect(book.id, book.normalizedSha256, settings.chineseMode, settings.chineseOverrides, settings.compressBlankLines, settings.paragraphSpacingEm) {
         withContext(Dispatchers.IO) { engine.clear() }
         loadAround(state.position)
     }
