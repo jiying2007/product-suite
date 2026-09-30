@@ -231,7 +231,6 @@
     <string name="txt_health_title">TXT Health</string>
     <string name="txt_health_subtitle">Check encoding, layout, structure and noise in one place. All analysis stays on this device.</string>
     <string name="txt_health_waiting">Run the local health check to see repair guidance.</string>
-    <string name="txt_health_score">Health score · %1$d/100</string>
     <string name="txt_health_good">This TXT is in good shape. No risky repair is required.</string>
     <string name="txt_health_notice">A few issues can be improved without changing the source TXT.</string>
     <string name="txt_health_warning">This TXT has issues worth reviewing before a long reading session.</string>
