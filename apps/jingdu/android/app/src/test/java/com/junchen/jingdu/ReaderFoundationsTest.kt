@@ -11,6 +11,13 @@ import java.util.Locale
 import kotlin.random.Random
 
 class ReaderFoundationsTest {
+    @Test fun pageLayoutCacheKeyDistinguishesKnownJavaHashCollision() {
+        assertEquals("FB".hashCode(), "Ea".hashCode())
+        val first = PageLayoutKey("FB", "FB", 400, 800, 1, 1)
+        val second = PageLayoutKey("Ea", "Ea", 400, 800, 1, 1)
+        assertNotEquals(first, second)
+    }
+
     @Test
     fun tocCurrentIndexUsesNearestChapterAtOrBeforePosition() {
         val chapters = listOf(

@@ -47,13 +47,32 @@ internal class ProgressiveImport(context: Context) {
         return ImportPreview(uri, displayName(uri), encoding, preview, total)
     }
 
+    fun fromSample(uri: Uri, name: String, sample: ByteArray, hasMore: Boolean): ImportPreview {
+        val encoding = NativeCore.detectEncoding(sample, hasMore)
+        val charset = Charset.forName(encoding)
+        val decoded = charset.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+            .decode(ByteBuffer.wrap(sample))
+            .toString()
+            .removePrefix("\uFEFF")
+        return ImportPreview(
+            uri = uri,
+            name = TextMetadataSanitizer.displayName(name, "book.txt"),
+            encoding = encoding,
+            text = codePointPrefix(decoded, MAX_PREVIEW_CHARS),
+            sampledBytes = sample.size,
+        )
+    }
+
     private fun displayName(uri: Uri): String {
         var cursor: Cursor? = null
         return try {
             cursor = app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            if (cursor != null && cursor.moveToFirst()) cursor.getString(0) ?: "book.txt" else uri.lastPathSegment ?: "book.txt"
+            val raw = if (cursor != null && cursor.moveToFirst()) cursor.getString(0) else uri.lastPathSegment
+            TextMetadataSanitizer.displayName(raw, "book.txt")
         } catch (_: Throwable) {
-            uri.lastPathSegment ?: "book.txt"
+            TextMetadataSanitizer.displayName(uri.lastPathSegment, "book.txt")
         } finally {
             cursor?.close()
         }

@@ -506,11 +506,14 @@ class MainActivity : ComponentActivity() {
             abs(position - lastProgressPersistPosition) < PROGRESS_SAVE_CHAR_DELTA) return
         lastProgressPersistAt = now
         lastProgressPersistPosition = position
-        if (force) {
-            runCatching { progressWorkers.submit { repository.saveProgress(book, position) }.get() }
-                .getOrElse { repository.saveProgress(book, position) }
-        } else {
+        // Never block the UI/lifecycle thread on storage. Forced checkpoints are ordered on the
+        // single writer but remain asynchronous; BookRepository progress persistence itself is O(1).
+        runCatching {
             progressWorkers.execute { runCatching { repository.saveProgress(book, position) } }
+        }.onFailure {
+            // Executor shutdown is a lifecycle race only; apply the tiny O(1) checkpoint directly
+            // without a synchronous disk wait so the latest offset is still queued for durability.
+            repository.saveProgress(book, position, synchronous = false)
         }
     }
 
@@ -1178,30 +1181,45 @@ class MainActivity : ComponentActivity() {
 
     private fun deleteCurrentBook() {
         val book = currentBook ?: return
+        if (uiState.busyLabel != null) return
         uiState = uiState.copy(deleteConfirmation = false)
         statsStore.finish()
-        stopAllMotion(); workGeneration.incrementAndGet(); reader.close()
-        repository.delete(book)
-        clearBookPreferences(book)
-        libraryMetadata.clear(book.id)
-        cleanHistory.clearAllForBook(book.id)
-        smartCleanFeedback.clearBook(book.id)
-        annotationStore.clearBook(book.id)
-        smartTocCache.clear(book.id)
-        TocOverrideStore(this).reset(book.id)
-        txtHealthStore.remove(book.id)
-        currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
-        uiState = uiState.copy(
-            screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
-            cleanMode = false, panel = null, chaptersLoaded = false, repairRules = emptyList(),
-            noiseCandidates = emptyList(), smartCleanAnalyzed = false, smartCleanUndoAvailable = false, message = getString(R.string.removed_from_library),
+        stopAllMotion()
+        reader.close()
+        runWork(
+            label = getString(R.string.delete),
+            task = { repository.delete(book); book },
+            success = { deleted ->
+                clearDeletedBookState(deleted)
+                currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
+                uiState = uiState.copy(
+                    screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
+                    cleanMode = false, panel = null, chaptersLoaded = false, repairRules = emptyList(),
+                    noiseCandidates = emptyList(), smartCleanAnalyzed = false, smartCleanUndoAvailable = false,
+                    message = getString(R.string.removed_from_library),
+                )
+            },
+            errorTitle = getString(R.string.delete),
         )
     }
 
     private fun deleteLibraryBook(id: String) {
         val book = findBook(id) ?: return
         if (currentBook?.id == id) { deleteCurrentBook(); return }
-        repository.delete(book)
+        if (uiState.busyLabel != null) return
+        runWork(
+            label = getString(R.string.delete),
+            task = { repository.delete(book); book },
+            success = { deleted ->
+                clearDeletedBookState(deleted)
+                refreshLibrary()
+                showMessage(getString(R.string.removed_from_library))
+            },
+            errorTitle = getString(R.string.delete),
+        )
+    }
+
+    private fun clearDeletedBookState(book: BookRepository.Book) {
         clearBookPreferences(book)
         libraryMetadata.clear(book.id)
         cleanHistory.clearAllForBook(book.id)
@@ -1210,13 +1228,10 @@ class MainActivity : ComponentActivity() {
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
         txtHealthStore.remove(book.id)
-        refreshLibrary()
-        showMessage(getString(R.string.removed_from_library))
     }
 
     private fun clearBookPreferences(book: BookRepository.Book) {
         getPreferences(MODE_PRIVATE).edit().remove(rulesKey(book)).apply()
-        annotationStore.clearBook(book.id)
     }
 
     private fun <T> runWork(label: String, task: Callable<T>, success: (T) -> Unit, errorTitle: String) {
@@ -1319,12 +1334,12 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     override fun onDestroy() {
         workGeneration.incrementAndGet(); chapterWorkKey = null; main.removeCallbacksAndMessages(null)
-        tocWorkers.shutdownNow(); progressWorkers.shutdownNow(); workers.shutdownNow()
+        tocWorkers.shutdownNow(); progressWorkers.shutdown(); workers.shutdownNow()
         runCatching { unregisterReceiver(ttsStateReceiver) }
         if (::billing.isInitialized) billing.close()
         if (::ttsCatalog.isInitialized) ttsCatalog.close()
         if (::statsStore.isInitialized) statsStore.finish()
-        if (::readerPreferences.isInitialized) readerPreferences.flush(uiState.settings)
+        if (::readerPreferences.isInitialized) readerPreferences.save(uiState.settings)
         reader.close(); super.onDestroy()
     }
 

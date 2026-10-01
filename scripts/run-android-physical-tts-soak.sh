@@ -8,11 +8,16 @@ ADB="${ADB:-$SDK_ROOT/platform-tools/adb}"
 TARGET_PACKAGE="com.junchen.jingdu"
 TEST_PACKAGE="com.junchen.jingdu.macrobenchmark"
 DURATION_MINUTES="${JINGDU_TTS_SOAK_MINUTES:-30}"
+SOAK_MODE="${JINGDU_TTS_SOAK_MODE:-background}"
 SOURCE_REF="${JINGDU_QUALIFIED_SOURCE_REF:-$(git -C "$ROOT" rev-parse HEAD)}"
 EXPECTED_SOURCE_SHA="${JINGDU_QUALIFIED_SOURCE_SHA:-}"
 ACTUAL_SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
 RESULT_ROOT="$ANDROID_DIR/macrobenchmark/build/outputs/physical-tts-soak"
 
+[[ "$SOAK_MODE" == "background" || "$SOAK_MODE" == "foreground-continuous" ]] || {
+  echo "JINGDU_TTS_SOAK_MODE must be background or foreground-continuous" >&2
+  exit 2
+}
 [[ "$DURATION_MINUTES" == "30" || "$DURATION_MINUTES" == "60" ]] || {
   echo "JINGDU_TTS_SOAK_MINUTES must be 30 or 60" >&2
   exit 2
@@ -43,6 +48,7 @@ cat > "$RESULT_ROOT/provenance.txt" <<EOF
 source_ref=$SOURCE_REF
 source_sha=$ACTUAL_SOURCE_SHA
 duration_minutes=$DURATION_MINUTES
+soak_mode=$SOAK_MODE
 manufacturer=$MANUFACTURER
 model=$MODEL
 sdk=$SDK
@@ -83,6 +89,7 @@ set +e
 "$ADB" shell am instrument -w -r \
   -e class com.junchen.jingdu.macrobenchmark.PhysicalTtsSoakTest \
   -e jingdu.ttsSoakMinutes "$DURATION_MINUTES" \
+  -e jingdu.ttsSoakMode "$SOAK_MODE" \
   "$INSTRUMENTATION" | tee "$LOG"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -108,6 +115,7 @@ python3 scripts/check-android-tts-soak.py \
   "$LOG" \
   "$RESULT_ROOT/tts-logcat.txt" \
   --duration-minutes "$DURATION_MINUTES" \
+  --mode "$SOAK_MODE" \
   --summary-json "$RESULT_ROOT/tts-soak-slo.json"
 
-echo "Physical TTS long-session soak PASS"
+echo "Physical TTS long-session soak PASS mode=$SOAK_MODE"

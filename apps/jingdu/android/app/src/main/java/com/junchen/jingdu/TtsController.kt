@@ -135,14 +135,7 @@ internal class TtsController(
 
             override fun onDone(utteranceId: String?) {
                 val token = ttsUtteranceGeneration(utteranceId)
-                main.post {
-                    if (closed || token != generation.get() || pausedForFocus || reader == null) return@post
-                    if (pendingNextOffset > offset) {
-                        offset = pendingNextOffset
-                        listener?.onPosition(offset)
-                    }
-                    speakNext(generation.incrementAndGet())
-                }
+                main.post { completeUtterance(token) }
             }
 
             override fun onError(utteranceId: String?, errorCode: Int) {
@@ -184,18 +177,9 @@ internal class TtsController(
         chineseOverrides = overrides
         val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
         val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
-        if (!voiceApplied) {
-            val selectedLocale = TtsLocalePolicy.choose(
-                mode = mode,
-                documentLocale = documentLocale,
-                systemLocale = Locale.getDefault(),
-                isSupported = { locale -> tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE },
-            )
-            if (selectedLocale == null || tts.setLanguage(selectedLocale) < TextToSpeech.LANG_AVAILABLE) {
-                listener.onStopped("tts error: no compatible voice")
-                return
-            }
-            preferredLocale = selectedLocale
+        if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
+            listener.onStopped("tts error: no offline voice")
+            return
         }
         if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             listener.onStopped("audio focus denied")
@@ -286,6 +270,28 @@ internal class TtsController(
         return true
     }
 
+    private fun applyOfflineVoice(mode: ChineseDisplayMode, documentLocale: Locale): Boolean {
+        if (!ready) return false
+        val offline = tts.voices.orEmpty().filter { !it.isNetworkConnectionRequired }
+        if (offline.isEmpty()) return false
+        val candidates = TtsLocalePolicy.candidates(mode, documentLocale, Locale.getDefault())
+        val exact = candidates.firstNotNullOfOrNull { candidate ->
+            offline.firstOrNull { voice ->
+                val locale = voice.locale ?: return@firstOrNull false
+                locale.toLanguageTag().equals(candidate.toLanguageTag(), ignoreCase = true)
+            }
+        }
+        val languageFallback = candidates.firstNotNullOfOrNull { candidate ->
+            offline.firstOrNull { voice ->
+                voice.locale?.language?.equals(candidate.language, ignoreCase = true) == true
+            }
+        }
+        val voice = exact ?: languageFallback ?: return false
+        preferredLocale = voice.locale ?: documentLocale
+        tts.voice = voice
+        return true
+    }
+
     private fun pauseForFocus() {
         if (reader == null || pausedForFocus) return
         resumeOnFocusGain = true
@@ -329,6 +335,7 @@ internal class TtsController(
                 stop("tts error: speak failed")
                 return
             }
+            scheduleCompletionWatchdog(token)
             if (observer != null) {
                 val durationNs = System.nanoTime() - scheduleStartedNs
                 val activeVoice = tts.voice
@@ -349,6 +356,31 @@ internal class TtsController(
         } catch (error: Exception) {
             stop(error.message ?: "tts error")
         }
+    }
+
+    private fun completeUtterance(token: Long) {
+        if (closed || token != generation.get() || pausedForFocus || reader == null) return
+        if (pendingNextOffset > offset) {
+            offset = pendingNextOffset
+            listener?.onPosition(offset)
+        }
+        speakNext(generation.incrementAndGet())
+    }
+
+    private fun scheduleCompletionWatchdog(token: Long) {
+        main.postDelayed(
+            object : Runnable {
+                override fun run() {
+                    if (closed || token != generation.get() || pausedForFocus || reader == null) return
+                    if (!tts.isSpeaking) {
+                        completeUtterance(token)
+                    } else {
+                        main.postDelayed(this, TTS_COMPLETION_WATCHDOG_POLL_MS)
+                    }
+                }
+            },
+            TTS_COMPLETION_WATCHDOG_INITIAL_MS,
+        )
     }
 
     override fun close() {
@@ -389,5 +421,7 @@ internal class TtsController(
         const val HANS_MARKERS = "这为后发国书读时会里还进对从个们来说现学与体门见风东语网无龙边开长"
         const val HANT_MARKERS = "這為後發國書讀時會裡還進對從個們來說現學與體門見風東語網無龍邊開長"
         const val HK_MARKERS = "係嘅唔嗰佢哋冇喺咁啲嚟咗"
+        const val TTS_COMPLETION_WATCHDOG_INITIAL_MS = 1_000L
+        const val TTS_COMPLETION_WATCHDOG_POLL_MS = 500L
     }
 }

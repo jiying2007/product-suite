@@ -81,9 +81,8 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         return result
     }
 
-    @Synchronized
     fun prefetch(position: Long, settings: ReaderSettings) {
-        val length = reader.length()
+        val length = synchronized(this) { reader.length() }
         if (length <= 0) return
         val continuous = settings.readingMode == ReaderMode.CONTINUOUS
         val windowChars = if (continuous) CONTINUOUS_WINDOW_CHARS else ReaderController.WINDOW_CHARS
@@ -131,7 +130,10 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
 }
 
 data class PageLayoutKey(
-    val textHash: Int,
+    // Retain bounded window strings in the tiny 16-entry LRU so hash collisions can never reuse
+    // another page's measurement/raster. Map hashing may collide; String equality then resolves it.
+    val sourceText: String,
+    val displayText: String,
     val widthPx: Int,
     val heightPx: Int,
     val typographyFingerprint: Int,
@@ -375,10 +377,9 @@ internal object ReaderPageLayoutCache {
         val columnWidth = ((boundedWidth - horizontalPadding - gap) / safeColumns).coerceAtLeast(1)
         val contentHeight = (heightPx - verticalPadding).coerceAtLeast(1)
         val spec = ReaderTypographySpec.from(settings)
-        val sourceHash = sourceText.hashCode()
-        val displayHash = if (sourceText === displayText) sourceHash else displayText.hashCode()
         val key = PageLayoutKey(
-            textHash = 31 * sourceHash + displayHash,
+            sourceText = sourceText,
+            displayText = displayText,
             widthPx = columnWidth,
             heightPx = contentHeight,
             typographyFingerprint = 31 * spec.fingerprint + settings.emphasizeHeadings.hashCode(),

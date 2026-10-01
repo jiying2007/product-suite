@@ -7,8 +7,16 @@ on:
         description: "Immutable source tag or exact commit SHA to soak"
         required: true
         type: string
+      mode:
+        description: "TTS long-session surface"
+        required: true
+        default: "background"
+        type: choice
+        options:
+          - "background"
+          - "foreground-continuous"
       duration_minutes:
-        description: "Background TTS soak duration"
+        description: "TTS soak duration"
         required: true
         default: "30"
         type: choice
@@ -50,12 +58,13 @@ jobs:
           JINGDU_QUALIFIED_SOURCE_REF: ${{ inputs.source_ref }}
           JINGDU_QUALIFIED_SOURCE_SHA: ${{ steps.source.outputs.sha }}
           JINGDU_TTS_SOAK_MINUTES: ${{ inputs.duration_minutes }}
+          JINGDU_TTS_SOAK_MODE: ${{ inputs.mode }}
         run: bash ./scripts/run-android-physical-tts-soak.sh
       - name: Preserve physical TTS soak evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tts-physical-soak-${{ inputs.duration_minutes }}m-${{ steps.source.outputs.sha }}
+          name: tts-physical-soak-${{ inputs.mode }}-${{ inputs.duration_minutes }}m-${{ steps.source.outputs.sha }}
           path: apps/jingdu/android/macrobenchmark/build/outputs/physical-tts-soak/
           if-no-files-found: warn
           retention-days: 30

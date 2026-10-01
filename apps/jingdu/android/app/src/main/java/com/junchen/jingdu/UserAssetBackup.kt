@@ -77,10 +77,7 @@ internal class UserAssetBackup(context: Context) {
     fun importReadingStats(root: JSONObject): Int {
         val parsed = parseReadingStats(root)
         runBlocking(Dispatchers.IO) {
-            statsDao.clearSessions()
-            statsDao.clearPace()
-            if (parsed.sessions.isNotEmpty()) statsDao.upsertSessions(parsed.sessions)
-            if (parsed.pace != null) statsDao.upsertPace(parsed.pace)
+            statsDao.replaceAll(parsed.sessions, parsed.pace)
         }
         // ReaderStatsStore keeps a hot-path process cache. Update the shared runtime only after the
         // Room replacement succeeds so an already-open reader immediately uses restored pace.

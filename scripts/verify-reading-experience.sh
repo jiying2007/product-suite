@@ -35,7 +35,7 @@ grep -Fq 'bookPosture ||' apps/jingdu/android/app/src/main/java/com/junchen/jing
 test -f apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderAdaptiveLayoutTest.kt
 
 # Reading-basic tools stay real and local: system Process Text dictionary, chapter pace, and literal
-# TTS pronunciation projection with portable text-free user-asset backup.
+# TTS pronunciation projection with privacy-minimized portable user-asset backup.
 grep -Fq 'Intent.ACTION_PROCESS_TEXT' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
 grep -Fq 'settings.dictionaryProcessTextEnabled' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
 grep -Fq 'chapterRemainingMinutes' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
