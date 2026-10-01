@@ -174,8 +174,15 @@ internal class ReaderContinuousScrollModel {
     }
 
     fun setRange(rangePx: Int) {
+        setRangeAndOffset(rangePx, offsetPx)
+    }
+
+    fun setRangeAndOffset(rangePx: Int, anchoredOffsetPx: Float) {
         maxOffsetPx = rangePx.toFloat().coerceAtLeast(0f)
-        setOffset(offsetPx)
+        val next = anchoredOffsetPx.coerceIn(0f, maxOffsetPx)
+        if (next == offsetPx) return
+        offsetPx = next
+        scrollSink?.invoke(next)
     }
 
     fun setOffset(value: Float) {
@@ -566,7 +573,7 @@ internal fun Text(
     onScrollSettled: () -> Unit,
     selectionMode: Boolean? = null,
     onRequestSelection: (() -> Unit)? = null,
-    onTextLayout: (ReaderContinuousLayout) -> Unit,
+    onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
     val context = LocalContext.current
     val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
@@ -600,7 +607,7 @@ internal fun Text(
             rasterBackgroundColor,
         ) {
             ReaderInteractionRuntime.continuousReady = false
-            value = withContext(Dispatchers.Default) {
+            val ready = withContext(Dispatchers.Default) {
                 val staticLayout = buildFastStaticLayout(text, style, density, nativeTypeface, resolvedColor, widthPx)
                 ReaderContinuousLayout(
                     staticLayout,
@@ -611,13 +618,13 @@ internal fun Text(
                     ),
                 )
             }
-        }
-        LaunchedEffect(layout, viewportHeightPx) {
-            layout?.let { ready ->
-                scrollModel.setRange((ready.height - viewportHeightPx).coerceAtLeast(0))
-                onTextLayout(ready)
-                ReaderInteractionRuntime.continuousReady = true
-            }
+            // Compute the source anchor while the previous layout is still displayed, then commit
+            // range + offset before exposing the replacement layout. No frame can render a new
+            // window using stale pixel coordinates from the outgoing window.
+            val anchoredOffset = onTextLayout(ready) ?: scrollModel.offsetPx
+            scrollModel.setRangeAndOffset((ready.height - viewportHeightPx).coerceAtLeast(0), anchoredOffset)
+            value = ready
+            ReaderInteractionRuntime.continuousReady = true
         }
         val ready = layout
         if (fallback) {
