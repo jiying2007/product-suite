@@ -60,7 +60,13 @@ class TtsPlaybackService : MediaSessionService() {
                 ACTION_NEXT_PARAGRAPH -> player.nextParagraph()
                 ACTION_PREVIOUS_PARAGRAPH -> player.previousParagraph()
                 ACTION_SLEEP -> setSleepTimer(intent.getIntExtra(EXTRA_MINUTES, 0))
-                ACTION_STATE -> onPlayerState(player.snapshot())
+                ACTION_STATE -> {
+                    val state = player.snapshot()
+                    onPlayerState(state)
+                    // Querying playback state must not pin a TextToSpeech engine/MediaSession for
+                    // users who never started listening.
+                    if (!state.active) stopSelfResult(startId)
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
