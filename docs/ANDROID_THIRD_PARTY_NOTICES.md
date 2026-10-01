@@ -31,3 +31,16 @@ For every release candidate, legal/release review uses the exact resolved invent
 `scripts/verify-android-third-party-inventory.py` compares production dependency declarations against this document. A new or version-changed direct production dependency must update this review record in the same change. Test/debug-only dependencies are not production package attribution entries.
 
 The production evidence bundle retains the generated resolved inventory next to the AAB, mapping, native symbols, checksums and source provenance.
+
+
+## Production evidence retention
+
+`stage-android-production-evidence.sh` fails closed unless the release APK and AAB both contain the packaged third-party legal assets from `third_party/`. The staged production evidence bundle retains:
+
+- the exact resolved `releaseRuntimeClasspath` inventory;
+- `third_party/NOTICE.md`;
+- the retained OpenCC Apache-2.0 and OpenccJava MIT license texts;
+- this dependency review record;
+- the product-level `THIRD_PARTY_NOTICES.md`.
+
+These files are evidence for release/legal review. They do not by themselves replace review of any separate Google Play SDK terms or a dependency-specific NOTICE introduced by a future version.
