@@ -78,10 +78,11 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
         importPreview = null
         scope.launch {
             try {
-                importPreview = withContext(Dispatchers.IO) { ProgressiveImport(context).prepare(uri) }
                 val imported = withContext(Dispatchers.IO) {
                     val repository = BookRepository(context)
-                    val book = repository.importUri(uri, BookRepository.AUTO)
+                    val book = repository.importUri(uri, BookRepository.AUTO) { preview ->
+                        scope.launch { importPreview = preview }
+                    }
                     ReaderController().use { warm ->
                         warm.open(repository.normalizedFile(book), 0)
                         repository.updateCharCount(book, warm.length())
