@@ -319,8 +319,10 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         textLayout = ready.layout
         tileSet = ready.raster
         textColor = color
-        if (changed) postInvalidateOnAnimation()
-        if (pendingHandoffVelocityY != 0) post(::resumePendingFling)
+        if (changed) {
+            postInvalidateOnAnimation()
+            if (pendingHandoffVelocityY != 0) post(::resumePendingFling)
+        }
     }
 
     fun setScrollOffset(value: Float) {
