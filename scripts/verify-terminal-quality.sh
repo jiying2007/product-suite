@@ -74,6 +74,8 @@ grep -q 'JINGDU_PERF_FIXTURE_MIB=960' platform/text/native/CMakeLists.txt
 grep -q 'SAMPLE_WINDOWS = 8' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TxtDoctor.kt
 grep -q 'MAX_PREVIEW_BYTES = 512 \* 1024' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ProgressiveImport.kt
 grep -q 'ActivityResultContracts.OpenDocumentTree' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/LibraryScreen.kt
+grep -Fq 'CancellationSignal? = null' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/FolderLibraryStore.kt
+grep -Fq 'scanTxt(root, cancellationSignal = signal)' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/LibraryScreen.kt
 grep -q 'MAX_BOOKS = 100' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BatchAutomation.kt
 grep -q 'Manifest.permission.INTERNET !in permissions' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
 grep -q 'bookTextUploadCapability = false' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/PrivacyAudit.kt
