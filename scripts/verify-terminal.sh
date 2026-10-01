@@ -113,7 +113,7 @@ grep -q 'media3-session:1.11.0' apps/jingdu/android/app/build.gradle
 grep -q 'androidx.room3:room3-runtime:3.0.3' apps/jingdu/android/app/build.gradle
 grep -q 'androidx.sqlite:sqlite-bundled:2.7.1' apps/jingdu/android/app/build.gradle
 
-grep -q 'const val SCHEMA = 4' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
+grep -q 'const val SCHEMA = 5' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 grep -q 'containsBookText' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 grep -q 'consumeRestoredProgress' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
 grep -q 'jingdu-reading-stats' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserAssetBackup.kt
