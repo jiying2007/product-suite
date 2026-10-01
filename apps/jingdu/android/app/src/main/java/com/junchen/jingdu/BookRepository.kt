@@ -75,14 +75,19 @@ internal class BookRepository(context: Context) {
 
     @Synchronized
     @Throws(Exception::class)
-    fun importUri(uri: Uri, requestedEncoding: String?): Book {
+    fun importUri(
+        uri: Uri,
+        requestedEncoding: String?,
+        onPreview: ((ImportPreview) -> Unit)? = null,
+    ): Book {
         val sourceTemporary = File.createTempFile(".source-", ".tmp", root)
         try {
-            val size = copyUri(uri, sourceTemporary)
+            val name = displayName(uri)
+            val size = copyUri(uri, sourceTemporary, name, onPreview)
             return importTemporarySource(
                 sourceTemporary = sourceTemporary,
                 size = size,
-                displayName = displayName(uri),
+                displayName = name,
                 requestedEncoding = requestedEncoding,
             )
         } catch (error: Throwable) {
@@ -311,7 +316,12 @@ internal class BookRepository(context: Context) {
     private fun findById(id: String): Book? = list().firstOrNull { it.id == id }
 
     @Throws(IOException::class)
-    private fun copyUri(uri: Uri, target: File): Long {
+    private fun copyUri(
+        uri: Uri,
+        target: File,
+        displayName: String,
+        onPreview: ((ImportPreview) -> Unit)?,
+    ): Long {
         val declared = declaredSize(uri)
         if (declared > MAX_IMPORT_BYTES) throw IOException("book file too large")
         val usable = root.usableSpace
@@ -327,6 +337,9 @@ internal class BookRepository(context: Context) {
 
         val source = context.contentResolver.openInputStream(uri) ?: throw IOException("cannot open selected file")
         var total = 0L
+        val previewBytes = if (onPreview != null) ByteArray(ProgressiveImport.MAX_PREVIEW_BYTES) else null
+        var previewCount = 0
+        var previewPublished = false
         BufferedInputStream(source).use { input ->
             FileOutputStream(target).use { output ->
                 val buffer = ByteArray(64 * 1024)
@@ -337,10 +350,29 @@ internal class BookRepository(context: Context) {
                         throw IOException(if (streamBudget < MAX_IMPORT_BYTES) "insufficient private storage" else "book file too large")
                     }
                     output.write(buffer, 0, count)
+                    if (previewBytes != null && previewCount < previewBytes.size) {
+                        val copied = minOf(count, previewBytes.size - previewCount)
+                        buffer.copyInto(previewBytes, previewCount, 0, copied)
+                        previewCount += copied
+                        if (previewCount == previewBytes.size) {
+                            onPreview?.invoke(ProgressiveImport(context).fromSample(uri, displayName, previewBytes, hasMore = true))
+                            previewPublished = true
+                        }
+                    }
                     total += count
                 }
                 output.fd.sync()
             }
+        }
+        if (!previewPublished && previewBytes != null) {
+            onPreview?.invoke(
+                ProgressiveImport(context).fromSample(
+                    uri,
+                    displayName,
+                    previewBytes.copyOf(previewCount),
+                    hasMore = false,
+                ),
+            )
         }
         return total
     }
