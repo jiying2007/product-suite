@@ -243,6 +243,19 @@ class ReaderAnnotationStore(private val context: Context) {
         return io { exportJsonAsync() }
     }
 
+    /**
+     * Portable backups deliberately omit automatically captured source excerpts and re-anchor
+     * context. Notes remain because they are explicit user-authored content.
+     */
+    suspend fun exportPortableJsonAsync(): JSONArray = JSONArray().also { array ->
+        dao.listAll().map(::fromEntity).forEach { array.put(toPortableJson(it)) }
+    }
+
+    fun exportPortableJson(): JSONArray {
+        awaitPendingWrites()
+        return io { exportPortableJsonAsync() }
+    }
+
     suspend fun importJsonAsync(array: JSONArray) {
         val parsed = ArrayList<ReaderAnnotation>()
         for (index in 0 until minOf(array.length(), MAX_ANNOTATIONS)) runCatching { parsed += fromJson(array.getJSONObject(index)) }
@@ -254,6 +267,22 @@ class ReaderAnnotationStore(private val context: Context) {
     fun importJson(array: JSONArray) {
         awaitPendingWrites()
         io { importJsonAsync(array) }
+    }
+
+    suspend fun importPortableJsonAsync(array: JSONArray) {
+        val parsed = ArrayList<ReaderAnnotation>()
+        for (index in 0 until minOf(array.length(), MAX_ANNOTATIONS)) {
+            runCatching { parsed += fromPortableJson(array.getJSONObject(index)) }
+        }
+        val normalized = parsed.distinctBy { it.id }
+        dao.clearAll()
+        dao.upsertAll(normalized.map(ReaderAnnotation::toEntity))
+        replaceWholeCache(normalized)
+    }
+
+    fun importPortableJson(array: JSONArray) {
+        awaitPendingWrites()
+        io { importPortableJsonAsync(array) }
     }
 
     private fun cachedSnapshot(bookId: String): List<ReaderAnnotation>? = synchronized(cacheLock) {
@@ -434,6 +463,18 @@ private fun ReaderAnnotation.toEntity() = ReaderAnnotationEntity(id, bookId, sou
 private fun fromEntity(value: ReaderAnnotationEntity) = ReaderAnnotation(value.id, value.bookId, value.sourceStart, value.sourceEnd, enumOr(value.kind, ReaderAnnotationKind.HIGHLIGHT), enumOr(value.style, ReaderHighlightStyle.YELLOW), value.note, value.excerpt, value.anchorBefore, value.anchorSelected, value.anchorAfter, value.anchorHash, value.createdAt, value.updatedAt)
 private inline fun <reified T : Enum<T>> enumOr(raw: String, fallback: T): T = enumValues<T>().firstOrNull { it.name == raw } ?: fallback
 private fun toJson(value: ReaderAnnotation) = JSONObject().put("id", value.id).put("bookId", value.bookId).put("sourceStart", value.sourceStart).put("sourceEnd", value.sourceEnd).put("kind", value.kind.name).put("style", value.style.name).put("note", value.note).put("excerpt", value.excerpt).put("anchorBefore", value.anchorBefore).put("anchorSelected", value.anchorSelected).put("anchorAfter", value.anchorAfter).put("anchorHash", value.anchorHash).put("createdAt", value.createdAt).put("updatedAt", value.updatedAt)
+private fun toPortableJson(value: ReaderAnnotation) = JSONObject()
+    .put("id", value.id)
+    .put("bookId", value.bookId)
+    .put("sourceStart", value.sourceStart)
+    .put("sourceEnd", value.sourceEnd)
+    .put("kind", value.kind.name)
+    .put("style", value.style.name)
+    .put("note", value.note)
+    .put("createdAt", value.createdAt)
+    .put("updatedAt", value.updatedAt)
+private fun fromPortableJson(value: JSONObject): ReaderAnnotation =
+    fromJson(value).copy(excerpt = "", anchorBefore = "", anchorSelected = "", anchorAfter = "", anchorHash = "")
 private fun fromJson(value: JSONObject): ReaderAnnotation {
     val start = value.optLong("sourceStart", 0).coerceAtLeast(0)
     val end = value.optLong("sourceEnd", start).coerceAtLeast(start)
