@@ -87,7 +87,7 @@ The installed app can report whether INTERNET permission is absent and whether r
 
 ### User-owned local assets
 
-Retention compounds without an account: annotations, TOC repairs, Clean feedback/rules, reading history/pace, themes, exact-revision progress and the bounded local TTS pronunciation dictionary remain user-owned local assets. Portable backup carries the text-free Reader state while excluding source/normalized/Clean book payloads.
+Retention compounds without an account: annotations, TOC repairs, Clean feedback/rules, reading history/pace, themes, exact-revision progress and the bounded local TTS pronunciation dictionary remain user-owned local assets. Schema-5 portable backup carries privacy-minimized Reader state: it excludes source/normalized/Clean payloads plus automatically captured annotation excerpt/re-anchor context, while explicitly user-authored note/rule/pronunciation text remains portable and declared.
 
 ## P2 — Smart Clean 4 data/model moat
 
