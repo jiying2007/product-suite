@@ -35,10 +35,12 @@ internal class BookRepository(context: Context) {
     private val context = context.applicationContext
     private val root = File(context.filesDir, "books")
     private val errorLog = ProductErrorLog(context)
+    private val progressPreferences = context.getSharedPreferences(PROGRESS_PREFS, Context.MODE_PRIVATE)
 
     init {
         if (!root.isDirectory && !root.mkdirs()) error("cannot create books directory")
         cleanupRootTemporaries()
+        cleanupStaleOrphanDirectories()
     }
 
     @Synchronized
@@ -61,9 +63,9 @@ internal class BookRepository(context: Context) {
                     size = item.optLong("size"),
                     sourceSha256 = sourceSha,
                     normalizedSha256 = normalizedSha,
-                    progress = item.optLong("progress"),
+                    progress = progressPreferences.getLong(progressKey(id), item.optLong("progress")).coerceAtLeast(0L),
                     charCount = item.optLong("charCount"),
-                    touchedAt = item.optLong("touchedAt"),
+                    touchedAt = progressPreferences.getLong(touchedKey(id), item.optLong("touchedAt")).coerceAtLeast(0L),
                 )
             }
         }
@@ -200,14 +202,17 @@ internal class BookRepository(context: Context) {
     }
 
     @Synchronized
-    fun saveProgress(book: Book?, progress: Long) {
+    fun saveProgress(book: Book?, progress: Long, synchronous: Boolean = true) {
         book ?: return
         book.progress = progress.coerceAtLeast(0)
         book.touchedAt = System.currentTimeMillis()
-        // saveProgress is dispatched by MainActivity's dedicated progress worker. Commit there so
-        // SharedPreferences does not enqueue a second asynchronous write/message that can contend
-        // with the Reader frame thread during rapid page turns.
-        write(list().filterNot { it.id == book.id } + book, synchronous = true)
+        // Progress is intentionally O(1): the immutable catalog is not reparsed/revalidated and
+        // rewritten for every page turn/TTS checkpoint. Catalog JSON keeps a migration fallback;
+        // this dedicated store is the authoritative hot-path overlay.
+        val editor = progressPreferences.edit()
+            .putLong(progressKey(book.id), book.progress)
+            .putLong(touchedKey(book.id), book.touchedAt)
+        if (synchronous) editor.commit() else editor.apply()
     }
 
     @Synchronized
@@ -222,6 +227,7 @@ internal class BookRepository(context: Context) {
     fun delete(book: Book?) {
         book ?: return
         deleteTree(directory(book.id))
+        progressPreferences.edit().remove(progressKey(book.id)).remove(touchedKey(book.id)).apply()
         write(list().filterNot { it.id == book.id })
     }
 
@@ -277,10 +283,48 @@ internal class BookRepository(context: Context) {
         root.listFiles()?.filter { it.name.startsWith(".source-") && it.name.endsWith(".tmp") }?.forEach(::deleteTemporary)
     }
 
+    private fun cleanupStaleOrphanDirectories() {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: return
+        val referenced = runCatching {
+            val array = JSONArray(raw)
+            buildSet {
+                for (index in 0 until array.length()) {
+                    val id = array.optJSONObject(index)?.optString("id").orEmpty()
+                    if (validSha256(id)) add(id)
+                }
+            }
+        }.getOrNull() ?: return
+        val now = System.currentTimeMillis()
+        root.listFiles().orEmpty().asSequence()
+            .filter(File::isDirectory)
+            .filter { validSha256(it.name) && it.name !in referenced }
+            .filter { now - it.lastModified().coerceAtLeast(0L) >= ORPHAN_GRACE_MS }
+            .forEach(::deleteTree)
+    }
+
+    private fun validSha256(value: String): Boolean =
+        value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' }
+
+    private fun progressKey(id: String) = "$id.progress"
+    private fun touchedKey(id: String) = "$id.touched"
+
     private fun findById(id: String): Book? = list().firstOrNull { it.id == id }
 
     @Throws(IOException::class)
     private fun copyUri(uri: Uri, target: File): Long {
+        val declared = declaredSize(uri)
+        if (declared > MAX_IMPORT_BYTES) throw IOException("book file too large")
+        val usable = root.usableSpace
+        if (declared > 0L && usable > 0L && declared * 2L + MIN_FREE_STORAGE_BYTES > usable) {
+            throw IOException("insufficient private storage")
+        }
+        val streamBudget = when {
+            usable <= 0L -> MAX_IMPORT_BYTES
+            usable <= MIN_FREE_STORAGE_BYTES -> 0L
+            else -> minOf(MAX_IMPORT_BYTES, (usable - MIN_FREE_STORAGE_BYTES) / 2L)
+        }
+        if (streamBudget <= 0L) throw IOException("insufficient private storage")
+
         val source = context.contentResolver.openInputStream(uri) ?: throw IOException("cannot open selected file")
         var total = 0L
         BufferedInputStream(source).use { input ->
@@ -289,6 +333,9 @@ internal class BookRepository(context: Context) {
                 while (true) {
                     val count = input.read(buffer)
                     if (count < 0) break
+                    if (total + count > streamBudget) {
+                        throw IOException(if (streamBudget < MAX_IMPORT_BYTES) "insufficient private storage" else "book file too large")
+                    }
                     output.write(buffer, 0, count)
                     total += count
                 }
@@ -297,6 +344,13 @@ internal class BookRepository(context: Context) {
         }
         return total
     }
+
+    private fun declaredSize(uri: Uri): Long = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) cursor.getLong(index) else -1L
+        } ?: -1L
+    }.getOrDefault(-1L)
 
     @Throws(IOException::class)
     private fun detect(raw: File): String {
@@ -350,6 +404,10 @@ internal class BookRepository(context: Context) {
 
     @Synchronized
     private fun upsert(book: Book) {
+        progressPreferences.edit()
+            .putLong(progressKey(book.id), book.progress.coerceAtLeast(0L))
+            .putLong(touchedKey(book.id), book.touchedAt.coerceAtLeast(0L))
+            .apply()
         write(list().filterNot { it.id == book.id } + book)
     }
 
@@ -403,6 +461,10 @@ internal class BookRepository(context: Context) {
         val ENCODINGS = arrayOf(AUTO, "UTF-8", "GB18030", "GBK", "GB2312", "Big5", "UTF-16", "UTF-16LE", "UTF-16BE")
         private const val SAMPLE_BYTES = 64 * 1024
         private const val PREFS = "jingdu.library.v2"
+        private const val PROGRESS_PREFS = "jingdu.library.progress.v1"
         private const val KEY = "books"
+        const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
+        private const val MIN_FREE_STORAGE_BYTES = 64L * 1024L * 1024L
+        private const val ORPHAN_GRACE_MS = 6L * 60L * 60L * 1000L
     }
 }
