@@ -27,6 +27,11 @@ internal object ReaderPageBoundaryRuntime {
         boundaries[Key(documentKey, start)]?.takeIf { it > start }
 
     @Synchronized
+    fun invalidate(documentKey: String, start: Long) {
+        boundaries.remove(Key(documentKey, start))
+    }
+
+    @Synchronized
     fun previousStartFor(documentKey: String, endExclusive: Long): Long? {
         var best: Long? = null
         for ((key, end) in boundaries) {
