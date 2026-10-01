@@ -54,7 +54,7 @@ jobs:
           publisher=scripts/publish-source-release.py
           test -f "$publisher"
           python3 -m py_compile "$publisher"
-          grep -Fq -- 'RELEASE_PREFIXES = ("release/source-v", "release/jingdu-v", "release/pose-studio-")' "$publisher"
+          grep -Fq -- 'RELEASE_PREFIXES = ("release/source-v", "release/jingdu-", "release/pose-studio-")' "$publisher"
       - name: Verify Pose Studio candidate release contract
         shell: bash
         run: |
