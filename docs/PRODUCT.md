@@ -19,9 +19,9 @@ Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨
 - Smart Clean: **generation 4**.
 - Built-in deterministic clean signature pack: **v3**.
 - Chinese display conversion: OpenCC-compatible **OpenccJava 1.4.2**.
-- Current immutable source baseline: **2.3.11 / Reader**.
+- Current immutable source baseline: **2.3.12 / Reader**.
 - Active product track: **2.4 Guided TXT Rescue** — TXT Health, guided repair, smart collections and long-session evidence.
-- Portable local-user backup schema: **v4** (`schema=4`, Reader; schema 3 remains importable for pre-production testers).
+- Portable local-user backup schema: **v5** (`schema=5`, Reader; schema 3/4 remain importable for pre-production testers). Schema 5 excludes automatically captured book excerpts/re-anchor context while retaining explicitly user-authored note/rule/pronunciation text with explicit privacy markers.
 - First-class Android UI locales: **zh-Hans / zh-Hant / en-US**.
 - Play discovery listings: **zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR**; Japanese/Korean listings disclose English in-app fallback.
 
