@@ -87,7 +87,18 @@ import kotlin.math.roundToInt
 
 private data class SelectionPayload(val range: ReaderSelectionRange, val clearNative: () -> Unit)
 
+private data class ReaderPreparedRequest(
+    val sourceStart: Long,
+    val sourceText: String,
+    val settings: ReaderSettings,
+    val widthPx: Int,
+    val heightPx: Int,
+    val columns: Int,
+    val typographyFingerprint: Int,
+)
+
 private data class ReaderPreparedPage(
+    val request: ReaderPreparedRequest,
     val snapshot: PageLayoutSnapshot,
     val annotated: AnnotatedString,
 )
@@ -133,6 +144,7 @@ internal fun ReaderScreen(
     val activity = context as? Activity
     val book = state.currentBook ?: return
     val settings = state.settings
+    val documentKey = remember(book.id, book.normalizedSha256) { readerDocumentKey(book.id, book.normalizedSha256) }
     val pageDirection = state.pageTurnDirection
     val haptics = LocalHapticFeedback.current
     val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
@@ -361,7 +373,7 @@ internal fun ReaderScreen(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         PagedReaderPage(
-                            state.position, state.pageText, settings, state.annotations, state.tts, adaptiveLayout, fontFamily, textColor, touchExploration,
+                            documentKey, state.position, state.pageText, settings, state.annotations, state.tts, adaptiveLayout, fontFamily, textColor, touchExploration,
                             ::publishVisibleChars, ::previous, ::next, ::toggleChrome,
                             ::updateBrightness, ::resizeFont, { tick(); actions.onAddBookmark() }, ::acceptSelection,
                         )
@@ -369,7 +381,7 @@ internal fun ReaderScreen(
                 }
             } else {
                 PagedReaderPage(
-                    state.position, state.pageText, settings, state.annotations, state.tts, adaptiveLayout, fontFamily, textColor, touchExploration,
+                    documentKey, state.position, state.pageText, settings, state.annotations, state.tts, adaptiveLayout, fontFamily, textColor, touchExploration,
                     ::publishVisibleChars, ::previous, ::next, ::toggleChrome,
                     ::updateBrightness, ::resizeFont, { tick(); actions.onAddBookmark() }, ::acceptSelection,
                 )
@@ -505,6 +517,7 @@ internal fun ReaderScreen(
 
 @Composable
 private fun PagedReaderPage(
+    documentKey: String,
     sourceStart: Long,
     sourceText: String,
     settings: ReaderSettings,
@@ -545,19 +558,22 @@ private fun PagedReaderPage(
         ReaderWideColumns.AUTO -> if (adaptiveLayout.prefersTwoColumns) 2 else 1
     }
 
-    // One worker result owns projection, pagination and selection metadata. The previous two-stage
-    // presented -> snapshot publication forced multiple Reader recompositions for every page turn.
+    val preparedRequest = remember(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint) {
+        ReaderPreparedRequest(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint)
+    }
+    LaunchedEffect(documentKey, preparedRequest) {
+        // A size/typography/presentation change invalidates the old measured end immediately.
+        // Navigation stays on the current page until this exact request publishes a replacement.
+        ReaderPageBoundaryRuntime.invalidate(documentKey, sourceStart)
+    }
+
+    // One worker result owns projection, pagination and selection metadata. The request token keeps
+    // a retained produceState value from being mistaken for the new page/layout while work restarts.
     val prepared by produceState<ReaderPreparedPage?>(
         null,
-        sourceStart,
-        sourceText,
-        settings,
+        preparedRequest,
         annotations,
         visualTts,
-        widthPx,
-        heightPx,
-        columns,
-        spec.fingerprint,
     ) {
         if (widthPx <= 0 || heightPx <= 0 || sourceText.isEmpty()) return@produceState
         value = withContext(Dispatchers.Default) {
@@ -577,16 +593,21 @@ private fun PagedReaderPage(
             val visibleText = if (visibleEnd <= 0) "" else presented.displayText.substring(0, visibleEnd)
             val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, visualTts, settings)
             ReaderPreparedPage(
+                request = preparedRequest,
                 snapshot = snapshot,
                 annotated = ReaderSelectionController.annotatedForSelection(sourceStart, visual, presented.map),
             )
         }
     }
     val preparedValue = prepared
-    LaunchedEffect(preparedValue?.snapshot?.sourceCodePoints) {
-        preparedValue?.snapshot?.sourceCodePoints
-            ?.takeIf { it >= ReaderController.MIN_PAGE_CHARS }
-            ?.let(onVisibleCharsChanged)
+    LaunchedEffect(documentKey, preparedRequest, preparedValue?.request, preparedValue?.snapshot?.sourceCodePoints) {
+        val ready = preparedValue?.takeIf { it.request == preparedRequest } ?: return@LaunchedEffect
+        val chars = ready.snapshot.sourceCodePoints
+        if (chars <= 0L) return@LaunchedEffect
+        ReaderPageBoundaryRuntime.publish(documentKey, sourceStart, sourceStart + chars)
+        // Exact measured small pages (large fonts/small viewports) are valid. MIN_PAGE_CHARS is only
+        // a legacy pre-measure fallback and must never force source skipping.
+        onVisibleCharsChanged(chars)
     }
 
     val selectionState = rememberSelectionState()
@@ -612,7 +633,7 @@ private fun PagedReaderPage(
             Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
         ) {
-        val ready = preparedValue ?: return@Box
+        val ready = preparedValue?.takeIf { it.request == preparedRequest } ?: return@Box
         val annotated = ready.annotated
         if (columns == 2 && annotated.isNotEmpty()) {
             val firstEnd = ready.snapshot.firstColumnEndUtf16.coerceIn(0, annotated.length)
@@ -731,14 +752,6 @@ private fun ContinuousReaderPage(
     LaunchedEffect(state.tts.offset, state.tts.active) {
         if (state.tts.active && state.tts.offset >= 0 && abs(state.tts.offset - localPosition.get()) > 128) loadAround(state.tts.offset)
     }
-    LaunchedEffect(window, layoutResult) {
-        val w = window ?: return@LaunchedEffect
-        val layout = layoutResult ?: return@LaunchedEffect
-        if (w.displayText.isEmpty()) return@LaunchedEffect
-        val utf = utf16Index(w.displayText, w.map.displayForSource((localPosition.get() - w.start).coerceAtLeast(0)))
-        val line = layout.getLineForOffset(utf.coerceIn(0, (w.displayText.length - 1).coerceAtLeast(0)))
-        scrollModel.setOffset(layout.getLineTop(line))
-    }
     fun absoluteAtContinuousOffset(y: Int): Long? {
         val currentWindow = window ?: return null
         val layout = layoutResult ?: return null
@@ -821,6 +834,10 @@ private fun ContinuousReaderPage(
             rangeEnd = state.tts.nextOffset.coerceAtLeast(state.tts.offset),
         )
     }
+    var lastLayoutWindow by remember(book.id, book.normalizedSha256) { mutableStateOf<ReaderDisplayWindow?>(null) }
+    var lastLayoutWidth by remember(book.id, book.normalizedSha256) { mutableIntStateOf(-1) }
+    var lastLayoutHeight by remember(book.id, book.normalizedSha256) { mutableIntStateOf(-1) }
+    var lastLayoutTypography by remember(book.id, book.normalizedSha256) { mutableIntStateOf(Int.MIN_VALUE) }
     val annotated = remember(start, display, state.annotations, visualTts, settings.emphasizeHeadings, spec.fingerprint) {
         ReaderSelectionController.annotatedForSelection(
             start,
@@ -851,6 +868,10 @@ private fun ContinuousReaderPage(
                 settings = settings,
                 systemLeftInsetPx = systemLeft,
                 systemRightInsetPx = systemRight,
+                canHandoffPrevious = w?.start?.let { it > 0L } == true,
+                canHandoffNext = w?.let {
+                    it.start + it.map.sourceCodePoints < it.documentLength - 1L
+                } == true,
                 onPrevious = onPrevious,
                 onNext = onNext,
                 onToggleControls = onToggleControls,
@@ -861,7 +882,24 @@ private fun ContinuousReaderPage(
                 onScrollSettled = { settleEvents.tryEmit(Unit) },
                 selectionMode = fastSelectionMode,
                 onRequestSelection = { fastSelectionMode = true },
-                onTextLayout = { layoutResult = it },
+                onTextLayout = { ready ->
+                    val currentWindow = window
+                    layoutResult = ready
+                    val needsSourceAnchor =
+                        currentWindow !== lastLayoutWindow ||
+                            widthPx != lastLayoutWidth ||
+                            viewportHeight != lastLayoutHeight ||
+                            spec.fingerprint != lastLayoutTypography
+                    lastLayoutWindow = currentWindow
+                    lastLayoutWidth = widthPx
+                    lastLayoutHeight = viewportHeight
+                    lastLayoutTypography = spec.fingerprint
+                    if (needsSourceAnchor && currentWindow != null) {
+                        readerContinuousOffsetForSource(currentWindow, localPosition.get(), ready)
+                    } else {
+                        scrollModel.offsetPx
+                    }
+                },
             )
             if (loading && display.isEmpty()) CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
@@ -1309,6 +1347,19 @@ private fun ReaderHud(text: String, modifier: Modifier = Modifier) {
     Surface(modifier, color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.90f), contentColor = MaterialTheme.colorScheme.inverseOnSurface, shape = MaterialTheme.shapes.large, tonalElevation = 8.dp) {
         Text(text, Modifier.padding(horizontal = 18.dp, vertical = 12.dp), style = MaterialTheme.typography.titleMedium)
     }
+}
+
+internal fun readerContinuousOffsetForSource(
+    window: ReaderDisplayWindow,
+    sourcePosition: Long,
+    layout: ReaderContinuousLayout,
+): Float {
+    if (window.displayText.isEmpty() || layout.lineCount <= 0) return 0f
+    val relative = (sourcePosition - window.start).coerceIn(0L, window.map.sourceCodePoints)
+    val displayed = window.map.displayForSource(relative)
+    val utf = utf16Index(window.displayText, displayed)
+        .coerceIn(0, (window.displayText.length - 1).coerceAtLeast(0))
+    return layout.getLineTop(layout.getLineForOffset(utf))
 }
 
 internal fun readerContinuousNeedsNextWindow(

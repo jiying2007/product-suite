@@ -2,6 +2,43 @@ package com.junchen.jingdu
 
 import java.util.ArrayDeque
 
+internal fun readerDocumentKey(bookId: String, normalizedSha256: String): String =
+    "$bookId\u001f$normalizedSha256"
+
+/**
+ * Exact measured paged boundaries are published by the UI worker and consumed by navigation.
+ * Keying by immutable book revision + source start means a late worker can never move a newer page.
+ */
+internal object ReaderPageBoundaryRuntime {
+    private data class Boundary(
+        val documentKey: String,
+        val start: Long,
+        val endExclusive: Long,
+    )
+
+    // Compose publishes this on the main thread after exact page measurement; navigation reads it
+    // on the same UI thread. Keep an immutable volatile snapshot so the page-turn hot path performs
+    // one reference read + primitive comparisons, with no map allocation, lock, or LRU mutation.
+    @Volatile private var current: Boundary? = null
+
+    fun publish(documentKey: String, start: Long, endExclusive: Long) {
+        if (documentKey.isBlank() || start < 0L || endExclusive <= start) return
+        current = Boundary(documentKey, start, endExclusive)
+    }
+
+    fun endFor(documentKey: String, start: Long): Long? {
+        val boundary = current ?: return null
+        return boundary.endExclusive.takeIf {
+            boundary.documentKey == documentKey && boundary.start == start && it > start
+        }
+    }
+
+    fun invalidate(documentKey: String, start: Long) {
+        val boundary = current ?: return
+        if (boundary.documentKey == documentKey && boundary.start == start) current = null
+    }
+}
+
 /**
  * Android reader-session boundary. Core ReaderController remains the source-offset authority;
  * this class owns the currently-open book/revision and all transient page navigation state.

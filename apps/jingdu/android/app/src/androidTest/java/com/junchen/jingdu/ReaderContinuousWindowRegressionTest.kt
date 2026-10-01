@@ -29,4 +29,33 @@ class ReaderContinuousWindowRegressionTest {
             }
         }
     }
+
+    @Test
+    fun continuousHandoffsKeepExactOverlappingSourceText() {
+        val book = ReaderInstrumentationFixture.book(context)
+        val settings = ReaderSettings(readingMode = ReaderMode.CONTINUOUS)
+        ReaderViewportEngine(context, book.id).use { engine ->
+            val first = engine.readAround(8_000L, settings)
+            val nextTarget = (first.start + first.map.sourceCodePoints - 256L)
+                .coerceAtMost(first.documentLength - 1)
+            val second = engine.readAround(nextTarget, settings)
+
+            assertTrue("handoff must advance to a later bounded window", second.start > first.start)
+            val overlapStart = maxOf(first.start, second.start)
+            val overlapEnd = minOf(
+                first.start + first.sourceText.codePointCount(0, first.sourceText.length),
+                second.start + second.sourceText.codePointCount(0, second.sourceText.length),
+            )
+            assertTrue("continuous windows must overlap at handoff", overlapEnd > overlapStart)
+
+            fun slice(window: ReaderDisplayWindow): String {
+                val fromPoints = (overlapStart - window.start).toInt()
+                val toPoints = (overlapEnd - window.start).toInt()
+                val from = window.sourceText.offsetByCodePoints(0, fromPoints)
+                val to = window.sourceText.offsetByCodePoints(0, toPoints)
+                return window.sourceText.substring(from, to)
+            }
+            assertEquals("overlapping source must be byte-for-byte/code-point identical", slice(first), slice(second))
+        }
+    }
 }

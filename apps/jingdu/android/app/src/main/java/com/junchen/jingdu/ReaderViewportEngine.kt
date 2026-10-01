@@ -65,10 +65,15 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         val windowChars = if (continuous) CONTINUOUS_WINDOW_CHARS else ReaderController.WINDOW_CHARS
         val alignChars = if (continuous) CONTINUOUS_ALIGN_CHARS else PAGE_ALIGN_CHARS
         val backBufferChars = if (continuous) CONTINUOUS_BACK_BUFFER_CHARS else PAGE_BACK_BUFFER_CHARS
-        val aligned = ((bounded - backBufferChars).coerceAtLeast(0) / alignChars) * alignChars
+        val coarse = ((bounded - backBufferChars).coerceAtLeast(0) / alignChars) * alignChars
+        val aligned = if (continuous) continuousParagraphStart(coarse) else coarse
         val key = WindowKey(aligned, presentationKey(settings), windowChars)
         cache[key]?.let { return it }
-        val source = reader.readAt(aligned, windowChars)
+        val rawSource = reader.readAt(aligned, windowChars)
+        val rawCodePoints = rawSource.codePointCount(0, rawSource.length).toLong()
+        val source = if (continuous) {
+            readerContinuousStableTail(rawSource, atDocumentEnd = aligned + rawCodePoints >= length)
+        } else rawSource
         val presented = ReaderPresentationPipeline.present(source, settings, prewarmSelection = continuous)
         val result = ReaderDisplayWindow(
             start = aligned,
@@ -100,6 +105,14 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         }
     }
 
+    private fun continuousParagraphStart(coarse: Long): Long {
+        if (coarse <= 0L) return 0L
+        val probeStart = (coarse - CONTINUOUS_PARAGRAPH_LOOKBACK_CHARS).coerceAtLeast(0L)
+        val probeLength = (coarse - probeStart + 1L).coerceAtLeast(1L)
+        val probe = reader.readAt(probeStart, probeLength)
+        return readerContinuousParagraphStartFromProbe(probeStart, coarse, probe)
+    }
+
     @Synchronized fun clear() = cache.clear()
 
     @Synchronized
@@ -126,6 +139,7 @@ internal class ReaderViewportEngine(context: Context, private val bookId: String
         const val CONTINUOUS_WINDOW_CHARS = 4096L
         const val CONTINUOUS_ALIGN_CHARS = 1024L
         const val CONTINUOUS_BACK_BUFFER_CHARS = 1024L
+        const val CONTINUOUS_PARAGRAPH_LOOKBACK_CHARS = 512L
     }
 }
 
@@ -491,4 +505,30 @@ internal object ReaderPageLayoutCache {
         }
         return snapshot
     }
+}
+
+
+internal fun readerContinuousParagraphStartFromProbe(
+    probeStart: Long,
+    coarseStart: Long,
+    probe: String,
+): Long {
+    if (probe.isEmpty() || coarseStart <= probeStart) return coarseStart.coerceAtLeast(probeStart)
+    val probePoints = probe.codePointCount(0, probe.length)
+    val relativePoints = (coarseStart - probeStart).coerceIn(0L, probePoints.toLong()).toInt()
+    val coarseUtf16 = probe.offsetByCodePoints(0, relativePoints)
+    if (coarseUtf16 <= 0) return coarseStart
+    val newline = probe.lastIndexOf('\n', coarseUtf16 - 1)
+    if (newline < 0) return coarseStart
+    return probeStart + probe.codePointCount(0, newline + 1).toLong()
+}
+
+internal fun readerContinuousStableTail(source: String, atDocumentEnd: Boolean): String {
+    if (atDocumentEnd || source.isEmpty()) return source
+    val points = source.codePointCount(0, source.length)
+    if (points <= 3072) return source
+    val tailProbeStart = (points - 1024).coerceAtLeast(0)
+    val minUtf16 = source.offsetByCodePoints(0, tailProbeStart)
+    val newline = source.lastIndexOf('\n')
+    return if (newline >= minUtf16 && newline + 1 < source.length) source.substring(0, newline + 1) else source
 }

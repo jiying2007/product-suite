@@ -144,7 +144,7 @@ class MainActivity : ComponentActivity() {
             onNavigatePrevious = { navigatePrevious(userInitiated = true) },
             onNavigateNext = { navigateNext(userInitiated = true) },
             onSeekFraction = ::seekFraction,
-            onVisibleCharsChanged = { visiblePageChars = it.coerceAtLeast(ReaderController.MIN_PAGE_CHARS) },
+            onVisibleCharsChanged = { visiblePageChars = it.coerceAtLeast(1L) },
             onOpenPanel = ::openPanel,
             onClosePanel = ::closePanel,
             onSearchQueryChanged = { uiState = uiState.copy(searchQuery = it) },
@@ -530,19 +530,36 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun navigateNext(userInitiated: Boolean) {
-        if (uiState.busyLabel != null || currentBook == null) return
+        if (uiState.busyLabel != null) return
+        val book = currentBook ?: return
         if (userInitiated) stopAllMotion()
         val current = reader.position()
-        if (current >= (reader.length() - 1).coerceAtLeast(0)) return
-        pageHistory.addLast(current)
-        reader.move(visiblePageChars.coerceAtLeast(ReaderController.MIN_PAGE_CHARS))
+        val length = reader.length()
+        if (current >= (length - 1).coerceAtLeast(0)) return
+        val documentKey = readerDocumentKey(book.id, book.normalizedSha256)
+        // Never apply a page length measured for another source start. If the current layout has not
+        // published its exact source end yet, keep the page stable rather than guessing and skipping.
+        val exactEnd = ReaderPageBoundaryRuntime.endFor(documentKey, current) ?: return
+        if (exactEnd <= current || exactEnd >= length) return
+        session.pushPage(current)
+        reader.jump(exactEnd)
         render(pageTurnDirection = 1)
     }
 
     private fun navigatePrevious(userInitiated: Boolean) {
-        if (uiState.busyLabel != null || currentBook == null) return
+        if (uiState.busyLabel != null) return
+        val book = currentBook ?: return
         if (userInitiated) stopAllMotion()
-        if (pageHistory.isNotEmpty()) reader.jump(pageHistory.removeLast()) else reader.move(-visiblePageChars.coerceAtLeast(ReaderController.MIN_PAGE_CHARS))
+        val current = reader.position()
+        val documentKey = readerDocumentKey(book.id, book.normalizedSha256)
+        val exactPrevious = session.previousPagePosition()
+        if (exactPrevious != null) {
+            reader.jump(exactPrevious)
+        } else {
+            // History is unavailable only after an external seek/restored position. Keep this bounded
+            // fallback for reachability; normal page-back navigation always uses an exact page start.
+            reader.move(-visiblePageChars.coerceAtLeast(1L))
+        }
         render(pageTurnDirection = -1)
     }
 

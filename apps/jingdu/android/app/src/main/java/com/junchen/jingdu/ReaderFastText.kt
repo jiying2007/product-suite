@@ -148,6 +148,25 @@ internal class ReaderContinuousLayout internal constructor(
  * Non-snapshot scroll model for the continuous hot path. Gesture deltas do not invalidate Compose;
  * the attached native viewport consumes offsets at most once per vsync.
  */
+internal fun readerContinuousFlingNeedsHandoff(
+    offsetPx: Float,
+    maxOffsetPx: Float,
+    viewportHeightPx: Int,
+    velocityY: Int,
+    canHandoffPrevious: Boolean,
+    canHandoffNext: Boolean,
+): Boolean {
+    if (viewportHeightPx <= 0 || velocityY == 0) return false
+    val edge = viewportHeightPx * 0.35f
+    return when {
+        velocityY > 0 && canHandoffNext ->
+            maxOffsetPx.coerceAtLeast(0f) - offsetPx.coerceAtLeast(0f) <= edge
+        velocityY < 0 && canHandoffPrevious ->
+            offsetPx.coerceAtLeast(0f) <= edge
+        else -> false
+    }
+}
+
 internal fun readerContinuousBoundaryRequested(
     requestedOffsetPx: Float,
     currentOffsetPx: Float,
@@ -174,8 +193,15 @@ internal class ReaderContinuousScrollModel {
     }
 
     fun setRange(rangePx: Int) {
+        setRangeAndOffset(rangePx, offsetPx)
+    }
+
+    fun setRangeAndOffset(rangePx: Int, anchoredOffsetPx: Float) {
         maxOffsetPx = rangePx.toFloat().coerceAtLeast(0f)
-        setOffset(offsetPx)
+        val next = anchoredOffsetPx.coerceIn(0f, maxOffsetPx)
+        if (next == offsetPx) return
+        offsetPx = next
+        scrollSink?.invoke(next)
     }
 
     fun setOffset(value: Float) {
@@ -216,6 +242,10 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var longPressTriggered = false
     private var lastCenterTapAt = 0L
     private var flingRunning = false
+    private var activeFlingVelocityY = 0
+    private var pendingHandoffVelocityY = 0
+    private var canHandoffPrevious = false
+    private var canHandoffNext = false
     private var lastBoundarySignalAt = 0L
     private var pendingScrollY = 0
     private var scrollScheduled = false
@@ -254,6 +284,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         nextSettings: ReaderSettings,
         leftInsetPx: Int,
         rightInsetPx: Int,
+        canPreviousWindowHandoff: Boolean,
+        canNextWindowHandoff: Boolean,
         previous: () -> Unit,
         next: () -> Unit,
         toggleControls: () -> Unit,
@@ -268,6 +300,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         settings = nextSettings
         systemLeftInsetPx = leftInsetPx
         systemRightInsetPx = rightInsetPx
+        canHandoffPrevious = canPreviousWindowHandoff
+        canHandoffNext = canNextWindowHandoff
         onPrevious = previous
         onNext = next
         onToggleControls = toggleControls
@@ -285,7 +319,10 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         textLayout = ready.layout
         tileSet = ready.raster
         textColor = color
-        if (changed) postInvalidateOnAnimation()
+        if (changed) {
+            postInvalidateOnAnimation()
+            if (pendingHandoffVelocityY != 0) post(::resumePendingFling)
+        }
     }
 
     fun setScrollOffset(value: Float) {
@@ -320,6 +357,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                 parent?.requestDisallowInterceptTouchEvent(true)
                 if (!scroller.isFinished) scroller.abortAnimation()
                 flingRunning = false
+                activeFlingVelocityY = 0
+                pendingHandoffVelocityY = 0
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                 downX = event.x; downY = event.y; lastY = event.y; downAt = event.eventTime
@@ -404,11 +443,53 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
 
     override fun computeScroll() {
         if (scroller.computeScrollOffset()) {
-            scrollModel?.setOffset(scroller.currY.toFloat())
+            val model = scrollModel
+            model?.setOffset(scroller.currY.toFloat())
+            if (model != null && flingRunning && readerContinuousFlingNeedsHandoff(
+                    offsetPx = model.offsetPx,
+                    maxOffsetPx = model.maxOffsetPx,
+                    viewportHeightPx = height,
+                    velocityY = activeFlingVelocityY,
+                    canHandoffPrevious = canHandoffPrevious,
+                    canHandoffNext = canHandoffNext,
+                )
+            ) {
+                val direction = if (activeFlingVelocityY >= 0) 1 else -1
+                pendingHandoffVelocityY = direction * scroller.currVelocity.roundToInt()
+                    .coerceAtLeast(viewConfig.scaledMinimumFlingVelocity)
+                scroller.abortAnimation()
+                flingRunning = false
+                activeFlingVelocityY = 0
+                onScrollSettled()
+            }
         } else if (flingRunning) {
             flingRunning = false
+            activeFlingVelocityY = 0
             onScrollSettled()
         }
+    }
+
+    private fun resumePendingFling() {
+        val velocity = pendingHandoffVelocityY
+        val model = scrollModel
+        if (velocity == 0 || model == null || model.maxOffsetPx <= 0f) {
+            pendingHandoffVelocityY = 0
+            return
+        }
+        pendingHandoffVelocityY = 0
+        activeFlingVelocityY = velocity
+        scroller.fling(
+            0,
+            model.offsetPx.roundToInt(),
+            0,
+            velocity,
+            0,
+            0,
+            0,
+            model.maxOffsetPx.roundToInt(),
+        )
+        flingRunning = true
+        postInvalidateOnAnimation()
     }
 
     private fun finishScrollWithFling() {
@@ -418,6 +499,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         val velocity = (-tracker.yVelocity).roundToInt()
         if (abs(velocity) >= viewConfig.scaledMinimumFlingVelocity && model.maxOffsetPx > 0f) {
             scroller.fling(0, model.offsetPx.roundToInt(), 0, velocity, 0, 0, 0, model.maxOffsetPx.roundToInt())
+            activeFlingVelocityY = velocity
             flingRunning = true
             postInvalidateOnAnimation()
         } else onScrollSettled()
@@ -556,6 +638,8 @@ internal fun Text(
     settings: ReaderSettings,
     systemLeftInsetPx: Int,
     systemRightInsetPx: Int,
+    canHandoffPrevious: Boolean,
+    canHandoffNext: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onToggleControls: () -> Unit,
@@ -566,7 +650,7 @@ internal fun Text(
     onScrollSettled: () -> Unit,
     selectionMode: Boolean? = null,
     onRequestSelection: (() -> Unit)? = null,
-    onTextLayout: (ReaderContinuousLayout) -> Unit,
+    onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
     val context = LocalContext.current
     val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
@@ -600,7 +684,7 @@ internal fun Text(
             rasterBackgroundColor,
         ) {
             ReaderInteractionRuntime.continuousReady = false
-            value = withContext(Dispatchers.Default) {
+            val ready = withContext(Dispatchers.Default) {
                 val staticLayout = buildFastStaticLayout(text, style, density, nativeTypeface, resolvedColor, widthPx)
                 ReaderContinuousLayout(
                     staticLayout,
@@ -611,13 +695,13 @@ internal fun Text(
                     ),
                 )
             }
-        }
-        LaunchedEffect(layout, viewportHeightPx) {
-            layout?.let { ready ->
-                scrollModel.setRange((ready.height - viewportHeightPx).coerceAtLeast(0))
-                onTextLayout(ready)
-                ReaderInteractionRuntime.continuousReady = true
-            }
+            // Compute the source anchor while the previous layout is still displayed, then commit
+            // range + offset before exposing the replacement layout. No frame can render a new
+            // window using stale pixel coordinates from the outgoing window.
+            val anchoredOffset = onTextLayout(ready) ?: scrollModel.offsetPx
+            scrollModel.setRangeAndOffset((ready.height - viewportHeightPx).coerceAtLeast(0), anchoredOffset)
+            value = ready
+            ReaderInteractionRuntime.continuousReady = true
         }
         val ready = layout
         if (fallback) {
@@ -656,6 +740,8 @@ internal fun Text(
                         settings,
                         systemLeftInsetPx,
                         systemRightInsetPx,
+                        canHandoffPrevious,
+                        canHandoffNext,
                         onPrevious,
                         onNext,
                         onToggleControls,
