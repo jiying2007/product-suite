@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
+import android.os.Looper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,6 +15,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
@@ -454,8 +456,17 @@ class ReaderAnnotationStore(private val context: Context) {
 
         fun flushPersistenceQueue() {
             if (Thread.currentThread().name == PERSISTENCE_THREAD) return
-            runCatching { persistence.submit {}.get() }
+            val barrier = runCatching { persistence.submit {} }.getOrNull() ?: return
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                // Activity lifecycle callbacks are main-thread callbacks. A slow disk/Room writer
+                // must never turn onPause into an unbounded ANR; best-effort durability is bounded.
+                runCatching { barrier.get(MAIN_THREAD_FLUSH_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+            } else {
+                runCatching { barrier.get() }
+            }
         }
+
+        const val MAIN_THREAD_FLUSH_TIMEOUT_MS = 75L
     }
 }
 
