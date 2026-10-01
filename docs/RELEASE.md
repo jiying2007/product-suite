@@ -136,7 +136,7 @@ Before a future Play rollout:
 3. confirm screenshot claims reflect device-tested behavior;
 4. verify Free Smart Clean scan shows full candidate text before paywall;
 5. verify Pro CTA displays Play `formattedPrice`;
-6. exercise global-rule import/export and schema-4 local-user backup/restore;
+6. exercise global-rule import/export and current schema-5 local-user backup/restore, plus schema-3/4 compatibility import;
 7. verify no backup/export contains book正文;
 8. verify staged progress restores only for the exact normalized revision;
 9. verify Smart Clean feedback backup contains fingerprints/decisions only;
