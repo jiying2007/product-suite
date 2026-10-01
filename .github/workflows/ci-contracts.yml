@@ -46,6 +46,14 @@ jobs:
           grep -Fq -- 'android-performance' "$main"
           grep -Fq -- 'needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' "$main"
 
+      - name: Verify Jingdu release branch cleanup contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          publisher=scripts/publish-source-release.py
+          test -f "$publisher"
+          python3 -m py_compile "$publisher"
+          grep -Fq -- 'RELEASE_PREFIXES = ("release/source-v", "release/jingdu-v", "release/pose-studio-")' "$publisher"
       - name: Verify Pose Studio candidate release contract
         shell: bash
         run: |
