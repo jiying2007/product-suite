@@ -218,8 +218,11 @@ class ReaderFoundationsTest {
     @Test fun exactPagedBoundaryIsBoundToItsSourceStartAndSupportsSmallPages() {
         val key = readerDocumentKey("book-a", "rev-1")
         ReaderPageBoundaryRuntime.publish(key, 1_000L, 1_057L)
-        ReaderPageBoundaryRuntime.publish(key, 2_000L, 2_041L)
         assertEquals(1_057L, ReaderPageBoundaryRuntime.endFor(key, 1_000L))
+
+        ReaderPageBoundaryRuntime.publish(key, 2_000L, 2_041L)
+        assertTrue("new page publication must invalidate the outgoing page boundary",
+            ReaderPageBoundaryRuntime.endFor(key, 1_000L) == null)
         assertEquals(2_041L, ReaderPageBoundaryRuntime.endFor(key, 2_000L))
         assertTrue(ReaderPageBoundaryRuntime.endFor(key, 3_000L) == null)
     }
