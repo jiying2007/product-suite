@@ -1181,30 +1181,45 @@ class MainActivity : ComponentActivity() {
 
     private fun deleteCurrentBook() {
         val book = currentBook ?: return
+        if (uiState.busyLabel != null) return
         uiState = uiState.copy(deleteConfirmation = false)
         statsStore.finish()
-        stopAllMotion(); workGeneration.incrementAndGet(); reader.close()
-        repository.delete(book)
-        clearBookPreferences(book)
-        libraryMetadata.clear(book.id)
-        cleanHistory.clearAllForBook(book.id)
-        smartCleanFeedback.clearBook(book.id)
-        annotationStore.clearBook(book.id)
-        smartTocCache.clear(book.id)
-        TocOverrideStore(this).reset(book.id)
-        txtHealthStore.remove(book.id)
-        currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
-        uiState = uiState.copy(
-            screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
-            cleanMode = false, panel = null, chaptersLoaded = false, repairRules = emptyList(),
-            noiseCandidates = emptyList(), smartCleanAnalyzed = false, smartCleanUndoAvailable = false, message = getString(R.string.removed_from_library),
+        stopAllMotion()
+        reader.close()
+        runWork(
+            label = getString(R.string.delete),
+            task = { repository.delete(book); book },
+            success = { deleted ->
+                clearDeletedBookState(deleted)
+                currentBook = null; cleanMode = false; pageHistory.clear(); chapterWorkKey = null; refreshLibrary()
+                uiState = uiState.copy(
+                    screen = AppScreen.LIBRARY, currentBook = null, pageText = "", position = 0, length = 0,
+                    cleanMode = false, panel = null, chaptersLoaded = false, repairRules = emptyList(),
+                    noiseCandidates = emptyList(), smartCleanAnalyzed = false, smartCleanUndoAvailable = false,
+                    message = getString(R.string.removed_from_library),
+                )
+            },
+            errorTitle = getString(R.string.delete),
         )
     }
 
     private fun deleteLibraryBook(id: String) {
         val book = findBook(id) ?: return
         if (currentBook?.id == id) { deleteCurrentBook(); return }
-        repository.delete(book)
+        if (uiState.busyLabel != null) return
+        runWork(
+            label = getString(R.string.delete),
+            task = { repository.delete(book); book },
+            success = { deleted ->
+                clearDeletedBookState(deleted)
+                refreshLibrary()
+                showMessage(getString(R.string.removed_from_library))
+            },
+            errorTitle = getString(R.string.delete),
+        )
+    }
+
+    private fun clearDeletedBookState(book: BookRepository.Book) {
         clearBookPreferences(book)
         libraryMetadata.clear(book.id)
         cleanHistory.clearAllForBook(book.id)
@@ -1213,13 +1228,10 @@ class MainActivity : ComponentActivity() {
         smartTocCache.clear(book.id)
         TocOverrideStore(this).reset(book.id)
         txtHealthStore.remove(book.id)
-        refreshLibrary()
-        showMessage(getString(R.string.removed_from_library))
     }
 
     private fun clearBookPreferences(book: BookRepository.Book) {
         getPreferences(MODE_PRIVATE).edit().remove(rulesKey(book)).apply()
-        annotationStore.clearBook(book.id)
     }
 
     private fun <T> runWork(label: String, task: Callable<T>, success: (T) -> Unit, errorTitle: String) {
