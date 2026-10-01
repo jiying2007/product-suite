@@ -170,7 +170,7 @@ Conversion applies only to bounded reader/search/chapter/TTS strings. Source TXT
 - Read-aloud source offsets are broadcast only inside the app package and synchronize the reader position/current-window highlight.
 - Existing audio-focus behavior pauses/resumes transient interruptions without skipping the interrupted chunk; permanent focus loss stops.
 - Installed offline voice selection remains a Pro convenience when the system TTS engine exposes offline voices.
-- A bounded local literal pronunciation dictionary supports Chinese names/polyphones (`source => spoken text`) without regex or source rewriting. Speech-range projection composes back to source offsets, and the optional dictionary travels in schema-4 portable backup while older schema-4 backups remain importable.
+- A bounded local literal pronunciation dictionary supports Chinese names/polyphones (`source => spoken text`) without regex or source rewriting. Speech-range projection composes back to source offsets, and the optional user-authored dictionary travels in the current schema-5 portable backup while schema-3/4 Reader backups remain importable.
 
 ## Folder library and Pro batch automation
 
@@ -184,24 +184,24 @@ Pro sells saved repetitive work:
 - reusable global rules/recommended rule packs;
 - global-rule import/export;
 - offline TTS voice selection;
-- portable local-user backup/restore of text-free Reader assets.
+- portable local-user backup/restore of privacy-minimized Reader assets.
 
 Batch apply excludes KEEP/PROTECT, semantic BODY, inline fragment and garbled-line candidates unless an explicit DELETE decision makes the user intent authoritative. Batch reports contain identifiers/names/scores/counts only and declare `containsBookText=false`.
 
 ## Portable local-user assets
 
-Reader schema-4 backup intentionally excludes book/source/normalized/Clean payloads but preserves the user-owned state that can safely travel:
+Reader schema-5 backup intentionally excludes book/source/normalized/Clean payloads plus automatically captured annotation excerpt/re-anchor context, while preserving the user-owned state that can safely travel:
 
 - Reader settings and custom presentation preferences;
 - global Clean rules;
-- bookmarks, highlights and notes with source/context anchors;
+- bookmarks/highlights plus explicit user-authored notes with structural source/range anchors;
 - favorites and local tags;
 - progress staged against exact source + normalized revision identity;
 - local reading sessions and pace;
 - Smart Clean KEEP/DELETE/PROTECT fingerprint memory;
 - optional bounded local TTS pronunciation dictionary.
 
-SAF URI grants are device/install capabilities and therefore must be re-selected on a destination installation. Imported font binaries are likewise re-selected when the referenced local font is not available. The backup declares `containsBookText=false`.
+SAF URI grants are device/install capabilities and therefore must be re-selected on a destination installation. Imported font binaries are likewise re-selected when the referenced local font is not available. The backup declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`.
 
 ## Verifiable privacy
 
