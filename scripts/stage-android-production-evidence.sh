@@ -83,12 +83,43 @@ AAB="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
 MAPPING="$ANDROID_DIR/app/build/outputs/mapping/release/mapping.txt"
 SYMBOLS="$ANDROID_DIR/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip"
 DEPENDENCIES="$ANDROID_DIR/app/build/reports/jingdu-release-dependencies.txt"
-for artifact in "$APK" "$AAB" "$MAPPING" "$SYMBOLS" "$DEPENDENCIES"; do
+LEGAL_NOTICE="$ROOT/third_party/NOTICE.md"
+LEGAL_OPENCC="$ROOT/third_party/licenses/OpenCC-Apache-2.0.txt"
+LEGAL_OPENCCJAVA="$ROOT/third_party/licenses/OpenccJava-MIT.txt"
+LEGAL_REVIEW="$ROOT/docs/ANDROID_THIRD_PARTY_NOTICES.md"
+PRODUCT_NOTICES="$ROOT/THIRD_PARTY_NOTICES.md"
+for artifact in "$APK" "$AAB" "$MAPPING" "$SYMBOLS" "$DEPENDENCIES" "$LEGAL_NOTICE" "$LEGAL_OPENCC" "$LEGAL_OPENCCJAVA" "$LEGAL_REVIEW" "$PRODUCT_NOTICES"; do
   [[ -s "$artifact" ]] || {
     echo "required production evidence artifact missing: $artifact" >&2
     exit 1
   }
 done
+
+python3 - "$APK" "$AAB" <<'PY'
+import sys
+from zipfile import ZipFile
+
+apk, aab = sys.argv[1:3]
+expected = {
+    apk: {
+        "assets/NOTICE.md",
+        "assets/licenses/OpenCC-Apache-2.0.txt",
+        "assets/licenses/OpenccJava-MIT.txt",
+    },
+    aab: {
+        "base/assets/NOTICE.md",
+        "base/assets/licenses/OpenCC-Apache-2.0.txt",
+        "base/assets/licenses/OpenccJava-MIT.txt",
+    },
+}
+for archive, required in expected.items():
+    with ZipFile(archive) as zf:
+        names = set(zf.namelist())
+    missing = sorted(required - names)
+    if missing:
+        raise SystemExit(f"packaged third-party legal assets missing from {archive}: {missing}")
+    print(f"Packaged third-party legal assets OK: {archive} ({len(required)} required files)")
+PY
 
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -perm -111 | sort -V | tail -n1)"
@@ -141,12 +172,19 @@ AAB_NAME="jingdu-$VERSION-release.aab"
 MAPPING_NAME="mapping-$VERSION.txt"
 SYMBOLS_NAME="native-debug-symbols-$VERSION.zip"
 DEPENDENCIES_NAME="release-dependencies-$VERSION.txt"
+LEGAL_DIR="$OUT/legal"
 
 cp "$APK" "$OUT/$APK_NAME"
 cp "$AAB" "$OUT/$AAB_NAME"
 cp "$MAPPING" "$OUT/$MAPPING_NAME"
 cp "$SYMBOLS" "$OUT/$SYMBOLS_NAME"
 cp "$DEPENDENCIES" "$OUT/$DEPENDENCIES_NAME"
+mkdir -p "$LEGAL_DIR/licenses"
+cp "$LEGAL_NOTICE" "$LEGAL_DIR/NOTICE.md"
+cp "$LEGAL_OPENCC" "$LEGAL_DIR/licenses/OpenCC-Apache-2.0.txt"
+cp "$LEGAL_OPENCCJAVA" "$LEGAL_DIR/licenses/OpenccJava-MIT.txt"
+cp "$LEGAL_REVIEW" "$LEGAL_DIR/ANDROID_THIRD_PARTY_NOTICES.md"
+cp "$PRODUCT_NOTICES" "$LEGAL_DIR/THIRD_PARTY_NOTICES.md"
 printf '%s\n' "$UPLOAD_CERT_SHA" > "$OUT/UPLOAD-CERT-SHA256.txt"
 
 SOURCE_MANIFEST_SHA="$(sha256sum "$SOURCE_MANIFEST" | awk '{print $1}')"
@@ -173,7 +211,12 @@ EOF
     "$SYMBOLS_NAME" \
     "$DEPENDENCIES_NAME" \
     "UPLOAD-CERT-SHA256.txt" \
-    "PROVENANCE.txt" > SHA256SUMS.txt
+    "PROVENANCE.txt" \
+    "legal/NOTICE.md" \
+    "legal/licenses/OpenCC-Apache-2.0.txt" \
+    "legal/licenses/OpenccJava-MIT.txt" \
+    "legal/ANDROID_THIRD_PARTY_NOTICES.md" \
+    "legal/THIRD_PARTY_NOTICES.md" > SHA256SUMS.txt
 )
 
 echo "Production evidence staged from immutable $TAG ($TAG_SHA)"
