@@ -63,11 +63,11 @@ The first-readable journeys and operation-level chapter/search/Smart Clean/TTS/s
 Targets are qualification goals for the release matrix, not guarantees across every Android device. A regression must be investigated and recorded rather than hidden by widening the target without evidence.
 
 
-### Physical background TTS soak
+### Physical TTS long-session soak
 
-Long read-aloud stability is qualified separately from the next-chunk latency SLO. `.github/workflows/android-physical-tts-soak.yml` runs only on a self-hosted physical Android device against an explicit immutable `source_ref`, with a **30 or 60 minute** duration.
+Long read-aloud stability is qualified separately from the next-chunk latency SLO. `.github/workflows/android-physical-tts-soak.yml` runs only on a self-hosted physical Android device against an explicit immutable `source_ref`, with a **30 or 60 minute** duration and either `background` or `foreground-continuous` mode.
 
-The benchmark-only fixture provider starts the real production `TtsPlaybackService -> ReaderTtsPlayer -> TtsController` stack on the deterministic 100 MiB book, then the test backgrounds the Activity. Every retained minute must keep the same app PID, preserve monotonic persisted book progress, and continue advancing in at least 80% of retained samples. Peak total PSS must remain <= 512 MiB, and target ANR / fatal exception / OOM / foreground-service-timeout markers fail the run. Battery, thermal, meminfo, MediaSession and logcat evidence are retained.
+The benchmark-only fixture provider starts the real production `TtsPlaybackService -> ReaderTtsPlayer -> TtsController` stack on the deterministic 100 MiB book. Background mode presses Home after warm-up. Foreground-continuous mode first opens the real book in Reader continuous mode and leaves the Activity visible while TTS broadcasts drive the production source-position synchronization/render path. Every retained minute must keep the same app PID, preserve monotonic persisted book progress, and continue advancing in at least 80% of retained samples; foreground-continuous additionally requires non-negative monotonic Reader foreground position for the full run. Peak total PSS must remain <= 512 MiB, and target ANR / fatal exception / OOM / foreground-service-timeout markers fail the run. Battery, thermal, meminfo, MediaSession and logcat evidence are retained.
 
 This workflow proves long-session stability only when it has actually run on a physical device with a working installed TTS engine. Repository presence is not a PASS.
 
