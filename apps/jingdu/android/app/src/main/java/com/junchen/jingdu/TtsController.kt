@@ -184,18 +184,9 @@ internal class TtsController(
         chineseOverrides = overrides
         val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
         val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
-        if (!voiceApplied) {
-            val selectedLocale = TtsLocalePolicy.choose(
-                mode = mode,
-                documentLocale = documentLocale,
-                systemLocale = Locale.getDefault(),
-                isSupported = { locale -> tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE },
-            )
-            if (selectedLocale == null || tts.setLanguage(selectedLocale) < TextToSpeech.LANG_AVAILABLE) {
-                listener.onStopped("tts error: no compatible voice")
-                return
-            }
-            preferredLocale = selectedLocale
+        if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
+            listener.onStopped("tts error: no offline voice")
+            return
         }
         if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             listener.onStopped("audio focus denied")
@@ -282,6 +273,28 @@ internal class TtsController(
         val voiceLocale = voice.locale ?: if (mode == null || mode == ChineseDisplayMode.ORIGINAL) Locale.getDefault() else return false
         if (mode != null && !TtsLocalePolicy.acceptsSavedVoice(mode, voiceLocale)) return false
         preferredLocale = voiceLocale
+        tts.voice = voice
+        return true
+    }
+
+    private fun applyOfflineVoice(mode: ChineseDisplayMode, documentLocale: Locale): Boolean {
+        if (!ready) return false
+        val offline = tts.voices.orEmpty().filter { !it.isNetworkConnectionRequired }
+        if (offline.isEmpty()) return false
+        val candidates = TtsLocalePolicy.candidates(mode, documentLocale, Locale.getDefault())
+        val exact = candidates.firstNotNullOfOrNull { candidate ->
+            offline.firstOrNull { voice ->
+                val locale = voice.locale ?: return@firstOrNull false
+                locale.toLanguageTag().equals(candidate.toLanguageTag(), ignoreCase = true)
+            }
+        }
+        val languageFallback = candidates.firstNotNullOfOrNull { candidate ->
+            offline.firstOrNull { voice ->
+                voice.locale?.language?.equals(candidate.language, ignoreCase = true) == true
+            }
+        }
+        val voice = exact ?: languageFallback ?: return false
+        preferredLocale = voice.locale ?: documentLocale
         tts.voice = voice
         return true
     }
