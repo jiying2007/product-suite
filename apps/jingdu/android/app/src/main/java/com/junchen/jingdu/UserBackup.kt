@@ -22,8 +22,10 @@ internal class UserBackup(
             .put("type", "jingdu-local-user-backup")
             .put("reader", "v3")
             .put("containsBookText", false)
+            .put("containsAutomaticBookExcerpts", false)
+            .put("containsUserAuthoredText", true)
             .put("settings", settings)
-            .put("annotations", annotationStore.exportJson())
+            .put("annotations", annotationStore.exportPortableJson())
             .put("globalRules", ruleRoot.optJSONArray("rules") ?: JSONArray())
             .put("libraryAssets", assets.exportLibrary())
             .put("readingStats", assets.exportReadingStats())
@@ -38,21 +40,24 @@ internal class UserBackup(
         if (text.length > MAX_BACKUP_CHARS) throw IllegalArgumentException("backup too large")
         val root = JSONObject(text)
         val schema = root.optInt("schema")
-        if (schema !in setOf(LEGACY_SCHEMA, SCHEMA) || root.optString("type") != "jingdu-local-user-backup" || root.optString("reader") != "v3") {
+        if (schema !in setOf(LEGACY_SCHEMA, PREVIOUS_SCHEMA, SCHEMA) || root.optString("type") != "jingdu-local-user-backup" || root.optString("reader") != "v3") {
             throw IllegalArgumentException("not a Reader backup")
         }
-        if (schema == SCHEMA && root.optBoolean("containsBookText", true)) {
+        if (schema >= PREVIOUS_SCHEMA && root.optBoolean("containsBookText", true)) {
             throw IllegalArgumentException("backup privacy contract missing")
+        }
+        if (schema == SCHEMA && root.optBoolean("containsAutomaticBookExcerpts", true)) {
+            throw IllegalArgumentException("backup automatic excerpt privacy contract missing")
         }
 
         val settingsObject = root.optJSONObject("settings") ?: throw IllegalArgumentException("backup missing reader settings")
         val settingsMap = linkedMapOf<String, Any?>()
         settingsObject.keys().forEach { key -> settingsMap[key] = settingsObject.opt(key) }
         val annotations = root.optJSONArray("annotations")
-            ?: if (schema == SCHEMA) throw IllegalArgumentException("backup missing annotations") else JSONArray()
+            ?: if (schema >= PREVIOUS_SCHEMA) throw IllegalArgumentException("backup missing annotations") else JSONArray()
         if (annotations.length() > MAX_ANNOTATIONS) throw IllegalArgumentException("too many annotations")
         val globalRules = root.optJSONArray("globalRules")
-            ?: if (schema == SCHEMA) throw IllegalArgumentException("backup missing global rules") else JSONArray()
+            ?: if (schema >= PREVIOUS_SCHEMA) throw IllegalArgumentException("backup missing global rules") else JSONArray()
         val ruleRoot = JSONObject()
             .put("schema", 1)
             .put("type", "jingdu-global-clean-rules")
@@ -63,7 +68,7 @@ internal class UserBackup(
         var stats: JSONObject? = null
         var feedback: JSONObject? = null
         var pronunciationRaw: String? = null
-        if (schema == SCHEMA) {
+        if (schema >= PREVIOUS_SCHEMA) {
             library = root.optJSONArray("libraryAssets") ?: throw IllegalArgumentException("backup missing library assets")
             stats = root.optJSONObject("readingStats") ?: throw IllegalArgumentException("backup missing reading stats")
             feedback = root.optJSONObject("smartCleanFeedback") ?: throw IllegalArgumentException("backup missing Smart Clean feedback")
@@ -78,13 +83,13 @@ internal class UserBackup(
         }
 
         val settings = readerPreferences.importMap(settingsMap)
-        annotationStore.importJson(annotations)
+        if (schema == LEGACY_SCHEMA) annotationStore.importJson(annotations) else annotationStore.importPortableJson(annotations)
         ruleLibrary.save(rules)
 
         var libraryAssets = 0
         var readingSessions = 0
         var feedbackEntries = 0
-        if (schema == SCHEMA) {
+        if (schema >= PREVIOUS_SCHEMA) {
             libraryAssets = assets.importLibrary(requireNotNull(library))
             readingSessions = assets.importReadingStats(requireNotNull(stats))
             feedbackEntries = smartCleanFeedback.importJson(requireNotNull(feedback))
@@ -104,7 +109,8 @@ internal class UserBackup(
 
     private companion object {
         const val LEGACY_SCHEMA = 3
-        const val SCHEMA = 4
+        const val PREVIOUS_SCHEMA = 4
+        const val SCHEMA = 5
         const val MAX_BACKUP_CHARS = 2 * 1024 * 1024
         const val MAX_ANNOTATIONS = 20_000
     }
