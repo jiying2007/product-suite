@@ -48,7 +48,7 @@ Pro unlocks:
 - portable Reader local-user backup/restore;
 - **batch TXT automation** across up to the product-defined bounded batch size: TXT Doctor/Smart Clean/TOC dry-run, report export, and explicit application of only high-confidence safe Clean candidates.
 
-Portable backup includes settings, global rules, annotations, favorites/tags, exact-revision progress, reading sessions/pace and Smart Clean fingerprint decisions. It never includes source/normalized/Clean book text. SAF grants and unavailable imported font binaries are re-selected on the destination installation rather than treated as portable credentials.
+Portable backup includes settings, global rules, structural annotations plus explicit user-authored notes, favorites/tags, exact-revision progress, reading sessions/pace, Smart Clean fingerprint decisions and pronunciation preferences. Schema 5 excludes source/normalized/Clean payloads and automatically captured annotation excerpts/re-anchor context, while explicitly declaring portable user-authored note/rule/pronunciation text. SAF grants and unavailable imported font binaries are re-selected on the destination installation rather than treated as portable credentials.
 
 Batch automation is the strongest Pro expression: Pro saves repeated work across a library. Folder access, diagnosis and ordinary reading remain Free; the paid boundary is bulk automation/application and reusable local assets, not access to the user's own files.
 
@@ -132,7 +132,7 @@ Retention comes from useful local state rather than notification spam:
 - selected offline TTS voice;
 - portable local JSON backup/restore.
 
-Portable backup intentionally excludes all book正文/source/normalized/clean files, uses exact normalized-revision identity for progress restore and declares `containsBookText=false`. SAF folder-root grants are valuable local state but are not portable across installs/devices and therefore require explicit user re-selection.
+Portable backup intentionally excludes all book正文/source/normalized/clean files and automatically captured annotation excerpt/re-anchor context, uses exact normalized-revision identity for progress restore, and declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`. Explicit user-authored note/rule/pronunciation text remains portable. SAF folder-root grants are valuable local state but are not portable across installs/devices and therefore require explicit user re-selection.
 
 ## Review timing
 
