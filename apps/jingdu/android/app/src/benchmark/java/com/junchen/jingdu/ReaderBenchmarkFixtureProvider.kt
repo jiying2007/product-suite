@@ -2,6 +2,7 @@ package com.junchen.jingdu
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.Intent
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
@@ -201,6 +202,54 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                         )
                     }
                 }
+            }
+            "ttsStartSoak" -> {
+                val mib = (arg?.toIntOrNull() ?: 100).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                check(fixture.isFile) { "TTS soak fixture is not seeded: ${fixture.name}" }
+                val repository = BookRepository(context)
+                val book = repository.list().firstOrNull { it.name == fixture.name }
+                    ?: error("TTS soak fixture is not imported: ${fixture.name}")
+                repository.saveProgress(book, 0L)
+                val source = repository.normalizedFile(book)
+                check(source.isFile) { "TTS soak normalized source missing: ${source.absolutePath}" }
+                val service = Intent(context, TtsPlaybackService::class.java)
+                    .setAction(TtsPlaybackService.ACTION_START)
+                    .putExtra(TtsPlaybackService.EXTRA_PATH, source.absolutePath)
+                    .putExtra(TtsPlaybackService.EXTRA_BOOK_ID, book.id)
+                    .putExtra(TtsPlaybackService.EXTRA_TITLE, book.name)
+                    .putExtra(TtsPlaybackService.EXTRA_OFFSET, 0L)
+                    .putExtra(TtsPlaybackService.EXTRA_RATE, 1f)
+                    .putExtra(TtsPlaybackService.EXTRA_PITCH, 1f)
+                    .putExtra(TtsPlaybackService.EXTRA_VOICE, "")
+                    .putExtra(TtsPlaybackService.EXTRA_CHINESE_MODE, ChineseDisplayMode.ORIGINAL.name)
+                    .putExtra(TtsPlaybackService.EXTRA_CHINESE_OVERRIDES, "")
+                context.startForegroundService(service)
+                Bundle().apply {
+                    putString("bookId", book.id)
+                    putLong("progress", 0L)
+                    putInt("mib", mib)
+                    putString("normalizedSha256", book.normalizedSha256)
+                }
+            }
+            "ttsSoakState" -> {
+                val mib = (arg?.toIntOrNull() ?: 100).coerceIn(1, 256)
+                val fixture = File(context.cacheDir, "Benchmark Novel ${mib} MiB.txt")
+                val book = BookRepository(context).list().firstOrNull { it.name == fixture.name }
+                    ?: error("TTS soak state book missing: ${fixture.name}")
+                Bundle().apply {
+                    putString("bookId", book.id)
+                    putLong("progress", book.progress)
+                    putBoolean("backgroundTtsPlaying", ReaderInteractionRuntime.backgroundTtsPlaying)
+                    putLong("foregroundPosition", ReaderInteractionRuntime.foregroundPosition)
+                }
+            }
+            "ttsStopSoak" -> {
+                context.startService(
+                    Intent(context, TtsPlaybackService::class.java)
+                        .setAction(TtsPlaybackService.ACTION_STOP),
+                )
+                Bundle.EMPTY
             }
             "ttsNextChunkMetric" -> {
                 val mib = (arg?.toIntOrNull() ?: 10).coerceIn(1, 256)

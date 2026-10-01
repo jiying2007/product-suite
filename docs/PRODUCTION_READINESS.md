@@ -91,6 +91,7 @@ Execute `DEVICE_MATRIX.md` and `PERFORMANCE_SLO.md` on real release-derived buil
 - [ ] physical Reader Macrobenchmark meets the release SLOs in `PERFORMANCE_SLO.md`;
 - [ ] physical volume-key paging advances the authoritative Reader source position;
 - [ ] 60-minute physical Reader soak passes the stable-PID/forward-progress/peak-PSS/no-OOM-ANR gate; retain 180-minute evidence for the long-session release qualification class.
+- [ ] 30-minute physical background TTS soak passes stable-PID / monotonic-progress / >=80% advancing-sample / peak-PSS / no-crash-ANR-OOM gates; retain 60-minute evidence for long listening qualification.
 
 The physical performance and long-session soak workflows must be dispatched with an explicit immutable `source_ref`. Its artifact must contain `provenance.txt` with the resolved source SHA and physical device manufacturer/model/API/build fingerprint. A run against an unspecified moving branch is not production evidence.
 
