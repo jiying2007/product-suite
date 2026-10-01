@@ -14,6 +14,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
@@ -243,12 +244,36 @@ class ReaderAnnotationStore(private val context: Context) {
         return io { exportJsonAsync() }
     }
 
+    /**
+     * Portable backup intentionally excludes source-derived excerpt/anchor text. Notes and source
+     * offsets remain user-owned state; anchors are safely rebuilt on future edits/re-decodes.
+     */
+    fun exportPortableJson(): JSONArray {
+        awaitPendingWrites()
+        return io {
+            JSONArray().also { array ->
+                dao.listAll().map(::fromEntity).forEach { item ->
+                    array.put(
+                        toJson(
+                            item.copy(
+                                excerpt = "",
+                                anchorBefore = "",
+                                anchorSelected = "",
+                                anchorAfter = "",
+                                anchorHash = "",
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun importJsonAsync(array: JSONArray) {
         val parsed = ArrayList<ReaderAnnotation>()
         for (index in 0 until minOf(array.length(), MAX_ANNOTATIONS)) runCatching { parsed += fromJson(array.getJSONObject(index)) }
         val normalized = parsed.distinctBy { it.id }
-        dao.clearAll()
-        dao.upsertAll(normalized.map(ReaderAnnotation::toEntity))
+        dao.replaceAll(normalized.map(ReaderAnnotation::toEntity))
         replaceWholeCache(normalized)
     }
     fun importJson(array: JSONArray) {
@@ -425,8 +450,12 @@ class ReaderAnnotationStore(private val context: Context) {
 
         fun flushPersistenceQueue() {
             if (Thread.currentThread().name == PERSISTENCE_THREAD) return
-            runCatching { persistence.submit {}.get() }
+            // Lifecycle callbacks run on main. Bound the durability wait so a slow Room/filesystem
+            // can never turn an annotation flush into an ANR.
+            runCatching { persistence.submit {}.get(MAX_LIFECYCLE_FLUSH_MS, TimeUnit.MILLISECONDS) }
         }
+
+        private const val MAX_LIFECYCLE_FLUSH_MS = 150L
     }
 }
 
