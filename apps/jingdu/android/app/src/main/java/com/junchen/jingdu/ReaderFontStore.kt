@@ -17,26 +17,37 @@ internal class ReaderFontStore(context: Context) {
 
     fun import(uri: Uri, context: Context): String {
         val resolver = context.contentResolver
-        val bytes = resolver.openInputStream(uri)?.use { input ->
-            val buffer = ByteArray(16 * 1024)
-            val output = java.io.ByteArrayOutputStream()
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                if (output.size() + count > MAX_FONT_BYTES) error("font file too large")
-                output.write(buffer, 0, count)
+        val temporary = File.createTempFile(".font-", ".tmp", root)
+        val digest = MessageDigest.getInstance("SHA-256")
+        var total = 0
+        try {
+            val source = resolver.openInputStream(uri) ?: error("font unavailable")
+            source.use { input ->
+                FileOutputStream(temporary).use { output ->
+                    val buffer = ByteArray(16 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (total + count > MAX_FONT_BYTES) error("font file too large")
+                        digest.update(buffer, 0, count)
+                        output.write(buffer, 0, count)
+                        total += count
+                    }
+                    output.fd.sync()
+                }
             }
-            output.toByteArray()
-        } ?: error("font unavailable")
-        if (bytes.size < 1024) error("invalid font")
-        val id = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }.take(32)
-        val target = File(root, "$id.font")
-        if (!target.isFile) FileOutputStream(target).use { output -> output.write(bytes); output.fd.sync() }
-        runCatching { Typeface.Builder(target).build() }.getOrElse {
-            target.delete(); throw IllegalArgumentException("unsupported font", it)
+            if (total < 1024) error("invalid font")
+            runCatching { Typeface.Builder(temporary).build() }.getOrElse {
+                throw IllegalArgumentException("unsupported font", it)
+            }
+            val id = digest.digest().joinToString("") { "%02x".format(it) }.take(32)
+            val target = File(root, "$id.font")
+            PrivateFilePublisher.publishImmutable(temporary, target)
+            prune(id)
+            return id
+        } finally {
+            temporary.delete()
         }
-        prune(id)
-        return id
     }
 
     fun file(id: String): File? = id.takeIf { it.matches(Regex("[0-9a-f]{32}")) }
