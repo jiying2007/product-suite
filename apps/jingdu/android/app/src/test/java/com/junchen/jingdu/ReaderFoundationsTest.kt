@@ -238,6 +238,42 @@ class ReaderFoundationsTest {
         assertEquals(stable, readerContinuousStableTail(stable, atDocumentEnd = true))
     }
 
+    @Test fun continuousFlingRequestsEarlyHandoffOnlyWhenAnotherWindowExists() {
+        assertEquals(
+            true,
+            readerContinuousFlingNeedsHandoff(
+                offsetPx = 1_750f,
+                maxOffsetPx = 2_000f,
+                viewportHeightPx = 1_000,
+                velocityY = 1_200,
+                canHandoffPrevious = true,
+                canHandoffNext = true,
+            ),
+        )
+        assertEquals(
+            false,
+            readerContinuousFlingNeedsHandoff(
+                offsetPx = 1_750f,
+                maxOffsetPx = 2_000f,
+                viewportHeightPx = 1_000,
+                velocityY = 1_200,
+                canHandoffPrevious = true,
+                canHandoffNext = false,
+            ),
+        )
+        assertEquals(
+            true,
+            readerContinuousFlingNeedsHandoff(
+                offsetPx = 120f,
+                maxOffsetPx = 2_000f,
+                viewportHeightPx = 1_000,
+                velocityY = -1_200,
+                canHandoffPrevious = true,
+                canHandoffNext = true,
+            ),
+        )
+    }
+
     @Test fun continuousRangeAndOffsetCommitsAnchorInOneUpdate() {
         val model = ReaderContinuousScrollModel()
         val offsets = mutableListOf<Float>()
