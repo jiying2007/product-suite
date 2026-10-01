@@ -506,11 +506,14 @@ class MainActivity : ComponentActivity() {
             abs(position - lastProgressPersistPosition) < PROGRESS_SAVE_CHAR_DELTA) return
         lastProgressPersistAt = now
         lastProgressPersistPosition = position
-        if (force) {
-            runCatching { progressWorkers.submit { repository.saveProgress(book, position) }.get() }
-                .getOrElse { repository.saveProgress(book, position) }
-        } else {
+        // Never block the UI/lifecycle thread on storage. Forced checkpoints are ordered on the
+        // single writer but remain asynchronous; BookRepository progress persistence itself is O(1).
+        runCatching {
             progressWorkers.execute { runCatching { repository.saveProgress(book, position) } }
+        }.onFailure {
+            // Executor shutdown is a lifecycle race only; apply the tiny O(1) checkpoint directly
+            // without a synchronous disk wait so the latest offset is still queued for durability.
+            repository.saveProgress(book, position, synchronous = false)
         }
     }
 
@@ -1319,12 +1322,12 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     override fun onDestroy() {
         workGeneration.incrementAndGet(); chapterWorkKey = null; main.removeCallbacksAndMessages(null)
-        tocWorkers.shutdownNow(); progressWorkers.shutdownNow(); workers.shutdownNow()
+        tocWorkers.shutdownNow(); progressWorkers.shutdown(); workers.shutdownNow()
         runCatching { unregisterReceiver(ttsStateReceiver) }
         if (::billing.isInitialized) billing.close()
         if (::ttsCatalog.isInitialized) ttsCatalog.close()
         if (::statsStore.isInitialized) statsStore.finish()
-        if (::readerPreferences.isInitialized) readerPreferences.flush(uiState.settings)
+        if (::readerPreferences.isInitialized) readerPreferences.save(uiState.settings)
         reader.close(); super.onDestroy()
     }
 
