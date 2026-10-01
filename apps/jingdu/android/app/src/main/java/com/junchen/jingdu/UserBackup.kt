@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-/** Portable local-user backup. Book/source/normalized/Clean text is intentionally never included. */
+/** Portable local-user backup: no complete book payload or automatically captured source excerpts. */
 internal class UserBackup(
     private val readerPreferences: ReaderPreferences,
     private val ruleLibrary: RuleLibrary,
@@ -120,9 +120,17 @@ internal class UserBackup(
     }
 
     private fun writeRestoreJournal(snapshot: String) {
-        if (snapshot.length > MAX_BACKUP_CHARS) throw IllegalStateException("rollback snapshot too large")
+        // The rollback journal is private app state, not a portable export. Preserve the complete
+        // local annotation snapshot so a failed restore can recover re-anchor context exactly.
+        val journal = JSONObject(snapshot)
+            .put(INTERNAL_ANNOTATIONS, annotationStore.exportJson())
+            .put(INTERNAL_CONTAINS_BOOK_TEXT, true)
+            .toString()
+        if (journal.toByteArray(Charsets.UTF_8).size > MAX_ROLLBACK_JOURNAL_BYTES) {
+            throw IllegalStateException("rollback snapshot too large")
+        }
         FileOutputStream(restoreJournalTmp).use { output ->
-            output.write(snapshot.toByteArray(Charsets.UTF_8))
+            output.write(journal.toByteArray(Charsets.UTF_8))
             output.fd.sync()
         }
         if (restoreJournal.exists() && !restoreJournal.delete()) throw IllegalStateException("cannot replace restore journal")
@@ -131,13 +139,19 @@ internal class UserBackup(
 
     private fun recoverPendingRestore() {
         if (!restoreJournal.isFile || recovering) return
-        val snapshot = runCatching {
-            if (restoreJournal.length() > MAX_BACKUP_CHARS * 4L) error("restore journal too large")
-            restoreJournal.readText(Charsets.UTF_8)
+        val journal = runCatching {
+            if (restoreJournal.length() > MAX_ROLLBACK_JOURNAL_BYTES) error("restore journal too large")
+            JSONObject(restoreJournal.readText(Charsets.UTF_8))
         }.getOrNull() ?: return
+        val fullAnnotations = journal.optJSONArray(INTERNAL_ANNOTATIONS)
+        journal.remove(INTERNAL_ANNOTATIONS)
+        journal.remove(INTERNAL_CONTAINS_BOOK_TEXT)
         recovering = true
         val restored = try {
-            runCatching { importJson(snapshot) }.isSuccess
+            runCatching {
+                importJson(journal.toString())
+                fullAnnotations?.let(annotationStore::importJson)
+            }.isSuccess
         } finally {
             recovering = false
         }
@@ -164,5 +178,8 @@ internal class UserBackup(
         const val MAX_BACKUP_CHARS = 2 * 1024 * 1024
         const val MAX_ANNOTATIONS = 20_000
         const val RESTORE_JOURNAL = "jingdu-user-backup-restore.rollback.json"
+        const val INTERNAL_ANNOTATIONS = "_internalRollbackAnnotations"
+        const val INTERNAL_CONTAINS_BOOK_TEXT = "_internalContainsBookText"
+        const val MAX_ROLLBACK_JOURNAL_BYTES = 32L * 1024L * 1024L
     }
 }
