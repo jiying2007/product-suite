@@ -43,8 +43,9 @@ internal class FolderLibraryStore(context: Context) {
         editor.apply()
     }
 
-    fun scanTxt(root: Uri, maxFiles: Int = 500): List<FolderEntry> {
+    fun scanTxt(root: Uri, maxFiles: Int = MAX_FILES_PER_ROOT): List<FolderEntry> {
         if (!DocumentsContract.isTreeUri(root)) return emptyList()
+        val limit = maxFiles.coerceIn(1, MAX_FILES_PER_ROOT)
         val resolver = app.contentResolver
         val output = ArrayList<FolderEntry>()
         val queue = ArrayDeque<Pair<String, Int>>()
@@ -58,7 +59,8 @@ internal class FolderLibraryStore(context: Context) {
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
 
-        while (queue.isNotEmpty() && output.size < maxFiles) {
+        var truncated = false
+        while (queue.isNotEmpty() && !truncated) {
             val (parentId, depth) = queue.removeFirst()
             if (depth > MAX_DEPTH) continue
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(root, parentId)
@@ -69,7 +71,11 @@ internal class FolderLibraryStore(context: Context) {
                     val mimeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
                     val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
                     val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-                    while (cursor.moveToNext() && output.size < maxFiles) {
+                    while (cursor.moveToNext()) {
+                        if (output.size >= limit) {
+                            truncated = true
+                            break
+                        }
                         val documentId = cursor.getString(idIndex) ?: continue
                         val name = cursor.getString(nameIndex).orEmpty()
                         val mime = cursor.getString(mimeIndex).orEmpty()
@@ -86,6 +92,7 @@ internal class FolderLibraryStore(context: Context) {
                 }
             }
         }
+        if (truncated) throw IllegalStateException("folder scan exceeds $limit TXT files")
         return output.distinctBy { it.uri.toString() }
     }
 
@@ -129,5 +136,6 @@ internal class FolderLibraryStore(context: Context) {
     companion object {
         private const val KEY_ROOTS = "roots"
         private const val MAX_DEPTH = 12
+        private const val MAX_FILES_PER_ROOT = 10_000
     }
 }
