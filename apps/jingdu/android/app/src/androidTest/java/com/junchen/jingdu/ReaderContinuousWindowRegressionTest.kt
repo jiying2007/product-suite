@@ -40,6 +40,7 @@ class ReaderContinuousWindowRegressionTest {
                 .coerceAtMost(first.documentLength - 1)
             val second = engine.readAround(nextTarget, settings)
 
+            assertTrue("handoff must advance to a later bounded window", second.start > first.start)
             val overlapStart = maxOf(first.start, second.start)
             val overlapEnd = minOf(
                 first.start + first.sourceText.codePointCount(0, first.sourceText.length),
