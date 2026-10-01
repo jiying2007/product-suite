@@ -155,17 +155,17 @@ class TtsPlaybackService : MediaSessionService() {
             val state = player.snapshot()
             book?.let { current ->
                 if (state.offset >= 0) {
-                    // Submit the durability-boundary write behind all already queued progress work,
-                    // then wait for it. This guarantees no older queued offset can overwrite final state.
+                    // Queue the final checkpoint behind older writes, but never block the service
+                    // main thread during onDestroy. shutdown() preserves already queued work.
                     runCatching {
-                        progressWorkers.submit { repository.saveProgress(current, state.offset) }.get()
-                    }.getOrElse {
-                        runCatching { repository.saveProgress(current, state.offset) }
+                        progressWorkers.execute { repository.saveProgress(current, state.offset) }
+                    }.onFailure {
+                        repository.saveProgress(current, state.offset, synchronous = false)
                     }
                 }
             }
         }
-        progressWorkers.shutdownNow()
+        progressWorkers.shutdown()
         session?.release()
         session = null
         if (::player.isInitialized) player.release()
