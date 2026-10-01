@@ -15,7 +15,7 @@ The **current Android release stage** is GitHub distribution from an immutable s
 7. **Large-file path** — immutable revisions, validated `.jdx`, active-session Search/Chapters, bounded/streaming Smart Clean and safe fallback/pruning.
 8. **Harmony source contract** — Stage/Node-API/TaskPool/storage/source contracts remain valid; real HAP/device qualification is a separate Harmony release gate.
 9. **Repository contract** — required product/growth/store/localization/release-readiness docs exist; no legacy roots, compatibility core, floating Actions tags, committed production packages/signing material or direct Android `INTERNET` permission; Reader source-release/product SSOT does not regress to stale 2.2/V2 wording. The repository-stable Android debug keystore is the explicit current-stage signing exception.
-10. **Portable user assets** — Reader schema-4 backup remains text-free, exact-revision progress restore is fail-closed, Smart Clean memory is fingerprint-only, reading stats are numeric/identity metadata only and AndroidTest compiles the portable-asset contract tests.
+10. **Portable user assets** — Reader schema-5 backup excludes source/normalized/Clean payloads and automatically captured annotation excerpts/re-anchor context, explicitly declares portable user-authored text, keeps exact-revision progress restore fail-closed, keeps Smart Clean memory fingerprint-only, keeps reading stats numeric/identity-only and AndroidTest compiles the portable-asset contract tests.
 11. **Source provenance** — Android source/staging version matches a permanent manifest; future source publisher creates annotated provenance tags that bind the exact gated `main` SHA to the manifest SHA-256 and never moves existing release tags.
 
 ## Android merge acceptance
@@ -30,7 +30,7 @@ Before Ready/merge:
 - Simplified and Traditional document behavior is independent of UI locale;
 - cross-script search fallback uses curated one-to-one variants and never silently rewrites document text;
 - Billing/Review failures remain non-blocking to Free reading;
-- portable user backup declares `containsBookText=false` and contains no source/normalized/Clean正文;
+- portable user backup declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`; it contains no source/normalized/Clean正文 or automatically captured annotation excerpt/re-anchor text, while explicit user-authored note/rule/pronunciation literals remain portable;
 - staged progress is consumed only by the matching normalized revision;
 - whole-file work remains off Android main thread.
 
