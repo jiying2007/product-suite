@@ -60,7 +60,11 @@ class TtsPlaybackService : MediaSessionService() {
                 ACTION_NEXT_PARAGRAPH -> player.nextParagraph()
                 ACTION_PREVIOUS_PARAGRAPH -> player.previousParagraph()
                 ACTION_SLEEP -> setSleepTimer(intent.getIntExtra(EXTRA_MINUTES, 0))
-                ACTION_STATE -> onPlayerState(player.snapshot())
+                ACTION_STATE -> {
+                    val state = player.snapshot()
+                    onPlayerState(state)
+                    if (!state.active) stopSelf(startId)
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
@@ -157,15 +161,13 @@ class TtsPlaybackService : MediaSessionService() {
                 if (state.offset >= 0) {
                     // Submit the durability-boundary write behind all already queued progress work,
                     // then wait for it. This guarantees no older queued offset can overwrite final state.
-                    runCatching {
-                        progressWorkers.submit { repository.saveProgress(current, state.offset) }.get()
-                    }.getOrElse {
-                        runCatching { repository.saveProgress(current, state.offset) }
-                    }
+                    // Progress persistence is O(1) and asynchronous; never block the
+                    // service main thread waiting for an executor during lifecycle teardown.
+                    runCatching { repository.saveProgress(current, state.offset) }
                 }
             }
         }
-        progressWorkers.shutdownNow()
+        progressWorkers.shutdown()
         session?.release()
         session = null
         if (::player.isInitialized) player.release()
