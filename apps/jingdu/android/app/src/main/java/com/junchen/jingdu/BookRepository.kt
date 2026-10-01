@@ -45,32 +45,63 @@ internal class BookRepository(context: Context) {
 
     @Synchronized
     fun list(): List<Book> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
+        val array = runCatching { JSONArray(raw) }.getOrNull()
+            ?: return recoverCatalogFromDisk().sortedByDescending(Book::touchedAt)
         val books = mutableListOf<Book>()
-        runCatching {
-            val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
-            val array = JSONArray(raw)
-            for (index in 0 until array.length()) {
+        for (index in 0 until array.length()) {
+            val book = runCatching {
                 val item = array.getJSONObject(index)
                 val id = item.getString("id")
                 val sourceSha = item.getString("sourceSha256")
                 val normalizedSha = item.getString("normalizedSha256")
-                if (id.length != 64 || id != sourceSha || normalizedSha.length != 64) continue
-                if (!rawFile(id).isFile || !normalizedFile(id, normalizedSha).isFile) continue
-                books += Book(
+                if (!validSha256(id) || id != sourceSha || !validSha256(normalizedSha)) return@runCatching null
+                if (!rawFile(id).isFile || !normalizedFile(id, normalizedSha).isFile) return@runCatching null
+                Book(
                     id = id,
-                    name = item.getString("name"),
-                    encoding = item.getString("encoding"),
-                    size = item.optLong("size"),
+                    name = TextMetadataSanitizer.displayName(item.optString("name"), "Recovered ${id.take(8)}.txt"),
+                    encoding = item.optString("encoding").ifBlank { StandardCharsets.UTF_8.name() },
+                    size = item.optLong("size", rawFile(id).length()).coerceAtLeast(0L),
                     sourceSha256 = sourceSha,
                     normalizedSha256 = normalizedSha,
                     progress = progressPreferences.getLong(progressKey(id), item.optLong("progress")).coerceAtLeast(0L),
-                    charCount = item.optLong("charCount"),
+                    charCount = item.optLong("charCount").coerceAtLeast(0L),
                     touchedAt = progressPreferences.getLong(touchedKey(id), item.optLong("touchedAt")).coerceAtLeast(0L),
                 )
-            }
+            }.getOrNull()
+            if (book != null) books += book
         }
-        // Hard-cut v2 metadata: malformed private state is intentionally not migrated.
         return books.sortedByDescending(Book::touchedAt)
+    }
+
+    private fun recoverCatalogFromDisk(): List<Book> {
+        val recovered = root.listFiles().orEmpty().mapNotNull { directory ->
+            if (!directory.isDirectory || !validSha256(directory.name)) return@mapNotNull null
+            val id = directory.name
+            val raw = rawFile(id).takeIf(File::isFile) ?: return@mapNotNull null
+            val document = directory.listFiles().orEmpty()
+                .filter { it.isFile && it.name.startsWith("document-") && it.name.endsWith(".txt") }
+                .mapNotNull { file ->
+                    val sha = file.name.removePrefix("document-").removeSuffix(".txt")
+                    sha.takeIf(::validSha256)?.let { it to file }
+                }
+                .maxByOrNull { it.second.lastModified() }
+                ?: return@mapNotNull null
+            val normalizedSha = document.first
+            Book(
+                id = id,
+                name = "Recovered ${id.take(8)}.txt",
+                encoding = StandardCharsets.UTF_8.name(),
+                size = raw.length(),
+                sourceSha256 = id,
+                normalizedSha256 = normalizedSha,
+                progress = progressPreferences.getLong(progressKey(id), 0L).coerceAtLeast(0L),
+                charCount = 0L,
+                touchedAt = progressPreferences.getLong(touchedKey(id), directory.lastModified()).coerceAtLeast(0L),
+            )
+        }
+        if (recovered.isNotEmpty()) write(recovered, synchronous = true)
+        return recovered
     }
 
     @Synchronized
