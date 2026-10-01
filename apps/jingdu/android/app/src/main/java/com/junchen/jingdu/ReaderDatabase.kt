@@ -9,6 +9,7 @@ import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.Room
 import androidx.room3.RoomDatabase
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,12 @@ internal interface ReaderAnnotationDao {
 
     @Query("DELETE FROM reader_annotations")
     suspend fun clearAll()
+
+    @Transaction
+    suspend fun replaceAll(values: List<ReaderAnnotationEntity>) {
+        clearAll()
+        if (values.isNotEmpty()) upsertAll(values)
+    }
 }
 
 @Dao
@@ -109,6 +116,14 @@ internal interface ReaderStatsDao {
 
     @Query("DELETE FROM reader_pace")
     suspend fun clearPace()
+
+    @Transaction
+    suspend fun replaceAll(sessions: List<ReaderSessionEntity>, pace: ReaderPaceEntity?) {
+        clearSessions()
+        clearPace()
+        if (sessions.isNotEmpty()) upsertSessions(sessions)
+        if (pace != null) upsertPace(pace)
+    }
 
     @Query("SELECT dayEpoch, SUM(durationMs) AS durationMs, SUM(charsRead) AS charsRead FROM reader_sessions GROUP BY dayEpoch ORDER BY dayEpoch DESC LIMIT :limit")
     fun observeDays(limit: Int): Flow<List<ReaderDayAggregate>>
