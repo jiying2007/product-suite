@@ -29,7 +29,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 - Paper/Light/Night/OLED/Low Vision presentation, auto page/auto scroll, sleep timer and configurable volume-key behavior remain Free.
 - Reader intent restores through stable source id/revision/offset after configuration/process recreation; native handles/TTS runtime state are recreated.
 - Selection and annotation ranges map through display transformations back to source offsets.
-- Background TTS uses the local media-session path and semantic previous/next navigation.
+- Background TTS uses the local media-session path and semantic previous/next navigation. Before any book text is spoken, the selected/default engine must expose an installed voice with `isNetworkConnectionRequired=false`; if no offline voice exists, playback fails closed instead of allowing the engine to choose a network voice.
 
 ## P0 Smart Clean requirements
 
@@ -65,10 +65,10 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 - Pro global Clean rules apply to all books.
 - Recommended rule pack is explicit/editable, never silently destructive.
 - Global rules can be imported/exported as bounded JSON.
-- Pro portable Reader backup contains text-free user-owned state: Reader settings, global rules, annotations, favorites/tags, revision-safe progress, reading sessions/pace and Smart Clean fingerprint decisions.
-- Backup root declares `containsBookText=false`; no source/normalized/Clean book payload is included.
+- Pro portable Reader backup contains privacy-minimized user-owned state: Reader settings, global rules, structural annotations, favorites/tags, revision-safe progress, reading sessions/pace, Smart Clean fingerprint decisions and pronunciation preferences.
+- Backup schema 5 declares `containsBookText=false` and `containsAutomaticBookExcerpts=false`: source/normalized/Clean payloads plus automatically captured annotation excerpts/re-anchor context are excluded. Explicit user-authored notes, rule literals and pronunciation text remain portable and are declared by `containsUserAuthoredText=true`.
 - Portable progress is staged against source identity + exact `normalizedSha256` and is consumed only by that revision.
-- Schema 3 Reader settings/rules/annotation backups remain importable for pre-production testers; schema 4 is the current export format.
+- Schema 3/4 Reader backups remain importable for pre-production testers; schema 5 is the current export format. Schema 4 annotation excerpt/anchor fields are discarded when restored through the portable path.
 - Import validates schema, field sizes, rule/annotation/library/session/feedback counts and privacy markers.
 - SAF URI grants are not represented as portable credentials and must be explicitly re-selected on a destination install.
 - Imported font binaries are re-selected when unavailable; backup may retain the preference reference but must fall back safely.
@@ -76,7 +76,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 ## P1 retention requirements
 
 - Batch import handles partial failure and reports success/failure counts.
-- Pro can select an installed Android TTS engine and then select/search/preview voices that engine reports as not requiring network; Free keeps system-default TTS. Device-local engine package choice is not portable backup identity and falls back safely when unavailable.
+- Pro can select an installed Android TTS engine and then select/search/preview voices that engine reports as not requiring network; Free keeps the system-default engine but still binds an installed offline voice before speech. No tier may silently fall back to a network-required voice. Device-local engine package choice is not portable backup identity and falls back safely when unavailable.
 - Reading sessions/history/pace are local-only and never require analytics SDK/network upload.
 - Play In-App Review is milestone based after meaningful use; no first-launch prompt and no sentiment pre-screen.
 - Review request frequency is locally throttled.
@@ -96,7 +96,7 @@ Make Jingdu discoverable, comfortable for long daily reading and worth paying fo
 - No account, advertising SDK or runtime analytics SDK.
 - Google Play Billing and In-App Review are allowed platform commerce/feedback integrations; they must not receive private TXT content.
 - Source TXT is never modified or deleted.
-- Portable backup/rule/privacy/batch exports contain no book正文.
+- Portable backup/privacy/batch exports contain no complete source/normalized/Clean payload or automatically captured正文 excerpt. Explicit user-authored note/rule/pronunciation literals may be present in their corresponding user-requested exports and must be labeled as user-authored text rather than misrepresented as automatic source capture.
 
 ## Source acceptance
 
