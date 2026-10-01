@@ -115,17 +115,17 @@ The current debug-key-signed GitHub APK satisfies the **current GitHub release s
 
 ## Portable local-user backup
 
-Reader schema 4 backs up portable, text-free user assets:
+Reader schema 5 backs up privacy-minimized portable user assets:
 
 - Reader settings;
 - global Clean rules;
-- bookmarks/highlights/notes;
+- bookmarks/highlights plus structural annotations and explicitly user-authored notes;
 - favorites/tags;
 - progress staged against `sourceSha256 + normalizedSha256` and consumed only for the exact normalized revision;
 - local reading sessions and pace;
 - Smart Clean KEEP/DELETE/PROTECT memory as one-way candidate fingerprints and decisions.
 
-The backup declares `containsBookText=false` and does not contain source, normalized or Clean book payloads. Schema 3 settings/rules/annotation backups remain importable. SAF folder URI grants and imported font binaries are not treated as portable credentials/assets; destination devices must re-select them when unavailable.
+The backup declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`. It contains no source, normalized or Clean book payloads and omits automatically captured annotation excerpts/re-anchor context; explicitly user-authored note, rule and pronunciation text remains portable. Schema 3/4 Reader backups remain importable, with schema-4 annotation excerpt/anchor fields discarded on portable restore. SAF folder URI grants and imported font binaries are not treated as portable credentials/assets; destination devices must re-select them when unavailable.
 
 ## Growth release checklist
 
@@ -136,7 +136,7 @@ Before a future Play rollout:
 3. confirm screenshot claims reflect device-tested behavior;
 4. verify Free Smart Clean scan shows full candidate text before paywall;
 5. verify Pro CTA displays Play `formattedPrice`;
-6. exercise global-rule import/export and schema-4 local-user backup/restore;
+6. exercise global-rule import/export and current schema-5 local-user backup/restore, plus schema-3/4 compatibility import;
 7. verify no backup/export contains book正文;
 8. verify staged progress restores only for the exact normalized revision;
 9. verify Smart Clean feedback backup contains fingerprints/decisions only;

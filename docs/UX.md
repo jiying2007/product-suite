@@ -85,17 +85,20 @@ When no voice has been explicitly selected, Android infers a suitable `zh-CN`, `
 
 The Pro backup surface represents **user-owned local Reader assets**, not books/cloud sync.
 
-Current Reader schema-4 backup includes:
+Current Reader schema-5 backup includes:
 - Reader settings;
 - global Clean rules;
 - bookmarks/highlights/notes;
 - favorites/tags;
 - progress staged against exact source + normalized revision identity;
 - reading sessions/pace;
-- Smart Clean KEEP/DELETE/PROTECT fingerprint memory.
+- Smart Clean KEEP/DELETE/PROTECT fingerprint memory;
+- optional user-authored pronunciation preferences.
 
 Backup copy must explicitly state:
-- `containsBookText=false` / book正文 is excluded;
+- `containsBookText=false` / source, normalized and Clean book payloads are excluded;
+- `containsAutomaticBookExcerpts=false` / automatically captured annotation excerpts and re-anchor context are excluded;
+- `containsUserAuthoredText=true` / explicit note, rule and pronunciation text may be present as user-owned portable state;
 - nothing is uploaded by Jingdu;
 - source/normalized/Clean files are not embedded;
 - progress is restored only to the exact normalized revision;

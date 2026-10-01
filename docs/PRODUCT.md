@@ -19,9 +19,9 @@ Store names remain localized for discovery: `净读 - TXT 小说阅读器`, `淨
 - Smart Clean: **generation 4**.
 - Built-in deterministic clean signature pack: **v3**.
 - Chinese display conversion: OpenCC-compatible **OpenccJava 1.4.2**.
-- Current immutable source baseline: **2.3.11 / Reader**.
+- Current immutable source baseline: **2.3.12 / Reader**.
 - Active product track: **2.4 Guided TXT Rescue** — TXT Health, guided repair, smart collections and long-session evidence.
-- Portable local-user backup schema: **v4** (`schema=4`, Reader; schema 3 remains importable for pre-production testers).
+- Portable local-user backup schema: **v5** (`schema=5`, Reader; schema 3/4 remain importable for pre-production testers). Schema 5 excludes automatically captured book excerpts/re-anchor context while retaining explicitly user-authored note/rule/pronunciation text with explicit privacy markers.
 - First-class Android UI locales: **zh-Hans / zh-Hant / en-US**.
 - Play discovery listings: **zh-CN / zh-TW / zh-HK / en-US / ja-JP / ko-KR**; Japanese/Korean listings disclose English in-app fallback.
 
@@ -170,7 +170,7 @@ Conversion applies only to bounded reader/search/chapter/TTS strings. Source TXT
 - Read-aloud source offsets are broadcast only inside the app package and synchronize the reader position/current-window highlight.
 - Existing audio-focus behavior pauses/resumes transient interruptions without skipping the interrupted chunk; permanent focus loss stops.
 - Installed offline voice selection remains a Pro convenience when the system TTS engine exposes offline voices.
-- A bounded local literal pronunciation dictionary supports Chinese names/polyphones (`source => spoken text`) without regex or source rewriting. Speech-range projection composes back to source offsets, and the optional dictionary travels in schema-4 portable backup while older schema-4 backups remain importable.
+- A bounded local literal pronunciation dictionary supports Chinese names/polyphones (`source => spoken text`) without regex or source rewriting. Speech-range projection composes back to source offsets, and the optional user-authored dictionary travels in the current schema-5 portable backup while schema-3/4 Reader backups remain importable.
 
 ## Folder library and Pro batch automation
 
@@ -184,24 +184,24 @@ Pro sells saved repetitive work:
 - reusable global rules/recommended rule packs;
 - global-rule import/export;
 - offline TTS voice selection;
-- portable local-user backup/restore of text-free Reader assets.
+- portable local-user backup/restore of privacy-minimized Reader assets.
 
 Batch apply excludes KEEP/PROTECT, semantic BODY, inline fragment and garbled-line candidates unless an explicit DELETE decision makes the user intent authoritative. Batch reports contain identifiers/names/scores/counts only and declare `containsBookText=false`.
 
 ## Portable local-user assets
 
-Reader schema-4 backup intentionally excludes book/source/normalized/Clean payloads but preserves the user-owned state that can safely travel:
+Reader schema-5 backup intentionally excludes book/source/normalized/Clean payloads plus automatically captured annotation excerpt/re-anchor context, while preserving the user-owned state that can safely travel:
 
 - Reader settings and custom presentation preferences;
 - global Clean rules;
-- bookmarks, highlights and notes with source/context anchors;
+- bookmarks/highlights plus explicit user-authored notes with structural source/range anchors;
 - favorites and local tags;
 - progress staged against exact source + normalized revision identity;
 - local reading sessions and pace;
 - Smart Clean KEEP/DELETE/PROTECT fingerprint memory;
 - optional bounded local TTS pronunciation dictionary.
 
-SAF URI grants are device/install capabilities and therefore must be re-selected on a destination installation. Imported font binaries are likewise re-selected when the referenced local font is not available. The backup declares `containsBookText=false`.
+SAF URI grants are device/install capabilities and therefore must be re-selected on a destination installation. Imported font binaries are likewise re-selected when the referenced local font is not available. The backup declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`.
 
 ## Verifiable privacy
 
@@ -307,7 +307,7 @@ Without adding runtime analytics SDKs, release/support/store evidence should sho
 - Pro batch dry-run precedes explicit apply and never changes source TXT;
 - background TTS survives ordinary Activity lifecycle changes, supports MediaSession controls and keeps source highlights correct through local pronunciation replacements;
 - folder sync skips reliably unchanged documents and conservatively reimports unknown metadata;
-- portable backup restores text-free user assets, including optional local pronunciation rules, and applies progress only to the exact normalized revision;
+- portable backup restores privacy-minimized user assets, including explicitly user-authored notes/rules/pronunciation preferences, and applies progress only to the exact normalized revision;
 - 10/100/300 MiB real-device qualification is recorded against `PERFORMANCE.md` / `DEVICE_MATRIX.md`, with release SLOs from `PERFORMANCE_SLO.md`;
 - Android resources remain complete across en-US / zh-Hans / zh-Hant;
 - Android retains no broad-storage permission and no ads/analytics runtime SDK; the core Reader remains network-independent while the Play release package exposes network capability only for optional Billing/In-App Review;

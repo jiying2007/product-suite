@@ -99,7 +99,7 @@ Two-stage paged selection may extend a stable source anchor across the previous/
 
 Volume-key paging is configurable. The default policy turns pages only when TTS is not active, so volume buttons keep their normal audio meaning during foreground or background read-aloud. Users may explicitly choose always-page or always-system-volume behavior and may reverse the page direction.
 
-Background TTS keeps MediaSession/lock-screen/headset controls, bounded semantic sentence/paragraph navigation and source-range highlighting. A local pronunciation dictionary accepts bounded literal `source => spoken text` rules for names/polyphones. Pronunciation edits affect only the speech projection: a length-changing spoken replacement composes with the existing source projection so TTS highlight/progress stays in source coordinates. The dictionary is stored locally and is included as an optional user asset in schema-4 portable backup; older schema-4 backups without it remain importable.
+Background TTS keeps MediaSession/lock-screen/headset controls, bounded semantic sentence/paragraph navigation and source-range highlighting. A local pronunciation dictionary accepts bounded literal `source => spoken text` rules for names/polyphones. Pronunciation edits affect only the speech projection: a length-changing spoken replacement composes with the existing source projection so TTS highlight/progress stays in source coordinates. The dictionary is stored locally and is included as an optional user-authored asset in the current schema-5 portable backup; schema-3/4 Reader backups remain importable, and missing pronunciation preferences fall back safely.
 
 ## Reading progress and remaining time
 
