@@ -215,6 +215,42 @@ class ReaderFoundationsTest {
         assertEquals(ReaderTextAlignment.START, lowVision.textAlignment)
         assertTrue(lowVision.focusRulerLines >= 3)
     }
+    @Test fun exactPagedBoundaryIsBoundToItsSourceStartAndSupportsSmallPages() {
+        val key = readerDocumentKey("book-a", "rev-1")
+        ReaderPageBoundaryRuntime.publish(key, 1_000L, 1_057L)
+        ReaderPageBoundaryRuntime.publish(key, 2_000L, 2_041L)
+        assertEquals(1_057L, ReaderPageBoundaryRuntime.endFor(key, 1_000L))
+        assertEquals(2_041L, ReaderPageBoundaryRuntime.endFor(key, 2_000L))
+        assertEquals(null, ReaderPageBoundaryRuntime.endFor(key, 3_000L))
+        assertEquals(1_000L, ReaderPageBoundaryRuntime.previousStartFor(key, 1_057L))
+    }
+
+    @Test fun continuousParagraphWindowStartsAfterPreviousNewlineAndKeepsStableTail() {
+        val probe = "前段末尾\n当前段开始"
+        val coarse = probe.codePointCount(0, "前段末尾\n当前".length).toLong()
+        val aligned = readerContinuousParagraphStartFromProbe(0L, coarse, probe)
+        assertEquals("前段末尾\n".codePointCount(0, "前段末尾\n".length).toLong(), aligned)
+
+        val stable = "a".repeat(3_200) + "\n" + "b".repeat(700)
+        val trimmed = readerContinuousStableTail(stable, atDocumentEnd = false)
+        assertTrue(trimmed.endsWith("\n"))
+        assertTrue(trimmed.length < stable.length)
+        assertEquals(stable, readerContinuousStableTail(stable, atDocumentEnd = true))
+    }
+
+    @Test fun continuousRangeAndOffsetCommitsAnchorInOneUpdate() {
+        val model = ReaderContinuousScrollModel()
+        val offsets = mutableListOf<Float>()
+        model.attachScrollSink { offsets += it }
+        model.setRangeAndOffset(2_000, 1_250f)
+        assertEquals(2_000f, model.maxOffsetPx, 0.001f)
+        assertEquals(1_250f, model.offsetPx, 0.001f)
+        assertEquals(1_250f, offsets.last(), 0.001f)
+        model.setRangeAndOffset(800, 420f)
+        assertEquals(420f, model.offsetPx, 0.001f)
+        assertEquals(420f, offsets.last(), 0.001f)
+    }
+
     @Test fun readerSafeContentInsetsReserveCutoutGestureAndStatusSpace() {
         val insets = readerContentInsetsDp(
             cutoutLeftDp = 0f,
