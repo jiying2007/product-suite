@@ -54,6 +54,7 @@ required=(
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/StartupBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalTtsSoakTest.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
   scripts/check-android-startup-slo.py
@@ -63,6 +64,7 @@ required=(
   scripts/check-android-indexed-search-slo.py
   scripts/check-android-smart-clean-slo.py
   scripts/check-android-tts-next-chunk-slo.py
+  scripts/check-android-tts-soak.py
   scripts/check-android-200mib-stability-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
@@ -92,6 +94,7 @@ smart_toc_cache=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTo
 hot_controls=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
 fast_text=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
 service=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+user_backup=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 tts_controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsController.kt
 player=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
 navigator=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
@@ -101,6 +104,7 @@ motion=apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionCont
 journey=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt
 physical_slo=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
 physical_stability=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
+physical_tts=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalTtsSoakTest.kt
 baseline=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
 fixture=apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
 benchmark_manifest=apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
@@ -138,6 +142,9 @@ require_literal "$engine" 'ReaderController(false)' 'continuous isolated control
 require_literal "$engine" 'CONTINUOUS_WINDOW_CHARS = 4096L' '4K continuous window'
 require_literal "$engine" 'CONTINUOUS_ALIGN_CHARS = 1024L' 'continuous alignment'
 require_literal "$engine" 'CONTINUOUS_BACK_BUFFER_CHARS = 1024L' 'continuous back buffer'
+forbid_literal "$engine" '@Synchronized\n    fun prefetch' 'prefetch-wide monitor lock'
+require_literal "$engine" 'val sourceText: String' 'collision-safe page cache source identity'
+require_literal "$engine" 'val displayText: String' 'collision-safe page cache display identity'
 require_literal "$book_repository" 'prewarmChapterIndex(book)' 'import-time chapter index prewarm'
 require_literal "$book_repository" 'prewarmChapterIndex(updated)' 'redecode chapter index prewarm'
 require_literal "$book_repository" 'source.chapters()' 'authoritative Core chapter prewarm'
@@ -232,6 +239,10 @@ require_literal apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderG
 forbid_literal "$app" 'if (state.screen == AppScreen.READER && state.currentBook != null && !state.chaptersLoaded) actions.onEnsureChapters()' 'eager chapter UI-state preload'
 
 require_literal "$activity" 'progressWorkers: ExecutorService' 'progress IO worker'
+forbid_literal "$activity" 'progressWorkers.submit { repository.saveProgress(book, position) }.get()' 'unbounded UI progress flush'
+require_literal "$book_repository" 'PROGRESS_PREFS = "jingdu.library.progress.v1"' 'O(1) progress overlay'
+require_literal "$book_repository" 'MAX_IMPORT_BYTES = 512L * 1024L * 1024L' 'bounded TXT import size'
+require_literal "$book_repository" 'cleanupStaleOrphanDirectories()' 'orphan import recovery'
 require_literal "$activity" 'tocWorkers: ExecutorService' 'TOC worker'
 require_literal "$activity" 'THREAD_PRIORITY_BACKGROUND' 'background TOC priority'
 require_literal "$activity" 'publishPositionOnly(book, bounded)' 'lightweight continuous position commit'
@@ -329,6 +340,8 @@ require_literal "$core_test" 'JDX2 chapters preserve authoritative output' 'chap
 require_literal apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderDatabase.kt '@Database' 'Room database'
 require_literal "$annotations" 'ReaderAnnotationEntity' 'Room annotation entity'
 require_literal "$annotations" 'reanchor(item' 'annotation reanchor'
+require_literal "$annotations" 'exportPortableJson' 'text-minimized portable annotations'
+require_literal "$annotations" 'MAIN_THREAD_FLUSH_TIMEOUT_MS = 75L' 'bounded annotation lifecycle flush'
 require_literal "$stats" 'ReaderSessionEntity' 'Room session entity'
 forbid_literal "$annotations" 'reader-v2-annotations.json' 'legacy annotation JSON'
 forbid_literal "$stats" 'reader-v2-stats.json' 'legacy stats JSON'
@@ -369,6 +382,11 @@ require_literal "$service" 'class TtsPlaybackService : MediaSessionService' 'Med
 require_literal "$service" 'MediaSession.Builder' 'Media3 session'
 require_literal "$player" 'class ReaderTtsPlayer' 'Reader TTS player'
 require_literal "$player" 'private val engine = TtsController(appContext, engineName = engineName)' 'production TTS uses selected local engine with default-null observer'
+require_literal "$tts_controller" 'applyOfflineVoice(mode, documentLocale)' 'default TTS binds an offline voice'
+require_literal "$tts_controller" '!it.isNetworkConnectionRequired' 'TTS offline voice filter'
+require_literal "$service" 'if (!state.active) stopSelfResult(startId)' 'idle TTS state query releases service'
+require_literal "$user_backup" '.put("containsAutomaticBookExcerpts", false)' 'portable backup automatic excerpt contract'
+require_literal "$user_backup" 'RESTORE_JOURNAL' 'crash-safe portable restore journal'
 forbid_literal "$player" 'QueueObserver' 'benchmark TTS queue observer must not enter production player'
 require_literal "$tts_controller" 'queueObserver: QueueObserver? = null' 'default-null TTS queue observer'
 require_literal "$tts_controller" 'engineName: String? = null' 'optional installed TTS engine selection'
@@ -465,6 +483,9 @@ require_literal "$physical_stability" 'android.intent.action.VIEW' '200 MiB real
 require_literal "$physical_stability" 'contentCall("stability200Ops", FIXTURE_MIB)' '200 MiB search/Clean operation proof'
 require_literal "$physical_stability" 'pidAfter == pidBefore' '200 MiB same-process survival proof'
 require_literal "$physical_stability" 'jingdu.stability200MiB' '200 MiB retained completion status'
+require_literal "$physical_tts" 'MODE_FOREGROUND_CONTINUOUS = "foreground-continuous"' 'foreground continuous TTS soak mode'
+require_literal "$physical_tts" 'foreground Reader position moved backwards' 'foreground TTS monotonic Reader position'
+require_literal scripts/check-android-tts-soak.py 'foreground continuous Reader position moved backwards' 'foreground TTS checker monotonicity'
 require_literal "$physical_stability" '"fixtureBytes=$bytes;"' '200 MiB retained byte-size proof'
 require_literal "$physical_stability" '"fixtureSha256=$sourceSha256;"' '200 MiB retained source SHA proof'
 require_literal "$physical_stability" '"normalizedSha256=$normalizedSha256;"' '200 MiB retained normalized SHA proof'
