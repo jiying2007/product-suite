@@ -91,7 +91,8 @@ Execute `DEVICE_MATRIX.md` and `PERFORMANCE_SLO.md` on real release-derived buil
 - [ ] physical Reader Macrobenchmark meets the release SLOs in `PERFORMANCE_SLO.md`;
 - [ ] physical volume-key paging advances the authoritative Reader source position;
 - [ ] 60-minute physical Reader soak passes the stable-PID/forward-progress/peak-PSS/no-OOM-ANR gate; retain 180-minute evidence for the long-session release qualification class.
-- [ ] 30-minute physical background TTS soak passes stable-PID / monotonic-progress / >=80% advancing-sample / peak-PSS / no-crash-ANR-OOM gates; retain 60-minute evidence for long listening qualification.
+- [ ] 30-minute physical **background** TTS soak passes stable-PID / monotonic-progress / >=80% advancing-sample / peak-PSS / no-crash-ANR-OOM gates; retain 60-minute evidence for long listening qualification.
+- [ ] 30-minute physical **foreground-continuous** TTS soak keeps Reader foreground, continuous-mode position monotonic and synchronized with real TTS progress under the same stable-PID / PSS / crash-ANR-OOM gates; retain 60-minute evidence for long visible listening.
 
 The physical performance and long-session soak workflows must be dispatched with an explicit immutable `source_ref`. Its artifact must contain `provenance.txt` with the resolved source SHA and physical device manufacturer/model/API/build fingerprint. A run against an unspecified moving branch is not production evidence.
 
@@ -166,8 +167,10 @@ Before Play production rollout verify on a device:
 - [ ] different normalized revision does **not** restore stale progress;
 - [ ] reading sessions/pace restore without book text;
 - [ ] Smart Clean KEEP/DELETE/PROTECT memory restores from fingerprints only;
-- [ ] backup JSON declares `containsBookText=false` and contains no source/normalized/Clean book payload;
+- [ ] schema-5 backup JSON declares `containsBookText=false`, `containsAutomaticBookExcerpts=false`, `containsUserAuthoredText=true`, contains no source/normalized/Clean payload, and omits automatically captured annotation `excerpt` / re-anchor context;
+- [ ] explicit user-authored note/rule/pronunciation text remains portable by design and is not described as automatic source capture;
 - [ ] malformed backup preflight fails before mutating already-valid local assets;
+- [ ] restore replacement is Room-transactional per table group and a durable private rollback journal restores the pre-import snapshot after an interrupted cross-store restore;
 - [ ] SAF folder roots are re-selected rather than pretending URI grants are portable across installs/devices;
 - [ ] imported font binaries are re-selected if unavailable on the destination device.
 
