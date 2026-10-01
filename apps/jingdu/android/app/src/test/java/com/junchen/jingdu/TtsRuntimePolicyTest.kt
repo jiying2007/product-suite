@@ -15,6 +15,7 @@ class TtsRuntimePolicyTest {
         assertEquals(true, ttsRuntimeErrorRetryable("tts error: -4"))
         assertEquals(true, ttsRuntimeErrorRetryable("tts error: -5"))
         assertEquals(false, ttsRuntimeErrorRetryable("tts error: no compatible voice"))
+        assertEquals(false, ttsRuntimeErrorRetryable("tts error: no offline voice"))
         assertEquals(false, ttsRuntimeErrorRetryable("audio focus denied"))
     }
 }
