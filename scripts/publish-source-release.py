@@ -35,7 +35,7 @@ TEMP_PREFIXES = (
     "improve/",
     "revert/",
 )
-RELEASE_PREFIXES = ("release/source-v", "release/jingdu-v", "release/pose-studio-")
+RELEASE_PREFIXES = ("release/source-v", "release/jingdu-", "release/pose-studio-")
 TEMP_EXACT_BRANCHES = {"noop", "tmp-do-not-use"}
 CURRENT_STAGE_MARKER = "## Current Android release stage"
 CURRENT_STAGE_TEXT = (
