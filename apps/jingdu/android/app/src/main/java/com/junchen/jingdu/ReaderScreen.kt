@@ -87,8 +87,18 @@ import kotlin.math.roundToInt
 
 private data class SelectionPayload(val range: ReaderSelectionRange, val clearNative: () -> Unit)
 
-private data class ReaderPreparedPage(
+private data class ReaderPreparedRequest(
     val sourceStart: Long,
+    val sourceText: String,
+    val settings: ReaderSettings,
+    val widthPx: Int,
+    val heightPx: Int,
+    val columns: Int,
+    val typographyFingerprint: Int,
+)
+
+private data class ReaderPreparedPage(
+    val request: ReaderPreparedRequest,
     val snapshot: PageLayoutSnapshot,
     val annotated: AnnotatedString,
 )
@@ -548,19 +558,22 @@ private fun PagedReaderPage(
         ReaderWideColumns.AUTO -> if (adaptiveLayout.prefersTwoColumns) 2 else 1
     }
 
-    // One worker result owns projection, pagination and selection metadata. The previous two-stage
-    // presented -> snapshot publication forced multiple Reader recompositions for every page turn.
+    val preparedRequest = remember(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint) {
+        ReaderPreparedRequest(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint)
+    }
+    LaunchedEffect(documentKey, preparedRequest) {
+        // A size/typography/presentation change invalidates the old measured end immediately.
+        // Navigation stays on the current page until this exact request publishes a replacement.
+        ReaderPageBoundaryRuntime.invalidate(documentKey, sourceStart)
+    }
+
+    // One worker result owns projection, pagination and selection metadata. The request token keeps
+    // a retained produceState value from being mistaken for the new page/layout while work restarts.
     val prepared by produceState<ReaderPreparedPage?>(
         null,
-        sourceStart,
-        sourceText,
-        settings,
+        preparedRequest,
         annotations,
         visualTts,
-        widthPx,
-        heightPx,
-        columns,
-        spec.fingerprint,
     ) {
         if (widthPx <= 0 || heightPx <= 0 || sourceText.isEmpty()) return@produceState
         value = withContext(Dispatchers.Default) {
@@ -580,15 +593,15 @@ private fun PagedReaderPage(
             val visibleText = if (visibleEnd <= 0) "" else presented.displayText.substring(0, visibleEnd)
             val visual = readerAnnotatedText(sourceStart, visibleText, presented.map, annotations, visualTts, settings)
             ReaderPreparedPage(
-                sourceStart = sourceStart,
+                request = preparedRequest,
                 snapshot = snapshot,
                 annotated = ReaderSelectionController.annotatedForSelection(sourceStart, visual, presented.map),
             )
         }
     }
     val preparedValue = prepared
-    LaunchedEffect(documentKey, sourceStart, preparedValue?.sourceStart, preparedValue?.snapshot?.sourceCodePoints) {
-        val ready = preparedValue?.takeIf { it.sourceStart == sourceStart } ?: return@LaunchedEffect
+    LaunchedEffect(documentKey, preparedRequest, preparedValue?.request, preparedValue?.snapshot?.sourceCodePoints) {
+        val ready = preparedValue?.takeIf { it.request == preparedRequest } ?: return@LaunchedEffect
         val chars = ready.snapshot.sourceCodePoints
         if (chars <= 0L) return@LaunchedEffect
         ReaderPageBoundaryRuntime.publish(documentKey, sourceStart, sourceStart + chars)
@@ -620,7 +633,7 @@ private fun PagedReaderPage(
             Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
         ) {
-        val ready = preparedValue?.takeIf { it.sourceStart == sourceStart } ?: return@Box
+        val ready = preparedValue?.takeIf { it.request == preparedRequest } ?: return@Box
         val annotated = ready.annotated
         if (columns == 2 && annotated.isNotEmpty()) {
             val firstEnd = ready.snapshot.firstColumnEndUtf16.coerceIn(0, annotated.length)
