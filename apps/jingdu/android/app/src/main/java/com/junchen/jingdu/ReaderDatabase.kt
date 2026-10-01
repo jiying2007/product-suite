@@ -9,6 +9,7 @@ import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.Room
 import androidx.room3.RoomDatabase
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,12 @@ internal interface ReaderAnnotationDao {
 
     @Query("DELETE FROM reader_annotations")
     suspend fun clearAll()
+
+    @Transaction
+    suspend fun replaceAll(values: List<ReaderAnnotationEntity>) {
+        clearAll()
+        if (values.isNotEmpty()) upsertAll(values)
+    }
 }
 
 @Dao
@@ -118,6 +125,14 @@ internal interface ReaderStatsDao {
 
     @Query("SELECT COALESCE(SUM(durationMs), 0) FROM reader_sessions WHERE bookId = :bookId")
     suspend fun totalBookDuration(bookId: String): Long
+
+    @Transaction
+    suspend fun replaceAll(sessions: List<ReaderSessionEntity>, paceValue: ReaderPaceEntity?) {
+        clearSessions()
+        clearPace()
+        if (sessions.isNotEmpty()) upsertSessions(sessions)
+        if (paceValue != null) upsertPace(paceValue)
+    }
 }
 
 @Database(
