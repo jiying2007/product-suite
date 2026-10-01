@@ -868,6 +868,10 @@ private fun ContinuousReaderPage(
                 settings = settings,
                 systemLeftInsetPx = systemLeft,
                 systemRightInsetPx = systemRight,
+                canHandoffPrevious = w?.start?.let { it > 0L } == true,
+                canHandoffNext = w?.let {
+                    it.start + it.map.sourceCodePoints < it.documentLength - 1L
+                } == true,
                 onPrevious = onPrevious,
                 onNext = onNext,
                 onToggleControls = onToggleControls,
