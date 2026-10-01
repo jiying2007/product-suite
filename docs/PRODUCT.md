@@ -307,7 +307,7 @@ Without adding runtime analytics SDKs, release/support/store evidence should sho
 - Pro batch dry-run precedes explicit apply and never changes source TXT;
 - background TTS survives ordinary Activity lifecycle changes, supports MediaSession controls and keeps source highlights correct through local pronunciation replacements;
 - folder sync skips reliably unchanged documents and conservatively reimports unknown metadata;
-- portable backup restores text-free user assets, including optional local pronunciation rules, and applies progress only to the exact normalized revision;
+- portable backup restores privacy-minimized user assets, including explicitly user-authored notes/rules/pronunciation preferences, and applies progress only to the exact normalized revision;
 - 10/100/300 MiB real-device qualification is recorded against `PERFORMANCE.md` / `DEVICE_MATRIX.md`, with release SLOs from `PERFORMANCE_SLO.md`;
 - Android resources remain complete across en-US / zh-Hans / zh-Hant;
 - Android retains no broad-storage permission and no ads/analytics runtime SDK; the core Reader remains network-independent while the Play release package exposes network capability only for optional Billing/In-App Review;
