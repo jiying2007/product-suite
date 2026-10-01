@@ -2,6 +2,7 @@ package com.junchen.jingdu
 
 import android.content.Context
 import android.net.Uri
+import android.os.CancellationSignal
 import android.provider.DocumentsContract
 import java.security.MessageDigest
 import java.util.ArrayDeque
@@ -43,7 +44,11 @@ internal class FolderLibraryStore(context: Context) {
         editor.apply()
     }
 
-    fun scanTxt(root: Uri, maxFiles: Int = MAX_FILES_PER_ROOT): List<FolderEntry> {
+    fun scanTxt(
+        root: Uri,
+        maxFiles: Int = MAX_FILES_PER_ROOT,
+        cancellationSignal: CancellationSignal? = null,
+    ): List<FolderEntry> {
         if (!DocumentsContract.isTreeUri(root)) return emptyList()
         val limit = maxFiles.coerceIn(1, MAX_FILES_PER_ROOT)
         val resolver = app.contentResolver
@@ -64,14 +69,16 @@ internal class FolderLibraryStore(context: Context) {
             val (parentId, depth) = queue.removeFirst()
             if (depth > MAX_DEPTH) continue
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(root, parentId)
+            cancellationSignal?.throwIfCanceled()
             runCatching {
-                resolver.query(children, projection, null, null, null)?.use { cursor ->
+                resolver.query(children, projection, null, null, null, cancellationSignal)?.use { cursor ->
                     val idIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
                     val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
                     val mimeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
                     val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
                     val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
                     while (cursor.moveToNext()) {
+                        cancellationSignal?.throwIfCanceled()
                         if (output.size >= limit) {
                             truncated = true
                             break
