@@ -50,18 +50,18 @@ License-tester device validation additionally covers fresh purchase, cancellatio
 
 ## Portable local-user asset contract
 
-Reader backup schema 4 is bounded, local and text-free. Automated/instrumented tests verify:
+Reader backup schema 5 is bounded, local and privacy-minimized. Automated/instrumented tests verify:
 
 - Reader settings use the typed Reader settings import validation;
 - global-rule JSON retains its versioned bounded schema and field/count limits;
-- annotations remain bounded and keep source/context anchors;
+- annotations remain bounded, keep structural source/range identity, omit automatically captured excerpt/re-anchor context from portable export and preserve explicit user-authored notes;
 - favorites/tags are portable by source identity;
 - progress is staged with the source id and exact `normalizedSha256` and is consumed only by that revision;
 - a mismatched normalized revision cannot consume staged progress;
 - reading session/pace backup contains identifiers/timestamps/counts only;
 - Smart Clean feedback backup contains one-way fingerprints/decisions only;
-- backup root declares `containsBookText=false`;
-- schema 3 Reader settings/rules/annotation backups remain importable for pre-production testers;
+- backup root declares `containsBookText=false`, `containsAutomaticBookExcerpts=false` and `containsUserAuthoredText=true`;
+- schema 3/4 Reader backups remain importable for pre-production testers, with schema-4 automatic annotation excerpt/anchor fields discarded by the portable restore path;
 - SAF folder URI grants and unavailable imported font binaries are re-selected rather than represented as portable credentials.
 
 `PortableUserAssetsTest` covers revision-bound staged progress, Smart Clean text-free feedback round-trip, bounded reading-stat restore and malformed-schema preflight. It now executes in the hosted functional instrumentation job rather than being compile-only evidence.
