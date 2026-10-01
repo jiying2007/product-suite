@@ -507,8 +507,9 @@ class MainActivity : ComponentActivity() {
         lastProgressPersistAt = now
         lastProgressPersistPosition = position
         if (force) {
-            runCatching { progressWorkers.submit { repository.saveProgress(book, position) }.get() }
-                .getOrElse { repository.saveProgress(book, position) }
+            // saveProgress is now an O(1) SharedPreferences overlay. Avoid blocking lifecycle/UI
+            // callbacks on Future.get(); apply() schedules disk durability without stalling main.
+            repository.saveProgress(book, position)
         } else {
             progressWorkers.execute { runCatching { repository.saveProgress(book, position) } }
         }
@@ -1319,12 +1320,12 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
     override fun onDestroy() {
         workGeneration.incrementAndGet(); chapterWorkKey = null; main.removeCallbacksAndMessages(null)
-        tocWorkers.shutdownNow(); progressWorkers.shutdownNow(); workers.shutdownNow()
+        tocWorkers.shutdownNow(); progressWorkers.shutdown(); workers.shutdownNow()
         runCatching { unregisterReceiver(ttsStateReceiver) }
         if (::billing.isInitialized) billing.close()
         if (::ttsCatalog.isInitialized) ttsCatalog.close()
         if (::statsStore.isInitialized) statsStore.finish()
-        if (::readerPreferences.isInitialized) readerPreferences.flush(uiState.settings)
+        if (::readerPreferences.isInitialized) readerPreferences.save(uiState.settings)
         reader.close(); super.onDestroy()
     }
 
