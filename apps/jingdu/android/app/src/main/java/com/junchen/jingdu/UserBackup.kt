@@ -2,6 +2,8 @@ package com.junchen.jingdu
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 
 /** Portable local-user backup. Book/source/normalized/Clean text is intentionally never included. */
 internal class UserBackup(
@@ -12,6 +14,17 @@ internal class UserBackup(
     private val assets = UserAssetBackup(ruleLibrary.appContext)
     private val smartCleanFeedback = SmartCleanFeedbackStore(ruleLibrary.appContext)
     private val ttsPronunciation = TtsPronunciationStore(ruleLibrary.appContext)
+    private val restoreJournal = File(ruleLibrary.appContext.filesDir, RESTORE_JOURNAL)
+    private val restoreJournalTmp = File(ruleLibrary.appContext.filesDir, "$RESTORE_JOURNAL.tmp")
+    private var recovering = false
+
+    init {
+        // A completed journal exists only after a durable rename and before the first mutation.
+        // If Android killed the process during a multi-store restore, replay the pre-restore
+        // snapshot before exposing the app's user state again.
+        restoreJournalTmp.delete()
+        recoverPendingRestore()
+    }
 
     fun exportJson(): String {
         val settings = JSONObject()
@@ -82,21 +95,58 @@ internal class UserBackup(
             pronunciationRaw?.let(TtsPronunciationStore::parse)
         }
 
-        val settings = readerPreferences.importMap(settingsMap)
-        if (schema == LEGACY_SCHEMA) annotationStore.importJson(annotations) else annotationStore.importPortableJson(annotations)
-        ruleLibrary.save(rules)
+        if (!recovering) writeRestoreJournal(exportJson())
+        return try {
+            val settings = readerPreferences.importMap(settingsMap)
+            if (schema == LEGACY_SCHEMA) annotationStore.importJson(annotations) else annotationStore.importPortableJson(annotations)
+            ruleLibrary.save(rules)
 
-        var libraryAssets = 0
-        var readingSessions = 0
-        var feedbackEntries = 0
-        if (schema >= PREVIOUS_SCHEMA) {
-            libraryAssets = assets.importLibrary(requireNotNull(library))
-            readingSessions = assets.importReadingStats(requireNotNull(stats))
-            feedbackEntries = smartCleanFeedback.importJson(requireNotNull(feedback))
-            // Optional for backward compatibility with early schema-4 pre-production backups.
-            pronunciationRaw?.let(ttsPronunciation::save)
+            var libraryAssets = 0
+            var readingSessions = 0
+            var feedbackEntries = 0
+            if (schema >= PREVIOUS_SCHEMA) {
+                libraryAssets = assets.importLibrary(requireNotNull(library))
+                readingSessions = assets.importReadingStats(requireNotNull(stats))
+                feedbackEntries = smartCleanFeedback.importJson(requireNotNull(feedback))
+                // Optional for backward compatibility with early schema-4 pre-production backups.
+                pronunciationRaw?.let(ttsPronunciation::save)
+            }
+            if (!recovering) clearRestoreJournal()
+            Result(settings, rules, libraryAssets, readingSessions, feedbackEntries)
+        } catch (error: Throwable) {
+            if (!recovering) recoverPendingRestore()
+            throw error
         }
-        return Result(settings, rules, libraryAssets, readingSessions, feedbackEntries)
+    }
+
+    private fun writeRestoreJournal(snapshot: String) {
+        if (snapshot.length > MAX_BACKUP_CHARS) throw IllegalStateException("rollback snapshot too large")
+        FileOutputStream(restoreJournalTmp).use { output ->
+            output.write(snapshot.toByteArray(Charsets.UTF_8))
+            output.fd.sync()
+        }
+        if (restoreJournal.exists() && !restoreJournal.delete()) throw IllegalStateException("cannot replace restore journal")
+        if (!restoreJournalTmp.renameTo(restoreJournal)) throw IllegalStateException("cannot publish restore journal")
+    }
+
+    private fun recoverPendingRestore() {
+        if (!restoreJournal.isFile || recovering) return
+        val snapshot = runCatching {
+            if (restoreJournal.length() > MAX_BACKUP_CHARS * 4L) error("restore journal too large")
+            restoreJournal.readText(Charsets.UTF_8)
+        }.getOrNull() ?: return
+        recovering = true
+        val restored = try {
+            runCatching { importJson(snapshot) }.isSuccess
+        } finally {
+            recovering = false
+        }
+        if (restored) clearRestoreJournal()
+    }
+
+    private fun clearRestoreJournal() {
+        restoreJournalTmp.delete()
+        restoreJournal.delete()
     }
 
     data class Result(
@@ -113,5 +163,6 @@ internal class UserBackup(
         const val SCHEMA = 5
         const val MAX_BACKUP_CHARS = 2 * 1024 * 1024
         const val MAX_ANNOTATIONS = 20_000
+        const val RESTORE_JOURNAL = "jingdu-user-backup-restore.rollback.json"
     }
 }
