@@ -191,11 +191,10 @@ internal class TtsController(
                 systemLocale = Locale.getDefault(),
                 isSupported = { locale -> tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE },
             )
-            if (selectedLocale == null || tts.setLanguage(selectedLocale) < TextToSpeech.LANG_AVAILABLE) {
-                listener.onStopped("tts error: no compatible voice")
+            if (selectedLocale == null || !applyOfflineVoiceForLocale(selectedLocale, mode)) {
+                listener.onStopped("tts error: no offline voice")
                 return
             }
-            preferredLocale = selectedLocale
         }
         if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             listener.onStopped("audio focus denied")
@@ -282,6 +281,28 @@ internal class TtsController(
         val voiceLocale = voice.locale ?: if (mode == null || mode == ChineseDisplayMode.ORIGINAL) Locale.getDefault() else return false
         if (mode != null && !TtsLocalePolicy.acceptsSavedVoice(mode, voiceLocale)) return false
         preferredLocale = voiceLocale
+        tts.voice = voice
+        return true
+    }
+
+    private fun applyOfflineVoiceForLocale(locale: Locale, mode: ChineseDisplayMode): Boolean {
+        if (!ready) return false
+        val voices = tts.voices.orEmpty().asSequence()
+            .filter { !it.isNetworkConnectionRequired }
+            .filter { voice ->
+                val voiceLocale = voice.locale ?: return@filter false
+                TtsLocalePolicy.acceptsSavedVoice(mode, voiceLocale) &&
+                    (voiceLocale.toLanguageTag().equals(locale.toLanguageTag(), ignoreCase = true) ||
+                        voiceLocale.language.equals(locale.language, ignoreCase = true))
+            }
+            .sortedWith(
+                compareBy<android.speech.tts.Voice> {
+                    if (it.locale?.toLanguageTag()?.equals(locale.toLanguageTag(), ignoreCase = true) == true) 0 else 1
+                }.thenBy { it.name },
+            )
+            .toList()
+        val voice = voices.firstOrNull() ?: return false
+        preferredLocale = voice.locale ?: locale
         tts.voice = voice
         return true
     }
