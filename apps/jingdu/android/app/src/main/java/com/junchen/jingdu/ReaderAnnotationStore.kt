@@ -262,8 +262,7 @@ class ReaderAnnotationStore(private val context: Context) {
         val parsed = ArrayList<ReaderAnnotation>()
         for (index in 0 until minOf(array.length(), MAX_ANNOTATIONS)) runCatching { parsed += fromJson(array.getJSONObject(index)) }
         val normalized = parsed.distinctBy { it.id }
-        dao.clearAll()
-        dao.upsertAll(normalized.map(ReaderAnnotation::toEntity))
+        dao.replaceAll(normalized.map(ReaderAnnotation::toEntity))
         replaceWholeCache(normalized)
     }
     fun importJson(array: JSONArray) {
@@ -277,8 +276,7 @@ class ReaderAnnotationStore(private val context: Context) {
             runCatching { parsed += fromPortableJson(array.getJSONObject(index)) }
         }
         val normalized = parsed.distinctBy { it.id }
-        dao.clearAll()
-        dao.upsertAll(normalized.map(ReaderAnnotation::toEntity))
+        dao.replaceAll(normalized.map(ReaderAnnotation::toEntity))
         replaceWholeCache(normalized)
     }
 
