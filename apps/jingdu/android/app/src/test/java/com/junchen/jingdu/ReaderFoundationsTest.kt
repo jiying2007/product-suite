@@ -221,7 +221,7 @@ class ReaderFoundationsTest {
         ReaderPageBoundaryRuntime.publish(key, 2_000L, 2_041L)
         assertEquals(1_057L, ReaderPageBoundaryRuntime.endFor(key, 1_000L))
         assertEquals(2_041L, ReaderPageBoundaryRuntime.endFor(key, 2_000L))
-        assertEquals(null, ReaderPageBoundaryRuntime.endFor(key, 3_000L))
+        assertTrue(ReaderPageBoundaryRuntime.endFor(key, 3_000L) == null)
         assertEquals(1_000L, ReaderPageBoundaryRuntime.previousStartFor(key, 1_057L))
     }
 
