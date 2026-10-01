@@ -47,4 +47,17 @@ for required in (
     if required not in (ROOT / "apps/jingdu/android/app/build.gradle").read_text(encoding="utf-8") + doc:
         raise SystemExit(f"dependency inventory contract missing: {required}")
 
-print(f"Android production dependency inventory contract OK ({len(declared)} exact direct coordinates)")
+required_legal_assets = (
+    ROOT / "third_party/NOTICE.md",
+    ROOT / "third_party/licenses/OpenCC-Apache-2.0.txt",
+    ROOT / "third_party/licenses/OpenccJava-MIT.txt",
+    ROOT / "THIRD_PARTY_NOTICES.md",
+)
+for path in required_legal_assets:
+    if not path.is_file() or not path.read_text(encoding="utf-8").strip():
+        raise SystemExit(f"required third-party legal asset missing or empty: {path.relative_to(ROOT)}")
+
+if 'assets.srcDir rootProject.file("../../../third_party")' not in gradle:
+    raise SystemExit("Android release must package third_party legal assets through the main assets source set")
+
+print(f"Android production dependency inventory contract OK ({len(declared)} exact direct coordinates; packaged legal assets present)")
