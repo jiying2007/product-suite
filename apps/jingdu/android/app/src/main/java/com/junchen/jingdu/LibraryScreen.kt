@@ -36,6 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -110,7 +113,17 @@ internal fun LibraryScreen(state: AppUiState, actions: JingduActions, snackbar: 
         var failed = 0
         val roots = folderStore.roots()
         roots.forEach { root ->
-            val entries = folderStore.scanTxt(root)
+            currentCoroutineContext().ensureActive()
+            val signal = android.os.CancellationSignal()
+            val registration = currentCoroutineContext()[Job]?.invokeOnCompletion { cause ->
+                if (cause is CancellationException) signal.cancel()
+            }
+            val entries = try {
+                folderStore.scanTxt(root, cancellationSignal = signal)
+            } finally {
+                registration?.dispose()
+            }
+            currentCoroutineContext().ensureActive()
             discovered += entries.size
             entries.forEach { entry ->
                 if (!folderStore.needsImport(entry, existingBookIds)) {
