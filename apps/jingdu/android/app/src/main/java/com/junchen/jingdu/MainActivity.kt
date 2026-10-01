@@ -553,7 +553,6 @@ class MainActivity : ComponentActivity() {
         val current = reader.position()
         val documentKey = readerDocumentKey(book.id, book.normalizedSha256)
         val exactPrevious = session.previousPagePosition()
-            ?: ReaderPageBoundaryRuntime.previousStartFor(documentKey, current)
         if (exactPrevious != null) {
             reader.jump(exactPrevious)
         } else {
