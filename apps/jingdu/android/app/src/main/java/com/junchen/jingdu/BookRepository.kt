@@ -71,12 +71,23 @@ internal class BookRepository(context: Context) {
             }.getOrNull()
             if (book != null) books += book
         }
+        val recovered = recoverMissingDirectories(books.mapTo(hashSetOf()) { it.id })
+        if (recovered.isNotEmpty()) {
+            books += recovered
+            write(books, synchronous = true)
+        }
         return books.sortedByDescending(Book::touchedAt)
     }
 
     private fun recoverCatalogFromDisk(): List<Book> {
-        val recovered = root.listFiles().orEmpty().mapNotNull { directory ->
-            if (!directory.isDirectory || !validSha256(directory.name)) return@mapNotNull null
+        val recovered = recoverMissingDirectories(emptySet())
+        if (recovered.isNotEmpty()) write(recovered, synchronous = true)
+        return recovered
+    }
+
+    private fun recoverMissingDirectories(knownIds: Set<String>): List<Book> =
+        root.listFiles().orEmpty().mapNotNull { directory ->
+            if (!directory.isDirectory || !validSha256(directory.name) || directory.name in knownIds) return@mapNotNull null
             val id = directory.name
             val raw = rawFile(id).takeIf(File::isFile) ?: return@mapNotNull null
             val document = directory.listFiles().orEmpty()
@@ -100,9 +111,6 @@ internal class BookRepository(context: Context) {
                 touchedAt = progressPreferences.getLong(touchedKey(id), directory.lastModified()).coerceAtLeast(0L),
             )
         }
-        if (recovered.isNotEmpty()) write(recovered, synchronous = true)
-        return recovered
-    }
 
     @Synchronized
     @Throws(Exception::class)
@@ -334,6 +342,17 @@ internal class BookRepository(context: Context) {
         root.listFiles().orEmpty().asSequence()
             .filter(File::isDirectory)
             .filter { validSha256(it.name) && it.name !in referenced }
+            // Complete source+normalized directories are recoverable and must survive catalog loss.
+            // Only stale incomplete import debris is eligible for deletion.
+            .filter { directory ->
+                val id = directory.name
+                val hasRaw = rawFile(id).isFile
+                val hasDocument = directory.listFiles().orEmpty().any { file ->
+                    if (!file.isFile || !file.name.startsWith("document-") || !file.name.endsWith(".txt")) return@any false
+                    validSha256(file.name.removePrefix("document-").removeSuffix(".txt"))
+                }
+                !hasRaw || !hasDocument
+            }
             .filter { now - it.lastModified().coerceAtLeast(0L) >= ORPHAN_GRACE_MS }
             .forEach(::deleteTree)
     }
