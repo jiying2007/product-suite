@@ -14,8 +14,8 @@ EXPECTED_SOURCE_SHA="${JINGDU_QUALIFIED_SOURCE_SHA:-}"
 ACTUAL_SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
 RESULT_ROOT="$ANDROID_DIR/macrobenchmark/build/outputs/physical-tts-soak"
 
-[[ "$SOAK_MODE" == "background" || "$SOAK_MODE" == "foreground-continuous" ]] || {
-  echo "JINGDU_TTS_SOAK_MODE must be background or foreground-continuous" >&2
+[[ "$SOAK_MODE" == "background" || "$SOAK_MODE" == "foreground-continuous" || "$SOAK_MODE" == "foreground-continuous-stress" ]] || {
+  echo "JINGDU_TTS_SOAK_MODE must be background, foreground-continuous or foreground-continuous-stress" >&2
   exit 2
 }
 [[ "$DURATION_MINUTES" == "30" || "$DURATION_MINUTES" == "60" ]] || {
@@ -56,6 +56,11 @@ fingerprint=$FINGERPRINT
 fixture_mib=100
 tts_engine=system-default-installed-engine
 peak_pss_limit_kb=524288
+memory_sample_interval_seconds=10
+memory_warmup_seconds=300
+max_pss_slope_kb_per_hour=65536
+max_component_slope_kb_per_hour=32768
+memory_components=total-pss,java-heap,native-heap,graphics
 battery_and_thermal=evidence-only-until-device-normalized-baseline
 EOF
 
