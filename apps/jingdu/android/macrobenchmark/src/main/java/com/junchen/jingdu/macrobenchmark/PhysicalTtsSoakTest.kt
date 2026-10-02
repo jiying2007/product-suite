@@ -51,12 +51,17 @@ class PhysicalTtsSoakTest {
             check(device.currentPackageName == PACKAGE_NAME) { "foreground TTS soak lost Reader foreground" }
         }
 
-        val deadline = System.nanoTime() + minutes.toLong() * 60L * 1_000_000_000L
+        val soakStartNs = System.nanoTime()
+        val deadline = soakStartNs + minutes.toLong() * 60L * 1_000_000_000L
         var sample = 0
         var previousProgress = startProgress
         var advancingSamples = 0
         var stalledSamples = 0
-        var peakPssKb = totalPssKb().coerceAtLeast(1L)
+        val initialMemory = memorySnapshot()
+        var peakPssKb = initialMemory.totalPssKb
+        var peakJavaHeapKb = initialMemory.javaHeapKb
+        var peakNativeHeapKb = initialMemory.nativeHeapKb
+        var peakGraphicsKb = initialMemory.graphicsKb
         var previousForegroundPosition = if (foregroundContinuous) foregroundPosition() else -1L
 
         try {
@@ -93,9 +98,11 @@ class PhysicalTtsSoakTest {
                     }
                     previousForegroundPosition = foregroundPosition
                 }
-                val pssKb = totalPssKb()
-                check(pssKb > 0L) { "TTS process PSS unavailable during soak" }
-                peakPssKb = maxOf(peakPssKb, pssKb)
+                val memory = memorySnapshot()
+                peakPssKb = maxOf(peakPssKb, memory.totalPssKb)
+                peakJavaHeapKb = maxOf(peakJavaHeapKb, memory.javaHeapKb)
+                peakNativeHeapKb = maxOf(peakNativeHeapKb, memory.nativeHeapKb)
+                peakGraphicsKb = maxOf(peakGraphicsKb, memory.graphicsKb)
                 check(peakPssKb <= MAX_PSS_KB) {
                     "TTS peak PSS exceeded soak ceiling: ${peakPssKb}KB > ${MAX_PSS_KB}KB"
                 }
@@ -104,9 +111,10 @@ class PhysicalTtsSoakTest {
                 reportSample(
                     minutes = minutes,
                     sample = sample,
+                    elapsedSeconds = (System.nanoTime() - soakStartNs) / 1_000_000_000L,
                     progress = progress,
                     delta = delta,
-                    pssKb = pssKb,
+                    memory = memory,
                     pid = initialPid,
                     runtimeActive = boolValue(state, "backgroundTtsActive"),
                     runtimePlaying = boolValue(state, "backgroundTtsPlaying"),
@@ -125,6 +133,9 @@ class PhysicalTtsSoakTest {
                 end = previousProgress,
                 advancingSamples = advancingSamples,
                 peakPssKb = peakPssKb,
+                peakJavaHeapKb = peakJavaHeapKb,
+                peakNativeHeapKb = peakNativeHeapKb,
+                peakGraphicsKb = peakGraphicsKb,
                 pid = initialPid,
                 mode = mode,
                 foregroundPosition = previousForegroundPosition,
@@ -200,20 +211,16 @@ class PhysicalTtsSoakTest {
     private fun pid(): Int =
         device.executeShellCommand("pidof $PACKAGE_NAME").trim().substringBefore(' ').toIntOrNull() ?: -1
 
-    private fun totalPssKb(): Long {
-        val meminfo = device.executeShellCommand("dumpsys meminfo $PACKAGE_NAME")
-        return Regex("""TOTAL PSS:\s+(\d+)""").find(meminfo)?.groupValues?.get(1)?.toLongOrNull()
-            ?: Regex("""^\s*TOTAL\s+(\d+)""", RegexOption.MULTILINE)
-                .find(meminfo)?.groupValues?.get(1)?.toLongOrNull()
-            ?: 0L
-    }
+    private fun memorySnapshot(): PhysicalMemorySnapshot =
+        PhysicalMemorySnapshot.parse(device.executeShellCommand("dumpsys meminfo $PACKAGE_NAME"))
 
     private fun reportSample(
         minutes: Int,
         sample: Int,
+        elapsedSeconds: Long,
         progress: Long,
         delta: Long,
-        pssKb: Long,
+        memory: PhysicalMemorySnapshot,
         pid: Int,
         runtimeActive: Boolean,
         runtimePlaying: Boolean,
@@ -225,9 +232,11 @@ class PhysicalTtsSoakTest {
             Bundle().apply {
                 putString(
                     SAMPLE_KEY,
-                    "durationMinutes=$minutes;mode=$mode;sample=$sample;progress=$progress;delta=$delta;" +
-                        "pssKb=$pssKb;pid=$pid;runtimeActive=$runtimeActive;runtimePlaying=$runtimePlaying;" +
-                            "foregroundPosition=$foregroundPosition",
+                    "durationMinutes=$minutes;mode=$mode;sample=$sample;elapsedSeconds=$elapsedSeconds;" +
+                        "progress=$progress;delta=$delta;pssKb=${memory.totalPssKb};" +
+                        "javaHeapKb=${memory.javaHeapKb};nativeHeapKb=${memory.nativeHeapKb};" +
+                        "graphicsKb=${memory.graphicsKb};pid=$pid;runtimeActive=$runtimeActive;" +
+                        "runtimePlaying=$runtimePlaying;foregroundPosition=$foregroundPosition",
                 )
             },
         )
@@ -240,6 +249,9 @@ class PhysicalTtsSoakTest {
         end: Long,
         advancingSamples: Int,
         peakPssKb: Long,
+        peakJavaHeapKb: Long,
+        peakNativeHeapKb: Long,
+        peakGraphicsKb: Long,
         pid: Int,
         mode: String,
         foregroundPosition: Long,
@@ -250,8 +262,9 @@ class PhysicalTtsSoakTest {
                 putString(
                     PASS_KEY,
                     "durationMinutes=$minutes;mode=$mode;samples=$samples;start=$start;end=$end;" +
-                        "advancingSamples=$advancingSamples;peakPssKb=$peakPssKb;pid=$pid;" +
-                        "foregroundPosition=$foregroundPosition",
+                        "advancingSamples=$advancingSamples;peakPssKb=$peakPssKb;" +
+                        "peakJavaHeapKb=$peakJavaHeapKb;peakNativeHeapKb=$peakNativeHeapKb;" +
+                        "peakGraphicsKb=$peakGraphicsKb;pid=$pid;foregroundPosition=$foregroundPosition",
                 )
             },
         )
@@ -267,8 +280,8 @@ class PhysicalTtsSoakTest {
         const val MODE_FOREGROUND_CONTINUOUS_STRESS = "foreground-continuous-stress"
         const val SAMPLE_KEY = "jingdu.ttsSoakSample"
         const val PASS_KEY = "jingdu.ttsSoakPass"
-        const val SAMPLE_INTERVAL_MS = 15_000L
-        const val MAX_CONSECUTIVE_STALLED_SAMPLES = 12
+        const val SAMPLE_INTERVAL_MS = 10_000L
+        const val MAX_CONSECUTIVE_STALLED_SAMPLES = 18
         const val MAX_PSS_KB = 512L * 1024L
     }
 }
