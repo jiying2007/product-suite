@@ -144,7 +144,7 @@ fi
 grep -q '@Concurrent' apps/jingdu/harmony/entry/src/main/ets/model/BackgroundTasks.ets
 grep -q 'DocumentViewPicker' apps/jingdu/harmony/entry/src/main/ets/pages/Index.ets
 
-grep -q 'gradle-9.5.0-bin.zip' apps/jingdu/android/gradle/wrapper/gradle-wrapper.properties
+grep -q 'gradle-9.6.0-bin.zip' apps/jingdu/android/gradle/wrapper/gradle-wrapper.properties
 echo '497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7  apps/jingdu/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
 
 echo 'Terminal Reader architecture/product/localization/profile/portable-assets/provenance/current-release contract OK'
