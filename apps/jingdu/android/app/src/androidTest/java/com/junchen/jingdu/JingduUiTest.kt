@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -249,14 +250,13 @@ class JingduUiTest {
         }
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
-        val surface = composeRule.onNodeWithContentDescription(context.getString(R.string.reader_surface))
-        val bounds = surface.fetchSemanticsNode().boundsInRoot
-        // Continuous text is an AndroidView. Compose touch synthesis batches its gesture events,
-        // which cannot exercise our real Handler-based long-press timeout. Inject DOWN and UP
-        // through Instrumentation with real elapsed time between them.
+        val viewport = composeRule.onNodeWithTag("reader-continuous-native")
+        val bounds = viewport.fetchSemanticsNode().boundsInRoot
+        // Continuous text is an AndroidView. Target the actual native text viewport rather than
+        // the whole Reader surface so large-font/inset geometry cannot move the gesture into chrome.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val x = bounds.left + bounds.width * 0.36f
-        val y = bounds.top + bounds.height * 0.14f
+        val y = bounds.top + bounds.height * 0.12f
         val downAt = android.os.SystemClock.uptimeMillis()
         instrumentation.sendPointerSync(
             android.view.MotionEvent.obtain(
