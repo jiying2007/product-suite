@@ -60,6 +60,8 @@ required=(
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalTtsSoakTest.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalLongSessionSoakTest.kt
+  apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalMemorySnapshot.kt
   apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
   scripts/check-android-performance-slo.py
   scripts/check-android-startup-slo.py
@@ -70,6 +72,9 @@ required=(
   scripts/check-android-smart-clean-slo.py
   scripts/check-android-tts-next-chunk-slo.py
   scripts/check-android-tts-soak.py
+  scripts/check-android-reader-soak.py
+  scripts/android_soak_memory.py
+  scripts/test-android-soak-memory.py
   scripts/check-android-200mib-stability-slo.py
   scripts/test-android-performance-slo.py
   scripts/run-android-macrobenchmark-ci.sh
@@ -115,6 +120,8 @@ journey=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macr
 physical_slo=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseSloBenchmark.kt
 physical_stability=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalReleaseStabilityTest.kt
 physical_tts=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalTtsSoakTest.kt
+physical_reader=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalLongSessionSoakTest.kt
+physical_memory=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/PhysicalMemorySnapshot.kt
 baseline=apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/BaselineProfileGenerator.kt
 fixture=apps/jingdu/android/app/src/benchmark/java/com/junchen/jingdu/ReaderBenchmarkFixtureProvider.kt
 benchmark_manifest=apps/jingdu/android/app/src/benchmark/AndroidManifest.xml
@@ -511,8 +518,20 @@ require_literal "$physical_stability" 'contentCall("stability200Ops", FIXTURE_MI
 require_literal "$physical_stability" 'pidAfter == pidBefore' '200 MiB same-process survival proof'
 require_literal "$physical_stability" 'jingdu.stability200MiB' '200 MiB retained completion status'
 require_literal "$physical_tts" 'MODE_FOREGROUND_CONTINUOUS = "foreground-continuous"' 'foreground continuous TTS soak mode'
-require_literal "$physical_tts" 'foreground Reader position moved backwards' 'foreground TTS monotonic Reader position'
+require_literal "$physical_tts" 'MODE_FOREGROUND_CONTINUOUS_STRESS = "foreground-continuous-stress"' 'foreground continuous stress TTS soak mode'
+require_literal "$physical_tts" 'SAMPLE_INTERVAL_MS = 10_000L' '10-second TTS soak memory sampling'
+require_literal "$physical_tts" 'PhysicalMemorySnapshot' 'TTS component memory sampling'
+require_literal "$physical_reader" 'SAMPLE_INTERVAL_NS = 10_000_000_000L' '10-second Reader soak memory sampling'
+require_literal "$physical_reader" 'PhysicalMemorySnapshot' 'Reader component memory sampling'
+require_literal "$physical_memory" 'javaHeapKb' 'Java heap physical memory evidence'
+require_literal "$physical_memory" 'nativeHeapKb' 'native heap physical memory evidence'
+require_literal "$physical_memory" 'graphicsKb' 'graphics physical memory evidence'
 require_literal scripts/check-android-tts-soak.py 'foreground continuous Reader position moved backwards' 'foreground TTS checker monotonicity'
+require_literal scripts/check-android-tts-soak.py 'foreground-continuous-stress' 'foreground TTS stress checker mode'
+require_literal scripts/android_soak_memory.py 'WARMUP_SECONDS = 5 * 60' 'physical memory warm-up exclusion'
+require_literal scripts/android_soak_memory.py 'MAX_PSS_SLOPE_KB_PER_HOUR = 64 * 1024' 'physical PSS slope ceiling'
+require_literal scripts/android_soak_memory.py 'MAX_COMPONENT_SLOPE_KB_PER_HOUR = 32 * 1024' 'physical component slope ceiling'
+python3 scripts/test-android-soak-memory.py
 require_literal "$physical_stability" '"fixtureBytes=$bytes;"' '200 MiB retained byte-size proof'
 require_literal "$physical_stability" '"fixtureSha256=$sourceSha256;"' '200 MiB retained source SHA proof'
 require_literal "$physical_stability" '"normalizedSha256=$normalizedSha256;"' '200 MiB retained normalized SHA proof'
