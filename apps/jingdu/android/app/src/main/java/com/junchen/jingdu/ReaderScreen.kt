@@ -341,6 +341,7 @@ internal fun ReaderScreen(
         ) / readerDensity.density,
         showReadingStatus = settings.showReadingStatus,
         fontScale = readerDensity.fontScale,
+        reservePagedChrome = settings.readingMode == ReaderMode.PAGED || state.cleanMode,
     )
     Box(Modifier.fillMaxSize().background(background)) {
         Box(
