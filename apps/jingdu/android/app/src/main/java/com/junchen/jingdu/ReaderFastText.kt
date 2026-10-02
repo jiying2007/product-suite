@@ -148,16 +148,25 @@ internal fun Text(
 }
 
 /** Native bounded continuous layout: one worker-built StaticLayout owns geometry and drawing. */
+internal data class ReaderContinuousOverlay(
+    val startUtf16: Int,
+    val endUtf16: Int,
+    val color: Int,
+)
+
 internal class ReaderContinuousLayout internal constructor(
     internal val layout: StaticLayout,
     internal val raster: ReaderStaticLayoutBitmapTileSet,
 ) {
     val lineCount: Int get() = layout.lineCount
     val height: Int get() = layout.height
-    fun getLineForOffset(offset: Int): Int = layout.getLineForOffset(offset.coerceAtLeast(0))
+    fun getLineForOffset(offset: Int): Int = layout.getLineForOffset(offset.coerceIn(0, layout.text.length))
     fun getLineTop(line: Int): Float = layout.getLineTop(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0))).toFloat()
     fun getLineForVerticalPosition(y: Float): Int = layout.getLineForVertical(y.roundToInt().coerceAtLeast(0))
     fun getLineStart(line: Int): Int = layout.getLineStart(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)))
+    fun getOffsetForHorizontal(line: Int, x: Float): Int =
+        layout.getOffsetForHorizontal(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)), x)
+            .coerceIn(0, layout.text.length)
 }
 
 /**
@@ -251,6 +260,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var textLayout: StaticLayout? = null
     private var tileSet: ReaderStaticLayoutBitmapTileSet? = null
     private var textColor: Int = 0
+    private var overlay: ReaderContinuousOverlay? = null
+    private val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private var scrollModel: ReaderContinuousScrollModel? = null
     private var settings = ReaderSettings()
     private var systemLeftInsetPx = 0
@@ -294,11 +305,11 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var onBookmark: () -> Unit = {}
     private var onAnyTouch: () -> Unit = {}
     private var onScrollSettled: () -> Unit = {}
-    private var onLongPress: () -> Unit = {}
+    private var onLongPress: (Float, Float) -> Unit = { _, _ -> }
     private val longPress = Runnable {
         if (!scrolling && !pinching) {
             longPressTriggered = true
-            onLongPress()
+            onLongPress(downX, downY)
         }
     }
 
@@ -322,7 +333,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         bookmark: () -> Unit,
         anyTouch: () -> Unit,
         scrollSettled: () -> Unit,
-        longPressAction: () -> Unit,
+        longPressAction: (Float, Float) -> Unit,
     ) {
         if (scrollModel !== model) scrollModel?.detachScrollSink(this)
         scrollModel = model
@@ -341,6 +352,12 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         onScrollSettled = scrollSettled
         onLongPress = longPressAction
         model.attachScrollSink(this, scrollSinkCallback)
+    }
+
+    fun setOverlay(next: ReaderContinuousOverlay?) {
+        if (overlay == next) return
+        overlay = next
+        postInvalidateOnAnimation()
     }
 
     fun setTextLayout(ready: ReaderContinuousLayout, color: Int) {
@@ -375,11 +392,41 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         val maxOffset = (layout.height - height).coerceAtLeast(0)
         val scrollY = renderedOffsetPx.coerceIn(0, maxOffset)
         tileSet?.requestVisible(scrollY, height) { postInvalidateOnAnimation() }
-        if (tileSet?.draw(canvas, scrollY, height) == true) return
+        val drewRaster = tileSet?.draw(canvas, scrollY, height) == true
+        if (!drewRaster) {
+            canvas.save()
+            canvas.clipRect(0, 0, width, height)
+            canvas.translate(0f, -scrollY.toFloat())
+            layout.draw(canvas)
+            canvas.restore()
+        }
+        drawOverlay(canvas, layout, scrollY)
+    }
+
+    private fun drawOverlay(canvas: android.graphics.Canvas, layout: StaticLayout, scrollY: Int) {
+        val active = overlay ?: return
+        if (layout.lineCount <= 0 || active.endUtf16 <= active.startUtf16 || layout.text.isEmpty()) return
+        val start = active.startUtf16.coerceIn(0, layout.text.length)
+        val end = active.endUtf16.coerceIn(start + 1, layout.text.length)
+        val firstLine = layout.getLineForOffset(start).coerceIn(0, layout.lineCount - 1)
+        val lastLine = layout.getLineForOffset((end - 1).coerceAtLeast(start)).coerceIn(firstLine, layout.lineCount - 1)
+        overlayPaint.color = active.color
         canvas.save()
         canvas.clipRect(0, 0, width, height)
         canvas.translate(0f, -scrollY.toFloat())
-        layout.draw(canvas)
+        for (line in firstLine..lastLine) {
+            val left = if (line == firstLine) layout.getPrimaryHorizontal(start) else layout.getLineLeft(line)
+            val right = if (line == lastLine) layout.getPrimaryHorizontal(end) else layout.getLineRight(line)
+            val x0 = minOf(left, right)
+            val x1 = maxOf(left, right).coerceAtLeast(x0 + 1f)
+            canvas.drawRect(
+                x0,
+                layout.getLineTop(line).toFloat(),
+                x1,
+                layout.getLineBottom(line).toFloat(),
+                overlayPaint,
+            )
+        }
         canvas.restore()
     }
 
@@ -807,8 +854,9 @@ internal fun Text(
     onBookmark: () -> Unit,
     onAnyTouch: () -> Unit,
     onScrollSettled: () -> Unit,
+    overlay: ReaderContinuousOverlay? = null,
     selectionMode: Boolean? = null,
-    onRequestSelection: (() -> Unit)? = null,
+    onRequestSelectionAt: ((Int) -> Unit)? = null,
     onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
     var internalSelectionMode by remember(text.text) { mutableStateOf(false) }
@@ -892,6 +940,7 @@ internal fun Text(
                 factory = { androidContext -> ReaderContinuousViewportView(androidContext) },
                 update = { viewport ->
                     viewport.setTextLayout(ready, resolvedColor.toArgb())
+                    viewport.setOverlay(overlay)
                     viewport.configure(
                         scrollModel,
                         settings,
@@ -907,7 +956,12 @@ internal fun Text(
                         onBookmark,
                         onAnyTouch,
                         onScrollSettled,
-                    ) { if (onRequestSelection != null) onRequestSelection() else internalSelectionMode = true }
+                    ) { x, y ->
+                        val line = ready.getLineForVerticalPosition(scrollModel.offsetPx + y)
+                        val utf = ready.getOffsetForHorizontal(line, x)
+                        if (onRequestSelectionAt != null) onRequestSelectionAt(utf)
+                        else internalSelectionMode = true
+                    }
                 },
             )
         }
