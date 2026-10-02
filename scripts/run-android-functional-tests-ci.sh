@@ -290,9 +290,9 @@ if grep -Eq 'FAILURES!!!|INSTRUMENTATION_ABORTED|INSTRUMENTATION_FAILED|shortMsg
   fail_emulator "Android 200% font-scale JingduUiTest reported a failure or system abort"
 fi
 if ! grep -Eq '^OK \(15 tests\)$' "$FONT_SCALE_LOG"; then
-  fail_emulator "Android 200% font-scale JingduUiTest did not report OK (15 tests)"
+  fail_emulator "Android 200% font-scale JingduUiTest did not report OK (16 tests)"
 fi
 "$ADB" shell settings put system font_scale 1.0
 
-echo "Android 200% font-scale JingduUiTest PASS (15/15)"
+echo "Android 200% font-scale JingduUiTest PASS (16/16)"
 echo "Android functional instrumentation suite PASS on independent 16 KiB runtimes"
