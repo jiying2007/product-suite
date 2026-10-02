@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,7 +42,7 @@ internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
         sheetGesturesEnabled = false,
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).testTag("txt-health-list"),
             contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
