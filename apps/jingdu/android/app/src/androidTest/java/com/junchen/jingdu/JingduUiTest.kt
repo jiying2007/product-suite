@@ -398,8 +398,15 @@ class JingduUiTest {
         }
         composeRule.waitForIdle()
         val healthList = composeRule.onNodeWithTag("txt-health-list")
+        val bounds = healthList.fetchSemanticsNode().boundsInRoot
         repeat(6) {
-            healthList.performTouchInput { swipeUp() }
+            healthList.performTouchInput {
+                swipe(
+                    start = Offset(bounds.width * 0.50f, bounds.height * 0.82f),
+                    end = Offset(bounds.width * 0.50f, bounds.height * 0.18f),
+                    durationMillis = 450L,
+                )
+            }
             composeRule.waitForIdle()
         }
         composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
