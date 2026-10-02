@@ -279,7 +279,8 @@ class ReaderFoundationsTest {
     @Test fun continuousRangeAndOffsetCommitsAnchorInOneUpdate() {
         val model = ReaderContinuousScrollModel()
         val offsets = mutableListOf<Float>()
-        model.attachScrollSink { offsets += it }
+        val owner = Any()
+        model.attachScrollSink(owner) { offsets += it }
         model.setRangeAndOffset(2_000, 1_250f)
         assertEquals(2_000f, model.maxOffsetPx, 0.001f)
         assertEquals(1_250f, model.offsetPx, 0.001f)
