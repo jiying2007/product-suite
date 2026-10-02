@@ -36,4 +36,4 @@ internal fun readerContentInsetsDp(
 
 internal const val READER_READING_STATUS_BASE_RESERVE_DP = 34f
 internal const val READER_PAGED_TOP_CHROME_RESERVE_DP = 62f
-internal const val READER_PAGED_BOTTOM_CHROME_RESERVE_DP = 123f
+internal const val READER_PAGED_BOTTOM_CHROME_RESERVE_DP = 132f
