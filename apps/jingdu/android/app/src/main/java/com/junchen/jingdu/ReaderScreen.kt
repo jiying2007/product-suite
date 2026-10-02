@@ -722,9 +722,16 @@ private fun ContinuousReaderPage(
                 pendingLoadTarget = Long.MIN_VALUE
                 val next = withContext(Dispatchers.IO) { engine.readAround(requested, settings) }
                 val bounded = requested.coerceIn(0L, (next.documentLength - 1).coerceAtLeast(0L))
-                window = next
+                val previousWindow = window
                 localPosition.set(bounded)
-                layoutResult = null
+                if (previousWindow !== next) {
+                    window = next
+                    layoutResult = null
+                } else {
+                    layoutResult?.let { ready ->
+                        scrollModel.setOffset(readerContinuousOffsetForSource(next, bounded, ready))
+                    }
+                }
                 val pending = pendingLoadTarget
                 if (pending == Long.MIN_VALUE || abs(pending - requested) < 64L) {
                     finalPrefetchTarget = bounded
@@ -825,6 +832,7 @@ private fun ContinuousReaderPage(
     val map = w?.map ?: SourceDisplayMap.between("", "")
     val spec = remember(settings) { ReaderTypographySpec.from(settings) }
     val style = spec.composeTextStyle(textColor, fontFamily)
+    val selectionLocale = LocalConfiguration.current.locales[0]
     val visualTts = remember(state.tts.active, state.tts.offset, state.tts.nextOffset) {
         state.tts.copy(
             rangeStart = state.tts.offset,
@@ -835,12 +843,15 @@ private fun ContinuousReaderPage(
     var lastLayoutWidth by remember(book.id, book.normalizedSha256) { mutableIntStateOf(-1) }
     var lastLayoutHeight by remember(book.id, book.normalizedSha256) { mutableIntStateOf(-1) }
     var lastLayoutTypography by remember(book.id, book.normalizedSha256) { mutableIntStateOf(Int.MIN_VALUE) }
-    val annotated = remember(start, display, state.annotations, visualTts, settings.emphasizeHeadings, spec.fingerprint) {
+    val annotated = remember(start, display, state.annotations, settings.emphasizeHeadings, spec.fingerprint) {
         ReaderSelectionController.annotatedForSelection(
             start,
-            readerAnnotatedText(start, display, map, state.annotations, visualTts, settings),
+            readerAnnotatedText(start, display, map, state.annotations, TtsPlaybackModel(), settings),
             map,
         )
+    }
+    val ttsOverlay = remember(start, display, map, visualTts) {
+        readerContinuousTtsOverlay(start, display, map, visualTts)
     }
     val selectionState = rememberSelectionState()
     var fastSelectionMode by remember(start) { mutableStateOf(false) }
@@ -882,8 +893,20 @@ private fun ContinuousReaderPage(
                 onBookmark = onBookmark,
                 onAnyTouch = { if (state.autoScrolling) actions.onSettingsChanged(settings.copy(autoScrollEnabled = false)) },
                 onScrollSettled = { settleEvents.tryEmit(Unit) },
+                overlay = ttsOverlay,
                 selectionMode = fastSelectionMode,
-                onRequestSelection = { fastSelectionMode = true },
+                onRequestSelectionAt = { utf ->
+                    ReaderSelectionController.wordAt(start, display, utf, map, selectionLocale)?.let { range ->
+                        fastSelectionMode = true
+                        onSelection(
+                            SelectionPayload(range) {
+                                selectionState.clear()
+                                fastSelectionMode = false
+                                sawFastSelection = false
+                            },
+                        )
+                    }
+                },
                 onTextLayout = { ready ->
                     val currentWindow = window
                     layoutResult = ready
@@ -906,6 +929,25 @@ private fun ContinuousReaderPage(
             if (loading && display.isEmpty()) CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
     }
+}
+
+internal fun readerContinuousTtsOverlay(
+    sourceStart: Long,
+    displayText: String,
+    map: SourceDisplayMap,
+    tts: TtsPlaybackModel,
+): ReaderContinuousOverlay? {
+    if (!tts.active || displayText.isEmpty() || tts.rangeEnd <= tts.rangeStart) return null
+    val sourceEnd = sourceStart + map.sourceCodePoints
+    if (tts.rangeEnd <= sourceStart || tts.rangeStart >= sourceEnd) return null
+    fun displayIndex(sourceAbsolute: Long): Int =
+        utf16Index(
+            displayText,
+            map.displayForSource((sourceAbsolute - sourceStart).coerceIn(0L, map.sourceCodePoints)),
+        ).coerceIn(0, displayText.length)
+    val start = displayIndex(tts.rangeStart)
+    val end = displayIndex(tts.rangeEnd).coerceAtLeast(start)
+    return if (end > start) ReaderContinuousOverlay(start, end, 0x5558A67A.toInt()) else null
 }
 
 private fun readerAnnotatedText(
