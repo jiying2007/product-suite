@@ -109,7 +109,7 @@ grep -q 'compose-bom:2026.08.00' apps/jingdu/android/app/build.gradle
 grep -q 'compileSdk = 37' apps/jingdu/android/app/build.gradle
 grep -q 'generateLocaleConfig = true' apps/jingdu/android/app/build.gradle
 grep -q 'project(":readerproto")' apps/jingdu/android/app/build.gradle
-grep -q 'media3-session:1.11.0' apps/jingdu/android/app/build.gradle
+grep -q 'media3-session:1.11.1' apps/jingdu/android/app/build.gradle
 grep -q 'androidx.room3:room3-runtime:3.0.3' apps/jingdu/android/app/build.gradle
 grep -q 'androidx.sqlite:sqlite-bundled:2.7.1' apps/jingdu/android/app/build.gradle
 
