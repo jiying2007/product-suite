@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
             val rangeStart = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_START, -1L)
             val rangeEnd = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_END, -1L)
             val reason = intent.getStringExtra(TtsPlaybackService.EXTRA_REASON)
+            ReaderInteractionRuntime.backgroundTtsActive = active
             ReaderInteractionRuntime.backgroundTtsPlaying = playing
             if (active) motionController.start(ReaderMotionState.TTS)
             else if (motionController.state == ReaderMotionState.TTS) motionController.stop()
