@@ -39,7 +39,7 @@ test -f apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderAdaptiveL
 grep -Fq 'Intent.ACTION_PROCESS_TEXT' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
 grep -Fq 'settings.dictionaryProcessTextEnabled' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
 grep -Fq 'chapterRemainingMinutes' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderStatsStore.kt
-grep -Fq 'reader_chapter_remaining' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
+grep -Fq 'reader_chapter_remaining' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreenSupport.kt
 test -f apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPronunciationStore.kt
 grep -Fq 'sourceChunk.projection.compose(spoken.projection)' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsController.kt
 grep -Fq 'ttsPronunciation' apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
