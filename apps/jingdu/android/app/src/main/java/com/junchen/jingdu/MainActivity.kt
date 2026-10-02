@@ -52,8 +52,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: BookRepository
     private lateinit var importCoordinator: ReaderImportCoordinator
-    private var ttsCatalog: TtsController? = null
-    private lateinit var ttsEngineStore: TtsEngineStore
+    private lateinit var ttsCatalogCoordinator: TtsCatalogCoordinator
     private lateinit var readerPreferences: ReaderPreferences
     private lateinit var ruleLibrary: RuleLibrary
     private lateinit var userBackup: UserBackup
@@ -181,11 +180,11 @@ class MainActivity : ComponentActivity() {
             onSettingsChanged = ::updateSettings,
             onTtsEngineSelected = ::selectTtsEngine,
             onPreviewTtsVoice = { voice ->
-                ttsCatalog().let { catalog ->
-                    catalog.setRate(uiState.settings.ttsRate)
-                    catalog.setPitch(uiState.settings.ttsPitch)
-                    catalog.previewVoice(voice, getString(R.string.tts_preview_sample))
-                }
+                ttsCatalogCoordinator.preview(
+                    voice,
+                    getString(R.string.tts_preview_sample),
+                    uiState.settings,
+                )
             },
             onToggleTts = ::toggleTts,
             onToggleAutoPaging = ::toggleAutoPaging,
@@ -226,7 +225,7 @@ class MainActivity : ComponentActivity() {
         statsStore = ReaderStatsStore(this)
         smartTocCache = SmartTocCacheStore(this)
         txtHealthStore = TxtHealthStore(this)
-        ttsEngineStore = TtsEngineStore(this)
+        ttsCatalogCoordinator = TtsCatalogCoordinator(this)
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
         refreshLibrary()
@@ -266,7 +265,7 @@ class MainActivity : ComponentActivity() {
             val settings = readerPreferences.load()
             main.post {
                 if (isDestroyed) return@post
-                uiState = uiState.copy(settings = settings, ttsEngineName = ttsEngineStore.load())
+                uiState = uiState.copy(settings = settings, ttsEngineName = ttsCatalogCoordinator.currentEngineName())
             }
         }
         if (ReaderInteractionRuntime.backgroundTtsActive) {
@@ -925,11 +924,7 @@ class MainActivity : ComponentActivity() {
             label = getString(R.string.busy_restore_backup),
             task = { userBackup.importJson(readLimitedUtf8(uri, MAX_BACKUP_BYTES)) },
             success = { result ->
-                ttsCatalog?.let { catalog ->
-                    catalog.setRate(result.settings.ttsRate)
-                    catalog.setPitch(result.settings.ttsPitch)
-                    catalog.setVoiceName(result.settings.ttsVoiceName)
-                }
+                ttsCatalogCoordinator.sync(result.settings)
                 refreshAnnotations()
                 uiState = uiState.copy(settings = result.settings, globalRules = result.globalRules, panel = ReaderPanel.SETTINGS)
                 refreshTtsVoices()
@@ -1056,38 +1051,27 @@ class MainActivity : ComponentActivity() {
         return (fraction * (newLength - 1).toDouble()).roundToLong().coerceIn(0, newLength - 1)
     }
 
-    private fun ttsCatalog(): TtsController =
-        ttsCatalog ?: TtsController(this, engineName = ttsEngineStore.load().ifBlank { null }).also { created ->
-            created.setRate(uiState.settings.ttsRate)
-            created.setPitch(uiState.settings.ttsPitch)
-            created.setVoiceName(uiState.settings.ttsVoiceName)
-            ttsCatalog = created
-        }
-
     private fun refreshTtsVoices() {
-        val catalog = ttsCatalog()
-        catalog.runWhenReady {
-            if (isDestroyed || ttsCatalog !== catalog) return@runWhenReady
+        ttsCatalogCoordinator.refresh(uiState.settings) { snapshot ->
+            if (isDestroyed) return@refresh
             uiState = uiState.copy(
-                ttsVoices = catalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) },
-                ttsEngines = catalog.installedEngines().map { TtsEngineModel(it.name, it.label) },
-                ttsEngineName = ttsEngineStore.load(),
+                ttsVoices = snapshot.voices,
+                ttsEngines = snapshot.engines,
+                ttsEngineName = snapshot.engineName,
             )
         }
     }
 
     private fun selectTtsEngine(packageName: String) {
         if (!proUnlocked) { billing.purchase(); return }
-        val selected = packageName.trim().take(255)
-        if (selected.isNotEmpty() && ttsCatalog().installedEngines().none { it.name == selected }) {
+        val selected = normalizedTtsEnginePackage(packageName)
+        if (!ttsCatalogCoordinator.isEngineInstalled(selected, uiState.settings)) {
             showMessage(getString(R.string.tts_engine_unavailable))
             return
         }
         stopTts()
         runCatching { stopService(Intent(this, TtsPlaybackService::class.java)) }
-        ttsEngineStore.save(selected)
-        ttsCatalog?.close()
-        ttsCatalog = null
+        ttsCatalogCoordinator.selectEngine(selected)
         val reset = uiState.settings.copy(ttsVoiceName = "")
         readerPreferences.save(reset)
         uiState = uiState.copy(
@@ -1124,11 +1108,7 @@ class MainActivity : ComponentActivity() {
         }
         normalized = normalized.copy(autoScrollEnabled = motionController.state == ReaderMotionState.AUTO_SCROLL)
         readerPreferences.save(normalized)
-        ttsCatalog?.let { catalog ->
-            catalog.setRate(normalized.ttsRate)
-            catalog.setPitch(normalized.ttsPitch)
-            catalog.setVoiceName(normalized.ttsVoiceName)
-        }
+        ttsCatalogCoordinator.sync(normalized)
         ReaderPageLayoutCache.clear()
         uiState = uiState.copy(settings = normalized, motion = motionController.state)
         if (previousReadingMode != normalized.readingMode && normalized.readingMode == ReaderMode.PAGED && currentBook != null) render()
@@ -1380,8 +1360,7 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         tocWorkers.shutdownNow(); progressWorkers.shutdown(); workers.shutdownNow()
         runCatching { unregisterReceiver(ttsStateReceiver) }
         if (::billing.isInitialized) billing.close()
-        ttsCatalog?.close()
-        ttsCatalog = null
+        if (::ttsCatalogCoordinator.isInitialized) ttsCatalogCoordinator.close()
         if (::statsStore.isInitialized) statsStore.finish()
         if (::readerPreferences.isInitialized) readerPreferences.save(uiState.settings)
         reader.close(); super.onDestroy()
