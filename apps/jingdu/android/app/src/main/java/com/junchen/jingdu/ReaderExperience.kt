@@ -9,6 +9,7 @@ import kotlin.math.roundToInt
 
 /** Runtime-only coordination for controls that are owned by Android rather than Compose. */
 internal object ReaderInteractionRuntime {
+    @Volatile var backgroundTtsActive: Boolean = false
     @Volatile var backgroundTtsPlaying: Boolean = false
     @Volatile var foregroundPosition: Long = -1L
     @Volatile var continuousReady: Boolean = false
