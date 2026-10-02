@@ -858,9 +858,14 @@ private fun ContinuousReaderPage(
     var sawFastSelection by remember(start) { mutableStateOf(false) }
     LaunchedEffect(selectionState.selectedTexts) {
         val range = ReaderSelectionController.fromSelectedTexts(selectionState.selectedTexts)
-        if (range != null) sawFastSelection = true
-        else if (sawFastSelection) { fastSelectionMode = false; sawFastSelection = false }
-        onSelection(range?.let { SelectionPayload(it) { selectionState.clear() } })
+        if (range != null) {
+            sawFastSelection = true
+            onSelection(SelectionPayload(range) { selectionState.clear() })
+        } else if (sawFastSelection) {
+            fastSelectionMode = false
+            sawFastSelection = false
+            onSelection(null)
+        }
     }
     val semantics = Modifier.readerAccessibilityActions(
         onPrevious, onNext, onToggleControls, onBookmark,
