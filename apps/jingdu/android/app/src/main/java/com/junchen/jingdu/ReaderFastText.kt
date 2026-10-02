@@ -158,6 +158,8 @@ internal class ReaderContinuousLayout internal constructor(
     fun getLineTop(line: Int): Float = layout.getLineTop(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0))).toFloat()
     fun getLineForVerticalPosition(y: Float): Int = layout.getLineForVertical(y.roundToInt().coerceAtLeast(0))
     fun getLineStart(line: Int): Int = layout.getLineStart(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)))
+    fun getOffsetForHorizontal(line: Int, x: Float): Int =
+        layout.getOffsetForHorizontal(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)), x.coerceAtLeast(0f))
 }
 
 /**
@@ -294,11 +296,21 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var onBookmark: () -> Unit = {}
     private var onAnyTouch: () -> Unit = {}
     private var onScrollSettled: () -> Unit = {}
-    private var onLongPress: () -> Unit = {}
+    private var onLongPress: (Int) -> Unit = {}
     private val longPress = Runnable {
         if (!scrolling && !pinching) {
-            longPressTriggered = true
-            onLongPress()
+            val layout = textLayout
+            if (layout != null && layout.lineCount > 0) {
+                val contentY = (renderedOffsetPx + downY).roundToInt()
+                    .coerceIn(0, (layout.height - 1).coerceAtLeast(0))
+                val line = layout.getLineForVertical(contentY)
+                val utf16 = layout.getOffsetForHorizontal(
+                    line.coerceIn(0, layout.lineCount - 1),
+                    downX.coerceIn(0f, width.coerceAtLeast(1).toFloat()),
+                )
+                longPressTriggered = true
+                onLongPress(utf16)
+            }
         }
     }
 
@@ -322,7 +334,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         bookmark: () -> Unit,
         anyTouch: () -> Unit,
         scrollSettled: () -> Unit,
-        longPressAction: () -> Unit,
+        longPressAction: (Int) -> Unit,
     ) {
         if (scrollModel !== model) scrollModel?.detachScrollSink(this)
         scrollModel = model
@@ -809,6 +821,7 @@ internal fun Text(
     onScrollSettled: () -> Unit,
     selectionMode: Boolean? = null,
     onRequestSelection: (() -> Unit)? = null,
+    onLongPressSelection: ((Int) -> Unit)? = null,
     onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
     var internalSelectionMode by remember(text.text) { mutableStateOf(false) }
@@ -907,7 +920,11 @@ internal fun Text(
                         onBookmark,
                         onAnyTouch,
                         onScrollSettled,
-                    ) { if (onRequestSelection != null) onRequestSelection() else internalSelectionMode = true }
+                    ) { displayUtf16 ->
+                        if (onLongPressSelection != null) onLongPressSelection(displayUtf16)
+                        else if (onRequestSelection != null) onRequestSelection()
+                        else internalSelectionMode = true
+                    }
                 },
             )
         }
