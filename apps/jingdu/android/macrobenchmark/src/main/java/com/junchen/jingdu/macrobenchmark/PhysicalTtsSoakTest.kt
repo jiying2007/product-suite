@@ -54,6 +54,7 @@ class PhysicalTtsSoakTest {
         val soakStartNs = System.nanoTime()
         val deadline = soakStartNs + minutes.toLong() * 60L * 1_000_000_000L
         var sample = 0
+        var nextSampleNs = soakStartNs + SAMPLE_INTERVAL_MS * 1_000_000L
         var previousProgress = startProgress
         var advancingSamples = 0
         var stalledSamples = 0
@@ -66,7 +67,9 @@ class PhysicalTtsSoakTest {
 
         try {
             while (System.nanoTime() < deadline) {
-                Thread.sleep(SAMPLE_INTERVAL_MS)
+                val sleepMs = ((nextSampleNs - System.nanoTime()) / 1_000_000L).coerceAtLeast(1L)
+                Thread.sleep(sleepMs)
+                if (System.nanoTime() >= deadline) break
                 check(pid() == initialPid) { "TTS process restarted during soak" }
 
                 val state = fixtureCall("ttsSoakState", FIXTURE_MIB)
@@ -121,6 +124,7 @@ class PhysicalTtsSoakTest {
                     mode = mode,
                     foregroundPosition = foregroundPosition,
                 )
+                nextSampleNs += SAMPLE_INTERVAL_MS * 1_000_000L
             }
 
             check(previousProgress > startProgress) {
