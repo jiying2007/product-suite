@@ -43,6 +43,8 @@ required=(
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderInsightsPanels.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreenSupport.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderImmersiveChrome.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
@@ -78,6 +80,8 @@ for path in "${required[@]}"; do require_file "$path"; done
 
 prefs=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
 screen=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
+screen_support=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreenSupport.kt
+immersive_chrome=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderImmersiveChrome.kt
 engine=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderViewportEngine.kt
 controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderController.kt
 book_repository=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/BookRepository.kt
@@ -220,8 +224,10 @@ require_literal "$screen" 'settleContinuousPosition(scrollModel.offsetPx.roundTo
 require_literal "$screen" 'AUTO_SCROLL_POSITION_SAMPLE_NS = 250_000_000L' 'coarse auto-scroll position cadence'
 require_literal "$screen" 'AUTO_SCROLL_COMMIT_CHARS = 512L' 'auto-scroll commit bound'
 forbid_literal "$screen" 'abs(absolute - lastCommitted) >= 192' 'old noisy commit threshold'
-require_literal "$screen" 'MAX_CHAPTER_TICKS = 96' 'chapter tick bound'
-require_literal "$screen" 'take(MAX_CHAPTER_TICKS)' 'bounded chapter ticks'
+require_literal "$immersive_chrome" 'val minSpacing = 13.dp.toPx().coerceAtLeast(1f)' 'chapter tick minimum spacing'
+require_literal "$immersive_chrome" 'val maxTicks = (size.width / minSpacing).toInt().coerceAtLeast(1)' 'viewport-bounded chapter ticks'
+require_literal "$screen_support" 'internal fun readerContinuousNeedsNextWindow(' 'extracted continuous handoff policy'
+require_literal "$screen_support" 'internal fun readerChromeCanAutoHide(' 'extracted reader chrome policy'
 require_literal "$screen" 'ReaderTopBar(book.name, currentChapter' 'top bar minimal state'
 require_literal "$screen" 'chapters = state.chapters' 'bottom bar explicit chapters'
 require_literal "$screen" 'autoPaging = state.autoPaging' 'bottom bar explicit motion'
