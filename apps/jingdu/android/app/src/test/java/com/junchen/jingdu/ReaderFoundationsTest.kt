@@ -279,7 +279,8 @@ class ReaderFoundationsTest {
     @Test fun continuousRangeAndOffsetCommitsAnchorInOneUpdate() {
         val model = ReaderContinuousScrollModel()
         val offsets = mutableListOf<Float>()
-        model.attachScrollSink { offsets += it }
+        val owner = Any()
+        model.attachScrollSink(owner) { offsets += it }
         model.setRangeAndOffset(2_000, 1_250f)
         assertEquals(2_000f, model.maxOffsetPx, 0.001f)
         assertEquals(1_250f, model.offsetPx, 0.001f)
@@ -340,6 +341,46 @@ class ReaderFoundationsTest {
                 windowEnd = 100_000,
                 documentLength = 100_000,
             ),
+        )
+    }
+
+
+    @Test fun continuousTtsOverlayMapsExactSourceRangeWithoutTouchingLayoutText() {
+        val text = "hello world"
+        val map = SourceDisplayMap.between(text, text)
+        val overlay = readerContinuousTtsOverlay(
+            sourceStart = 100L,
+            displayText = text,
+            map = map,
+            tts = TtsPlaybackModel(
+                active = true,
+                rangeStart = 106L,
+                rangeEnd = 111L,
+            ),
+        ) ?: error("TTS overlay missing")
+        assertEquals(6, overlay.startUtf16)
+        assertEquals(11, overlay.endUtf16)
+        assertEquals(0x5558A67A.toInt(), overlay.color)
+    }
+
+    @Test fun continuousTtsOverlayIgnoresInactiveAndOutsideWindowRanges() {
+        val text = "abcdef"
+        val map = SourceDisplayMap.between(text, text)
+        assertTrue(
+            readerContinuousTtsOverlay(
+                sourceStart = 100L,
+                displayText = text,
+                map = map,
+                tts = TtsPlaybackModel(active = false, rangeStart = 101L, rangeEnd = 103L),
+            ) == null,
+        )
+        assertTrue(
+            readerContinuousTtsOverlay(
+                sourceStart = 100L,
+                displayText = text,
+                map = map,
+                tts = TtsPlaybackModel(active = true, rangeStart = 200L, rangeEnd = 205L),
+            ) == null,
         )
     }
 
