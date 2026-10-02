@@ -100,10 +100,18 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
                     }
                 }
                 item {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.ENCODING) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.text_encoding)) }
-                        OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.CHAPTERS) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.chapters)) }
-                        Button(onClick = { actions.onOpenPanel(ReaderPanel.SMART_CLEAN_LAB) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.smart_clean4)) }
+                    OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.ENCODING) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.text_encoding))
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.CHAPTERS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.chapters))
+                    }
+                }
+                item {
+                    Button(onClick = { actions.onOpenPanel(ReaderPanel.SMART_CLEAN_LAB) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.smart_clean4))
                     }
                 }
             }
