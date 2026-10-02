@@ -27,10 +27,10 @@ internal fun readerContentInsetsDp(
             if (reservePagedChrome) READER_PAGED_TOP_CHROME_RESERVE_DP else 0f,
         right = cutoutRightDp.coerceAtLeast(0f) + gutter,
         bottom = bottomGestureDp.coerceAtLeast(0f) + gutter +
-            if (showReadingStatus) {
+            (if (showReadingStatus) {
                 READER_READING_STATUS_BASE_RESERVE_DP * fontScale.coerceIn(1f, 2.5f)
-            } else 0f +
-            if (reservePagedChrome) READER_PAGED_BOTTOM_CHROME_RESERVE_DP else 0f,
+            } else 0f) +
+            (if (reservePagedChrome) READER_PAGED_BOTTOM_CHROME_RESERVE_DP else 0f),
     )
 }
 
