@@ -1053,12 +1053,13 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshTtsVoices() {
         ttsCatalogCoordinator.refresh(uiState.settings) { snapshot ->
-            if (isDestroyed) return@refresh
-            uiState = uiState.copy(
-                ttsVoices = snapshot.voices,
-                ttsEngines = snapshot.engines,
-                ttsEngineName = snapshot.engineName,
-            )
+            if (!isDestroyed) {
+                uiState = uiState.copy(
+                    ttsVoices = snapshot.voices,
+                    ttsEngines = snapshot.engines,
+                    ttsEngineName = snapshot.engineName,
+                )
+            }
         }
     }
 
