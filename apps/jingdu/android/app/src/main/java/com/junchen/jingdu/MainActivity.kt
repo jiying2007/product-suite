@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var repository: BookRepository
     private lateinit var importCoordinator: ReaderImportCoordinator
     private lateinit var ttsCatalogCoordinator: TtsCatalogCoordinator
+    private lateinit var ttsPlaybackBridge: TtsPlaybackBridge
     private lateinit var readerPreferences: ReaderPreferences
     private lateinit var ruleLibrary: RuleLibrary
     private lateinit var userBackup: UserBackup
@@ -111,24 +112,30 @@ class MainActivity : ComponentActivity() {
 
     private val ttsStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: Intent?) {
-            if (intent?.action != TtsPlaybackService.ACTION_STATE) return
-            val active = intent.getBooleanExtra(TtsPlaybackService.EXTRA_ACTIVE, false)
-            val playing = intent.getBooleanExtra(TtsPlaybackService.EXTRA_PLAYING, false)
-            val offset = intent.getLongExtra(TtsPlaybackService.EXTRA_OFFSET, -1L)
-            val nextOffset = intent.getLongExtra(TtsPlaybackService.EXTRA_NEXT_OFFSET, -1L)
-            val rangeStart = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_START, -1L)
-            val rangeEnd = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_END, -1L)
-            val reason = intent.getStringExtra(TtsPlaybackService.EXTRA_REASON)
-            ReaderInteractionRuntime.backgroundTtsActive = active
-            ReaderInteractionRuntime.backgroundTtsPlaying = playing
-            if (active) motionController.start(ReaderMotionState.TTS)
+            val state = ttsPlaybackBridge.parseState(intent) ?: return
+            ReaderInteractionRuntime.backgroundTtsActive = state.active
+            ReaderInteractionRuntime.backgroundTtsPlaying = state.playing
+            if (state.active) motionController.start(ReaderMotionState.TTS)
             else if (motionController.state == ReaderMotionState.TTS) motionController.stop()
             uiState = uiState.copy(
                 motion = motionController.state,
-                tts = TtsPlaybackModel(active, playing, offset, nextOffset, rangeStart, rangeEnd, reason),
+                tts = TtsPlaybackModel(
+                    state.active,
+                    state.playing,
+                    state.offset,
+                    state.nextOffset,
+                    state.rangeStart,
+                    state.rangeEnd,
+                    state.reason,
+                ),
             )
-            if (active && offset >= 0 && uiState.screen == AppScreen.READER && !cleanMode) syncTtsPosition(offset)
-            if (reason != null && reason !in setOf("paused", "focus-paused", "user", "stopped", "destroyed", "end")) showMessage(ttsReason(reason))
+            if (state.active && state.offset >= 0 && uiState.screen == AppScreen.READER && !cleanMode) {
+                syncTtsPosition(state.offset)
+            }
+            val reason = state.reason
+            if (reason != null && reason !in setOf("paused", "focus-paused", "user", "stopped", "destroyed", "end")) {
+                showMessage(ttsReason(reason))
+            }
         }
     }
 
@@ -226,6 +233,7 @@ class MainActivity : ComponentActivity() {
         smartTocCache = SmartTocCacheStore(this)
         txtHealthStore = TxtHealthStore(this)
         ttsCatalogCoordinator = TtsCatalogCoordinator(this)
+        ttsPlaybackBridge = TtsPlaybackBridge(this)
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
         refreshLibrary()
@@ -272,7 +280,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (ReaderInteractionRuntime.backgroundTtsActive) {
-            startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STATE))
+            ttsPlaybackBridge.queryState()
         }
         if (savedInstanceState == null) handleIncomingIntent(intent) else restoreSession(savedInstanceState)
     }
@@ -1073,7 +1081,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         stopTts()
-        runCatching { stopService(Intent(this, TtsPlaybackService::class.java)) }
+        runCatching { ttsPlaybackBridge.terminate() }
         ttsCatalogCoordinator.selectEngine(selected)
         val reset = uiState.settings.copy(ttsVoiceName = "")
         readerPreferences.save(reset)
@@ -1120,7 +1128,7 @@ class MainActivity : ComponentActivity() {
     private fun beginMotion(target: ReaderMotionState) {
         if (target != ReaderMotionState.AUTO_PAGE) main.removeCallbacks(autoStep)
         if (target != ReaderMotionState.TTS && uiState.tts.active) {
-            runCatching { startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STOP)) }
+            runCatching { ttsPlaybackBridge.stop() }
         }
         motionController.start(target)
         val settings = uiState.settings.copy(autoScrollEnabled = target == ReaderMotionState.AUTO_SCROLL)
@@ -1137,7 +1145,7 @@ class MainActivity : ComponentActivity() {
     private fun stopAllMotion() {
         main.removeCallbacks(autoStep)
         if (uiState.tts.active || motionController.state == ReaderMotionState.TTS) {
-            runCatching { startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STOP)) }
+            runCatching { ttsPlaybackBridge.stop() }
         }
         val needsPublish = motionController.state != ReaderMotionState.IDLE || uiState.motion != ReaderMotionState.IDLE || uiState.settings.autoScrollEnabled
         motionController.stop()
@@ -1148,29 +1156,23 @@ class MainActivity : ComponentActivity() {
         val book = currentBook ?: return
         if (cleanMode) return
         beginMotion(ReaderMotionState.TTS)
-        val intent = Intent(this, TtsPlaybackService::class.java)
-            .setAction(TtsPlaybackService.ACTION_START)
-            .putExtra(TtsPlaybackService.EXTRA_PATH, repository.normalizedFile(book).absolutePath)
-            .putExtra(TtsPlaybackService.EXTRA_BOOK_ID, book.id)
-            .putExtra(TtsPlaybackService.EXTRA_TITLE, stripTxt(book.name))
-            .putExtra(TtsPlaybackService.EXTRA_OFFSET, reader.position())
-            .putExtra(TtsPlaybackService.EXTRA_RATE, uiState.settings.ttsRate)
-            .putExtra(TtsPlaybackService.EXTRA_PITCH, uiState.settings.ttsPitch)
-            .putExtra(TtsPlaybackService.EXTRA_VOICE, uiState.settings.ttsVoiceName)
-            .putExtra(TtsPlaybackService.EXTRA_CHINESE_MODE, uiState.settings.chineseMode.name)
-            .putExtra(TtsPlaybackService.EXTRA_CHINESE_OVERRIDES, uiState.settings.chineseOverrides)
-        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+        ttsPlaybackBridge.start(
+            source = repository.normalizedFile(book),
+            bookId = book.id,
+            title = stripTxt(book.name),
+            offset = reader.position(),
+            settings = uiState.settings,
+        )
     }
 
     private fun toggleTts() {
         if (currentBook == null || uiState.busyLabel != null || cleanMode) return
-        if (uiState.tts.active) startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_TOGGLE))
-        else startTtsPlayback()
+        if (uiState.tts.active) ttsPlaybackBridge.toggle() else startTtsPlayback()
     }
 
     private fun stopTts() {
         if (uiState.tts.active || motionController.state == ReaderMotionState.TTS) {
-            runCatching { startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STOP)) }
+            runCatching { ttsPlaybackBridge.stop() }
         }
         if (motionController.state == ReaderMotionState.TTS) motionController.stop(ReaderMotionState.TTS)
         uiState = uiState.copy(motion = motionController.state)
@@ -1196,7 +1198,7 @@ class MainActivity : ComponentActivity() {
     private fun setSleepTimer(minutes: Int) {
         main.removeCallbacksAndMessages(SLEEP_TOKEN)
         uiState = uiState.copy(sleepMinutes = minutes)
-        if (uiState.tts.active) startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_SLEEP).putExtra(TtsPlaybackService.EXTRA_MINUTES, minutes))
+        if (uiState.tts.active) ttsPlaybackBridge.sleep(minutes)
         if (minutes > 0 && motionController.state != ReaderMotionState.TTS) {
             main.postAtTime({
                 stopAllMotion()
