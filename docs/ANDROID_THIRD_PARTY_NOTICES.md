@@ -17,7 +17,7 @@ The following direct production families are intentionally present and must rema
 - AndroidX DataStore — `androidx.datastore:datastore:1.2.1`
 - AndroidX Room 3 — `androidx.room3:room3-runtime:3.0.3`
 - AndroidX SQLite bundled — `androidx.sqlite:sqlite-bundled:2.7.1`
-- AndroidX Media3 — `androidx.media3:media3-common:1.11.0`, `androidx.media3:media3-session:1.11.0`
+- AndroidX Media3 — `androidx.media3:media3-common:1.11.1`, `androidx.media3:media3-session:1.11.1`
 - AndroidX Lifecycle — `androidx.lifecycle:*:2.11.0`
 - AndroidX Profile Installer — `androidx.profileinstaller:profileinstaller:1.4.1`
 - OpenCC Java — `io.github.laisuk:openccjava:1.4.2`
