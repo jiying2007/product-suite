@@ -896,15 +896,11 @@ private fun ContinuousReaderPage(
                 overlay = ttsOverlay,
                 selectionMode = fastSelectionMode,
                 onRequestSelectionAt = { utf ->
-                    ReaderSelectionController.wordAt(start, display, utf, map, selectionLocale)?.let { range ->
+                    val range = ReaderSelectionController.wordAt(start, display, utf, map, selectionLocale)
+                    if (range != null) {
+                        onSelection(SelectionPayload(range) { })
+                    } else {
                         fastSelectionMode = true
-                        onSelection(
-                            SelectionPayload(range) {
-                                selectionState.clear()
-                                fastSelectionMode = false
-                                sawFastSelection = false
-                            },
-                        )
                     }
                 },
                 onTextLayout = { ready ->
