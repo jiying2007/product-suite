@@ -213,12 +213,17 @@ internal class ReaderTtsPlayer(
     private fun startSpeechWithRetry() {
         if (!active || !playing) return
         engine.start(reader, offset, chineseMode, chineseOverrides, object : TtsController.Listener {
+            override fun onChunkQueued(sourceOffset: Long, nextOffset: Long) {
+                if (sourceOffset == this@ReaderTtsPlayer.offset) {
+                    this@ReaderTtsPlayer.nextOffset = nextOffset.coerceAtLeast(sourceOffset)
+                }
+            }
+
             override fun onPosition(offset: Long) {
                 val previous = this@ReaderTtsPlayer.offset
                 this@ReaderTtsPlayer.offset = offset.coerceAtLeast(0)
                 if (this@ReaderTtsPlayer.offset > previous) runtimeRetries = 0
                 startRetries = 0
-                nextOffset = runCatching { reader.speech(offset, chineseMode, chineseOverrides).nextOffset }.getOrDefault(offset)
                 publish()
             }
 
