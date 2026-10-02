@@ -344,4 +344,63 @@ class ReaderFoundationsTest {
         )
     }
 
+
+    @Test fun continuousTtsOverlayMapsExactSourceRangeWithoutTouchingLayoutText() {
+        val text = "hello world"
+        val map = SourceDisplayMap.between(text, text)
+        val overlay = readerContinuousTtsOverlay(
+            sourceStart = 100L,
+            displayText = text,
+            map = map,
+            tts = TtsPlaybackModel(
+                active = true,
+                rangeStart = 106L,
+                rangeEnd = 111L,
+            ),
+        ) ?: error("TTS overlay missing")
+        assertEquals(6, overlay.startUtf16)
+        assertEquals(11, overlay.endUtf16)
+        assertEquals(0x5558A67A.toInt(), overlay.color)
+    }
+
+    @Test fun continuousTtsOverlayIgnoresInactiveAndOutsideWindowRanges() {
+        val text = "abcdef"
+        val map = SourceDisplayMap.between(text, text)
+        assertTrue(
+            readerContinuousTtsOverlay(
+                sourceStart = 100L,
+                displayText = text,
+                map = map,
+                tts = TtsPlaybackModel(active = false, rangeStart = 101L, rangeEnd = 103L),
+            ) == null,
+        )
+        assertTrue(
+            readerContinuousTtsOverlay(
+                sourceStart = 100L,
+                displayText = text,
+                map = map,
+                tts = TtsPlaybackModel(active = true, rangeStart = 200L, rangeEnd = 205L),
+            ) == null,
+        )
+    }
+
+
+    @Test fun continuousTtsOverlayMapsAcrossCleanedProjection() {
+        val source = "hello XXX world"
+        val display = "hello world"
+        val map = SourceDisplayMap.between(source, display)
+        val overlay = readerContinuousTtsOverlay(
+            sourceStart = 100L,
+            displayText = display,
+            map = map,
+            tts = TtsPlaybackModel(
+                active = true,
+                rangeStart = 110L,
+                rangeEnd = 115L,
+            ),
+        ) ?: error("projected TTS overlay missing")
+        assertEquals(display.indexOf("world"), overlay.startUtf16)
+        assertEquals(display.length, overlay.endUtf16)
+    }
+
 }

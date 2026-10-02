@@ -45,7 +45,7 @@ grep -Fq 'exited before boot completed' "$FUNCTIONAL"
 grep -Fq 'Functional checkout SHA:' "$FUNCTIONAL"
 grep -Fq 'JingduUiTest source SHA256:' "$FUNCTIONAL"
 grep -Fq -- '--no-build-cache clean :app:connectedDebugAndroidTest' "$FUNCTIONAL"
-grep -Fq 'OK \(15 tests\)' "$FUNCTIONAL"
+grep -Fq 'OK \(16 tests\)' "$FUNCTIONAL"
 if grep -Eq 'dalvik\.vm\.(gctype|backgroundgctype)' "$FUNCTIONAL"; then
   echo "functional gate must not override the system image ART collector" >&2
   exit 1
