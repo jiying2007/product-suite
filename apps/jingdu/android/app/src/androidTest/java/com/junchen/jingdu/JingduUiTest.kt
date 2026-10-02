@@ -415,6 +415,36 @@ class JingduUiTest {
         composeRule.onNodeWithText(context.getString(R.string.txt_health_details)).assertIsDisplayed()
     }
 
+    @Test fun txtDoctorSheetScrollsToBottomActions() {
+        val book = sampleBook()
+        composeRule.setContent {
+            JingduApp(
+                AppUiState(
+                    screen = AppScreen.READER,
+                    currentBook = book,
+                    pageText = "Body",
+                    position = 500,
+                    length = book.charCount.coerceAtLeast(10_000L),
+                    panel = ReaderPanel.DOCTOR,
+                    settings = ReaderSettings(gestureCoachDismissed = true),
+                ),
+                noOpActions(),
+            )
+        }
+        composeRule.waitUntil(timeoutMillis = 15_000L) {
+            runCatching {
+                composeRule.onNodeWithText(context.getString(R.string.doctor_encoding)).fetchSemanticsNode()
+                true
+            }.getOrDefault(false)
+        }
+        val doctorList = composeRule.onNodeWithTag("txt-doctor-list")
+        doctorList.performScrollToIndex(2)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(context.getString(R.string.text_encoding)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.chapters)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.smart_clean4)).assertIsDisplayed()
+    }
+
     private fun sampleBook() = ReaderInstrumentationFixture.book(context)
 
     private fun noOpActions() = JingduActions(
