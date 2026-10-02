@@ -225,6 +225,46 @@ class JingduUiTest {
         assertEquals(targetIndex * 1000L, jumped)
     }
 
+    @Test fun continuousReaderLongPressSelectsOnFirstGesture() {
+        val book = sampleBook()
+        ReaderInteractionRuntime.continuousReady = false
+        composeRule.setContent {
+            JingduApp(
+                AppUiState(
+                    screen = AppScreen.READER,
+                    currentBook = book,
+                    pageText = "Body",
+                    position = 0,
+                    length = book.charCount.coerceAtLeast(10_000L),
+                    chapters = listOf(ChapterModel(0, "Chapter 1")),
+                    chaptersLoaded = true,
+                    settings = ReaderSettings(
+                        readingMode = ReaderMode.CONTINUOUS,
+                        gestureCoachDismissed = true,
+                        controlsAutoHideMs = 60_000L,
+                    ),
+                ),
+                noOpActions(),
+            )
+        }
+        composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
+        val surface = composeRule.onNodeWithContentDescription(context.getString(R.string.reader_surface))
+        val bounds = surface.fetchSemanticsNode().boundsInRoot
+        surface.performTouchInput {
+            val point = androidx.compose.ui.geometry.Offset(bounds.width * 0.50f, bounds.height * 0.38f)
+            down(point)
+            Thread.sleep(650L)
+            up()
+        }
+        composeRule.waitUntil(timeoutMillis = 3_000L) {
+            runCatching {
+                composeRule.onNodeWithText(context.getString(R.string.reader_copy)).fetchSemanticsNode()
+                true
+            }.getOrDefault(false)
+        }
+        composeRule.onNodeWithText(context.getString(R.string.reader_copy)).assertIsDisplayed()
+    }
+
     @Test fun hiddenHotPanelsRemainPhysicallyOffscreen() {
         val hiddenTitle = "Hidden Panel Sentinel"
         val chapters = listOf(ChapterModel(0, "Chapter 1"), ChapterModel(1000, hiddenTitle))
