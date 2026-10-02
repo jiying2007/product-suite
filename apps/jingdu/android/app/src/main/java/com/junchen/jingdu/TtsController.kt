@@ -93,16 +93,14 @@ internal class TtsController(
         val initListener = TextToSpeech.OnInitListener { status ->
             if (closed) return@OnInitListener
             ready = status == TextToSpeech.SUCCESS
-            if (ready) {
-                applyDesiredVoice()
-                main.post {
-                    if (closed) return@post
-                    val callbacks = synchronized(readyCallbacks) {
-                        readyCallbacks.toList().also { readyCallbacks.clear() }
-                    }
-                    callbacks.forEach { callback -> runCatching(callback) }
-                    queueObserver?.let { observer -> runCatching { observer.onEngineReady() } }
+            if (ready) applyDesiredVoice()
+            main.post {
+                if (closed) return@post
+                val callbacks = synchronized(readyCallbacks) {
+                    readyCallbacks.toList().also { readyCallbacks.clear() }
                 }
+                callbacks.forEach { callback -> runCatching(callback) }
+                if (ready) queueObserver?.let { observer -> runCatching { observer.onEngineReady() } }
             }
         }
         val requestedEngine = engineName?.trim().orEmpty()
