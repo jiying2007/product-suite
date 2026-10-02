@@ -752,13 +752,15 @@ internal class ReaderStaticLayoutBitmapTileSet(
     }
 
     private fun publishTileLocked(index: Int, tile: Tile) {
-        tiles.put(index, tile)?.bitmap?.recycle()
+        // Never recycle a tile that may still be referenced by the previous hardware display list.
+        // Dropping the strong reference is enough to bound retained memory while Android/GC can
+        // release the pixels after RenderThread is finished with them.
+        tiles[index] = tile
         while (tiles.size > MAX_CACHED_TILES) {
             val iterator = tiles.entries.iterator()
             if (!iterator.hasNext()) break
-            val eldest = iterator.next()
+            iterator.next()
             iterator.remove()
-            eldest.value.bitmap.recycle()
         }
     }
 
@@ -769,7 +771,6 @@ internal class ReaderStaticLayoutBitmapTileSet(
     override fun close() {
         if (closed) return
         closed = true
-        tiles.values.forEach { it.bitmap.recycle() }
         tiles.clear()
         inFlight.clear()
     }
