@@ -69,7 +69,7 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
 
     ModalBottomSheet(onDismissRequest = actions.onClosePanel, sheetGesturesEnabled = false) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).navigationBarsPadding(),
             contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
