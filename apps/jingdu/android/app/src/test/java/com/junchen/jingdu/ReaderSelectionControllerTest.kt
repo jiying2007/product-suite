@@ -4,6 +4,7 @@ import androidx.compose.ui.text.AnnotatedString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
+import java.util.Locale
 
 class ReaderSelectionControllerTest {
     @Test
@@ -23,6 +24,23 @@ class ReaderSelectionControllerTest {
         assertEquals(105L, range!!.sourceStart)
         assertEquals(107L, range.sourceEnd)
         assertEquals("cd", range.excerpt)
+    }
+
+    @Test
+    fun continuousNativeLongPressMapsWordToExactSourceRange() {
+        val display = "hello world"
+        val map = SourceDisplayMap.between(display, display)
+        val range = ReaderSelectionController.wordAt(
+            sourceBase = 100L,
+            displayText = display,
+            displayUtf16 = 8,
+            map = map,
+            locale = Locale.ENGLISH,
+        )
+        assertNotNull(range)
+        assertEquals(106L, range!!.sourceStart)
+        assertEquals(111L, range.sourceEnd)
+        assertEquals("world", range.excerpt)
     }
 
     @Test
