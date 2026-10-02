@@ -55,6 +55,11 @@ fingerprint=$FINGERPRINT
 fixture_mib=100
 page_input=$([[ "$SOAK_MODE" == "paged" ]] && echo physical-volume || echo vertical-swipe)
 peak_pss_limit_kb=524288
+memory_sample_interval_seconds=10
+memory_warmup_seconds=300
+max_pss_slope_kb_per_hour=65536
+max_component_slope_kb_per_hour=32768
+memory_components=total-pss,java-heap,native-heap,graphics
 battery_and_thermal=evidence-only-until-device-normalized-baseline
 EOF
 
