@@ -53,7 +53,7 @@ Hosted `harmony-contract` is the automatic source contract. Real HAP/device qual
 
 Pose Studio is an implemented pre-release product boundary under `apps/pose-studio/`. It owns the application ID `com.junchen.posestudio`, its local-only privacy contract, quality gate and versioned project file format. It does not inherit Jingdu signing, release tags, store namespaces, telemetry or billing assumptions. Existing project files must not become unreadable because of a future entitlement change.
 
-Pose Studio remains non-release-capable until product-scoped signing, store metadata, release manifest/tag namespace and release evidence are separately established.
+Pose Studio has a product-scoped pre-release candidate path and retained immutable commercial-beta provenance, but it is not production-v1 qualified. Candidate publication is triggered only from the product-specific Pose Studio workflow and remains fail-closed on exact-SHA CI / Pose Studio / CI Contracts evidence. The historical automatic commercial-beta publisher is retired after the locked immutable beta; generic Jingdu CI completions must not fan out new Pose release runs. Production-v1 still requires separate production signing, store metadata and retained release evidence.
 
 ## Future products
 
