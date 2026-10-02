@@ -407,6 +407,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         val active = overlay ?: return
         if (layout.lineCount <= 0 || active.endUtf16 <= active.startUtf16 || layout.text.isEmpty()) return
         val start = active.startUtf16.coerceIn(0, layout.text.length)
+        if (start >= layout.text.length) return
         val end = active.endUtf16.coerceIn(start + 1, layout.text.length)
         val firstLine = layout.getLineForOffset(start).coerceIn(0, layout.lineCount - 1)
         val lastLine = layout.getLineForOffset((end - 1).coerceAtLeast(start)).coerceIn(firstLine, layout.lineCount - 1)
