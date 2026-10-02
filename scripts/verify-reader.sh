@@ -45,6 +45,8 @@ required=(
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsCatalogCoordinator.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackBridge.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsSemanticNavigator.kt
   apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt
   apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderMotionControllerTest.kt
@@ -94,6 +96,8 @@ smart_toc_cache=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTo
 hot_controls=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
 fast_text=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
 service=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
+tts_catalog=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsCatalogCoordinator.kt
+tts_bridge=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackBridge.kt
 user_backup=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 tts_controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsController.kt
 player=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderTtsPlayer.kt
@@ -377,6 +381,18 @@ forbid_literal "$screen" 'detectTransformGestures' 'competing transform gesture 
 require_literal "$screen" 'ReaderGesturePolicy.allowsPageSwipe' 'selection-aware consumed drag arbitration'
 require_literal "$screen" 'pendingCenterTap = launch' 'delayed center single-tap arbitration'
 require_literal "$fast_text" 'selectionMode: Boolean? = null' 'selection fallback lifecycle ownership'
+
+require_literal "$activity" 'ttsCatalogCoordinator' 'Activity delegates TTS catalog ownership'
+require_literal "$activity" 'ttsPlaybackBridge' 'Activity delegates TTS service intents'
+forbid_literal "$activity" 'Intent(this, TtsPlaybackService::class.java)' 'direct TTS service Intent construction in Activity'
+forbid_literal "$activity" 'TtsPlaybackService.EXTRA_' 'direct TTS service extra parsing in Activity'
+require_literal "$tts_catalog" 'class TtsCatalogCoordinator' 'lazy TTS settings catalog coordinator'
+require_literal "$tts_catalog" 'active.runWhenReady' 'engine-ready catalog publication'
+require_literal "$tts_catalog" 'TtsEngineStore(appContext)' 'device-local engine persistence'
+require_literal "$tts_bridge" 'class TtsPlaybackBridge' 'TTS playback service bridge'
+require_literal "$tts_bridge" 'TtsPlaybackService.ACTION_START' 'bridge owns TTS start command'
+require_literal "$tts_bridge" 'appContext.startForegroundService(intent)' 'bridge owns foreground TTS start'
+require_literal "$tts_bridge" 'fun parseState(intent: Intent?)' 'bridge owns TTS state broadcast parsing'
 
 require_literal "$service" 'class TtsPlaybackService : MediaSessionService' 'Media3 session service'
 require_literal "$service" 'MediaSession.Builder' 'Media3 session'
