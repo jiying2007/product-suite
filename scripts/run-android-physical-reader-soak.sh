@@ -8,6 +8,7 @@ ADB="${ADB:-$SDK_ROOT/platform-tools/adb}"
 TARGET_PACKAGE="com.junchen.jingdu"
 TEST_PACKAGE="com.junchen.jingdu.macrobenchmark"
 DURATION_MINUTES="${JINGDU_SOAK_MINUTES:-60}"
+SOAK_MODE="${JINGDU_SOAK_MODE:-paged}"
 SOURCE_REF="${JINGDU_QUALIFIED_SOURCE_REF:-$(git -C "$ROOT" rev-parse HEAD)}"
 EXPECTED_SOURCE_SHA="${JINGDU_QUALIFIED_SOURCE_SHA:-}"
 ACTUAL_SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
@@ -15,6 +16,10 @@ RESULT_ROOT="$ANDROID_DIR/macrobenchmark/build/outputs/physical-soak"
 
 [[ "$DURATION_MINUTES" == "60" || "$DURATION_MINUTES" == "180" ]] || {
   echo "JINGDU_SOAK_MINUTES must be 60 or 180" >&2
+  exit 2
+}
+[[ "$SOAK_MODE" == "paged" || "$SOAK_MODE" == "continuous-stress" ]] || {
+  echo "JINGDU_SOAK_MODE must be paged or continuous-stress" >&2
   exit 2
 }
 [[ -x "$ADB" ]] || { echo "Missing adb: $ADB" >&2; exit 1; }
@@ -42,12 +47,13 @@ cat > "$RESULT_ROOT/provenance.txt" <<EOF
 source_ref=$SOURCE_REF
 source_sha=$ACTUAL_SOURCE_SHA
 duration_minutes=$DURATION_MINUTES
+mode=$SOAK_MODE
 manufacturer=$MANUFACTURER
 model=$MODEL
 sdk=$SDK
 fingerprint=$FINGERPRINT
 fixture_mib=100
-page_input=physical-volume
+page_input=$([[ "$SOAK_MODE" == "paged" ]] && echo physical-volume || echo vertical-swipe)
 peak_pss_limit_kb=524288
 battery_and_thermal=evidence-only-until-device-normalized-baseline
 EOF
@@ -79,7 +85,7 @@ trap restore_stay_on EXIT
 
 LOG="$RESULT_ROOT/instrumentation.log"
 set +e
-"$ADB" shell am instrument -w -r   -e class com.junchen.jingdu.macrobenchmark.PhysicalLongSessionSoakTest   -e jingdu.soakMinutes "$DURATION_MINUTES"   "$INSTRUMENTATION" | tee "$LOG"
+"$ADB" shell am instrument -w -r   -e class com.junchen.jingdu.macrobenchmark.PhysicalLongSessionSoakTest   -e jingdu.soakMinutes "$DURATION_MINUTES"   -e jingdu.soakMode "$SOAK_MODE"   "$INSTRUMENTATION" | tee "$LOG"
 STATUS=${PIPESTATUS[0]}
 set -e
 
@@ -99,6 +105,6 @@ if (( STATUS != 0 )) || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTA
 fi
 
 cd "$ROOT"
-python3 scripts/check-android-reader-soak.py   "$LOG"   "$RESULT_ROOT/reader-logcat.txt"   --duration-minutes "$DURATION_MINUTES"   --summary-json "$RESULT_ROOT/reader-soak-slo.json"
+python3 scripts/check-android-reader-soak.py   "$LOG"   "$RESULT_ROOT/reader-logcat.txt"   --duration-minutes "$DURATION_MINUTES"   --mode "$SOAK_MODE"   --summary-json "$RESULT_ROOT/reader-soak-slo.json"
 
 echo "Physical Reader long-session soak PASS"

@@ -15,6 +15,7 @@ on:
         options:
           - "background"
           - "foreground-continuous"
+          - "foreground-continuous-stress"
       duration_minutes:
         description: "TTS soak duration"
         required: true

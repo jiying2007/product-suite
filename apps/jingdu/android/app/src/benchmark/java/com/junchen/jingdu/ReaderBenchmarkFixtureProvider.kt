@@ -359,11 +359,14 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 }
             }
             "mode" -> {
-                val mode = when (arg?.lowercase()) {
+                val modeToken = arg?.lowercase()
+                val stressContinuous = modeToken == "continuous-stress"
+                val mode = when (modeToken) {
                     "paged" -> ReaderMode.PAGED
-                    "continuous" -> ReaderMode.CONTINUOUS
+                    "continuous", "continuous-stress" -> ReaderMode.CONTINUOUS
                     else -> error("Unsupported Reader benchmark mode: $arg")
                 }
+                val defaults = ReaderSettings()
                 // Reset runtime-only launch evidence before every measured reader start. A source
                 // position of zero is valid, so -1 remains the unambiguous not-rendered sentinel.
                 ReaderInteractionRuntime.foregroundPosition = -1L
@@ -377,6 +380,11 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     preferences.load().copy(
                         readingMode = mode,
                         pageAnimation = ReaderPageAnimation.SLIDE,
+                        fontSizeSp = if (stressContinuous) 40f else defaults.fontSizeSp,
+                        lineHeightMultiplier = if (stressContinuous) 2.2f else defaults.lineHeightMultiplier,
+                        paragraphSpacingEm = if (stressContinuous) 1.5f else defaults.paragraphSpacingEm,
+                        horizontalPaddingDp = if (stressContinuous) 56f else defaults.horizontalPaddingDp,
+                        verticalPaddingDp = if (stressContinuous) 56f else defaults.verticalPaddingDp,
                         tapPagingEnabled = true,
                         swipePagingEnabled = true,
                         reversePagingGestures = false,

@@ -7,6 +7,14 @@ on:
         description: "Immutable source tag or exact commit SHA to soak"
         required: true
         type: string
+      mode:
+        description: "Long-session Reader surface"
+        required: true
+        default: "paged"
+        type: choice
+        options:
+          - "paged"
+          - "continuous-stress"
       duration_minutes:
         description: "Long-session duration"
         required: true
@@ -50,12 +58,13 @@ jobs:
           JINGDU_QUALIFIED_SOURCE_REF: ${{ inputs.source_ref }}
           JINGDU_QUALIFIED_SOURCE_SHA: ${{ steps.source.outputs.sha }}
           JINGDU_SOAK_MINUTES: ${{ inputs.duration_minutes }}
+          JINGDU_SOAK_MODE: ${{ inputs.mode }}
         run: bash ./scripts/run-android-physical-reader-soak.sh
       - name: Preserve physical soak evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: reader-physical-soak-${{ inputs.duration_minutes }}m-${{ steps.source.outputs.sha }}
+          name: reader-physical-soak-${{ inputs.mode }}-${{ inputs.duration_minutes }}m-${{ steps.source.outputs.sha }}
           path: apps/jingdu/android/macrobenchmark/build/outputs/physical-soak/
           if-no-files-found: warn
           retention-days: 30

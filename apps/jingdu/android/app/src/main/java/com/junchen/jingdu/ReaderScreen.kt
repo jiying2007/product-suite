@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.BatteryManager
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
@@ -147,8 +146,7 @@ internal fun ReaderScreen(
     val documentKey = remember(book.id, book.normalizedSha256) { readerDocumentKey(book.id, book.normalizedSha256) }
     val pageDirection = state.pageTurnDirection
     val haptics = LocalHapticFeedback.current
-    val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
-    val touchExploration = accessibility.isTouchExplorationEnabled
+    val touchExploration = rememberReaderTouchExplorationEnabled()
     val fontFamily = rememberReaderFontFamily(context, settings)
     val stats = remember(context) { ReaderStatsStore(context) }
     val skim = remember(book.id) { ReaderSkimController(context, book.id) }
@@ -355,7 +353,7 @@ internal fun ReaderScreen(
         ) {
         if (settings.readingMode == ReaderMode.CONTINUOUS && !state.cleanMode) {
             ContinuousReaderPage(
-                state, actions, fontFamily, textColor, touchExploration,
+                state, actions, fontFamily, textColor,
                 ::previous, ::next, ::toggleChrome, ::updateBrightness, ::resizeFont,
                 { tick(); actions.onAddBookmark() }, ::acceptSelection,
             )
@@ -683,7 +681,6 @@ private fun ContinuousReaderPage(
     actions: JingduActions,
     fontFamily: androidx.compose.ui.text.font.FontFamily,
     textColor: Color,
-    touchExploration: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onToggleControls: () -> Unit,
@@ -854,8 +851,13 @@ private fun ContinuousReaderPage(
         else if (sawFastSelection) { fastSelectionMode = false; sawFastSelection = false }
         onSelection(range?.let { SelectionPayload(it) { selectionState.clear() } })
     }
-    val semantics = Modifier.readerAccessibilityActions(onPrevious, onNext, onToggleControls, onBookmark,
-        stringResource(R.string.reader_surface), stringResource(R.string.reader_access_previous), stringResource(R.string.reader_access_next), stringResource(R.string.reader_access_controls), stringResource(R.string.reader_access_bookmark))
+    val semantics = Modifier.readerAccessibilityActions(
+        onPrevious, onNext, onToggleControls, onBookmark,
+        stringResource(R.string.reader_surface), stringResource(R.string.reader_access_previous),
+        stringResource(R.string.reader_access_next), stringResource(R.string.reader_access_controls),
+        stringResource(R.string.reader_access_bookmark),
+        includePaging = false,
+    )
 
     SelectionContainer(state = selectionState) {
         Box(Modifier.fillMaxSize().onSizeChanged { widthPx = it.width; viewportHeight = it.height }.then(semantics), contentAlignment = Alignment.TopCenter) {
@@ -1114,14 +1116,17 @@ private fun Modifier.readerGestures(
 private fun Modifier.readerAccessibilityActions(
     previous: () -> Unit, next: () -> Unit, controls: () -> Unit, bookmark: () -> Unit,
     surfaceLabel: String, previousLabel: String, nextLabel: String, controlsLabel: String, bookmarkLabel: String,
+    includePaging: Boolean = true,
 ): Modifier = semantics {
     contentDescription = surfaceLabel
-    customActions = listOf(
-        CustomAccessibilityAction(previousLabel) { previous(); true },
-        CustomAccessibilityAction(nextLabel) { next(); true },
-        CustomAccessibilityAction(controlsLabel) { controls(); true },
-        CustomAccessibilityAction(bookmarkLabel) { bookmark(); true },
-    )
+    customActions = buildList {
+        if (includePaging) {
+            add(CustomAccessibilityAction(previousLabel) { previous(); true })
+            add(CustomAccessibilityAction(nextLabel) { next(); true })
+        }
+        add(CustomAccessibilityAction(controlsLabel) { controls(); true })
+        add(CustomAccessibilityAction(bookmarkLabel) { bookmark(); true })
+    }
 }
 
 @Composable

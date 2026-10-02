@@ -20,12 +20,14 @@ class PhysicalLongSessionSoakTest {
     private val device = UiDevice.getInstance(instrumentation)
 
     @Test
-    fun pagedReadingSoak() {
+    fun longReadingSoak() {
         val minutes = InstrumentationRegistry.getArguments().getString(DURATION_ARG)?.toIntOrNull() ?: 60
         check(minutes in 1..180) { "invalid soak duration: $minutes" }
+        val mode = InstrumentationRegistry.getArguments().getString(MODE_ARG) ?: MODE_PAGED
+        check(mode in setOf(MODE_PAGED, MODE_CONTINUOUS_STRESS)) { "invalid soak mode: $mode" }
 
         seedFixture(FIXTURE_MIB)
-        setReaderMode("paged")
+        setReaderMode(if (mode == MODE_CONTINUOUS_STRESS) "continuous-stress" else "paged")
         device.executeShellCommand("am force-stop $PACKAGE_NAME")
         val launch = device.executeShellCommand(
             "am start -W -n $PACKAGE_NAME/.MainActivity",
@@ -42,15 +44,23 @@ class PhysicalLongSessionSoakTest {
         val initialPid = pid()
         check(initialPid > 0) { "Reader PID unavailable at soak start" }
         val deadline = System.nanoTime() + minutes.toLong() * 60L * 1_000_000_000L
-        var pageTurns = 0
+        var interactions = 0
         var lastPosition = startingPosition
         var nextSampleNs = System.nanoTime()
         var peakPssKb = 0L
 
         while (System.nanoTime() < deadline) {
             check(pid() == initialPid) { "Reader process restarted during soak" }
-            check(device.pressKeyCode(KeyEvent.KEYCODE_VOLUME_DOWN)) { "physical volume page input failed" }
-            pageTurns++
+            if (mode == MODE_CONTINUOUS_STRESS) {
+                val width = device.displayWidth
+                val height = device.displayHeight
+                check(device.swipe(width / 2, (height * 0.78f).toInt(), width / 2, (height * 0.28f).toInt(), 24)) {
+                    "physical continuous swipe input failed"
+                }
+            } else {
+                check(device.pressKeyCode(KeyEvent.KEYCODE_VOLUME_DOWN)) { "physical volume page input failed" }
+            }
+            interactions++
             Thread.sleep(PAGE_INTERVAL_MS)
 
             if (System.nanoTime() >= nextSampleNs) {
@@ -58,7 +68,7 @@ class PhysicalLongSessionSoakTest {
                 val pssKb = totalPssKb()
                 check(pssKb > 0L) { "Reader total PSS unavailable during soak" }
                 peakPssKb = maxOf(peakPssKb, pssKb)
-                reportSample(minutes, pageTurns, position, pssKb, initialPid)
+                reportSample(minutes, mode, interactions, position, pssKb, initialPid)
                 lastPosition = position
                 nextSampleNs = System.nanoTime() + SAMPLE_INTERVAL_NS
             }
@@ -72,7 +82,7 @@ class PhysicalLongSessionSoakTest {
         check(peakPssKb in 1..MAX_PSS_KB) {
             "Reader peak PSS exceeded soak ceiling: ${peakPssKb}KB > ${MAX_PSS_KB}KB"
         }
-        reportPass(minutes, pageTurns, startingPosition, finalPosition, peakPssKb, initialPid)
+        reportPass(minutes, mode, interactions, startingPosition, finalPosition, peakPssKb, initialPid)
     }
 
     private fun seedFixture(mib: Int) {
@@ -116,25 +126,25 @@ class PhysicalLongSessionSoakTest {
             ?: 0L
     }
 
-    private fun reportSample(minutes: Int, turns: Int, position: Long, pssKb: Long, pid: Int) {
+    private fun reportSample(minutes: Int, mode: String, interactions: Int, position: Long, pssKb: Long, pid: Int) {
         instrumentation.sendStatus(
             0,
             Bundle().apply {
                 putString(
                     SAMPLE_KEY,
-                    "durationMinutes=$minutes;pageTurns=$turns;position=$position;pssKb=$pssKb;pid=$pid",
+                    "durationMinutes=$minutes;mode=$mode;interactions=$interactions;position=$position;pssKb=$pssKb;pid=$pid",
                 )
             },
         )
     }
 
-    private fun reportPass(minutes: Int, turns: Int, start: Long, end: Long, peakPssKb: Long, pid: Int) {
+    private fun reportPass(minutes: Int, mode: String, interactions: Int, start: Long, end: Long, peakPssKb: Long, pid: Int) {
         instrumentation.sendStatus(
             0,
             Bundle().apply {
                 putString(
                     PASS_KEY,
-                    "durationMinutes=$minutes;pageTurns=$turns;start=$start;end=$end;peakPssKb=$peakPssKb;pid=$pid",
+                    "durationMinutes=$minutes;mode=$mode;interactions=$interactions;start=$start;end=$end;peakPssKb=$peakPssKb;pid=$pid",
                 )
             },
         )
@@ -144,12 +154,15 @@ class PhysicalLongSessionSoakTest {
         const val PACKAGE_NAME = "com.junchen.jingdu"
         const val FIXTURE_MIB = 100
         const val DURATION_ARG = "jingdu.soakMinutes"
+        const val MODE_ARG = "jingdu.soakMode"
+        const val MODE_PAGED = "paged"
+        const val MODE_CONTINUOUS_STRESS = "continuous-stress"
         const val SAMPLE_KEY = "jingdu.readerSoakSample"
         const val PASS_KEY = "jingdu.readerSoakPass"
         const val LIBRARY_TIMEOUT_MS = 10_000L
         const val READY_TIMEOUT_NS = 15_000_000_000L
         const val PAGE_INTERVAL_MS = 2_000L
-        const val SAMPLE_INTERVAL_NS = 60_000_000_000L
+        const val SAMPLE_INTERVAL_NS = 15_000_000_000L
         const val MAX_PSS_KB = 512L * 1024L
     }
 }
