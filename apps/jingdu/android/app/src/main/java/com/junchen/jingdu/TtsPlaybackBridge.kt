@@ -2,7 +2,6 @@ package com.junchen.jingdu
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import java.io.File
 
 internal data class TtsPlaybackBroadcastState(
@@ -31,9 +30,8 @@ internal class TtsPlaybackBridge(context: Context) {
         )
     }
 
-    fun queryState() {
-        appContext.startService(serviceIntent(TtsPlaybackService.ACTION_STATE))
-    }
+    fun queryState(): Boolean =
+        dispatch(serviceIntent(TtsPlaybackService.ACTION_STATE))
 
     fun start(
         source: File,
@@ -41,7 +39,7 @@ internal class TtsPlaybackBridge(context: Context) {
         title: String,
         offset: Long,
         settings: ReaderSettings,
-    ) {
+    ): Boolean {
         val intent = serviceIntent(TtsPlaybackService.ACTION_START)
             .putExtra(TtsPlaybackService.EXTRA_PATH, source.absolutePath)
             .putExtra(TtsPlaybackService.EXTRA_BOOK_ID, bookId)
@@ -52,27 +50,33 @@ internal class TtsPlaybackBridge(context: Context) {
             .putExtra(TtsPlaybackService.EXTRA_VOICE, settings.ttsVoiceName)
             .putExtra(TtsPlaybackService.EXTRA_CHINESE_MODE, settings.chineseMode.name)
             .putExtra(TtsPlaybackService.EXTRA_CHINESE_OVERRIDES, settings.chineseOverrides)
-        if (Build.VERSION.SDK_INT >= 26) appContext.startForegroundService(intent) else appContext.startService(intent)
+        // MediaSessionService owns the foreground transition once playback is actually ongoing.
+        // Forcing startForegroundService() here creates a system crash window while a slow/broken
+        // vendor TTS engine is still initializing and the media session has not promoted itself.
+        return dispatch(intent)
     }
 
-    fun toggle() {
-        appContext.startService(serviceIntent(TtsPlaybackService.ACTION_TOGGLE))
-    }
+    fun toggle(): Boolean =
+        dispatch(serviceIntent(TtsPlaybackService.ACTION_TOGGLE))
 
-    fun stop() {
-        appContext.startService(serviceIntent(TtsPlaybackService.ACTION_STOP))
-    }
+    fun stop(): Boolean =
+        dispatch(serviceIntent(TtsPlaybackService.ACTION_STOP))
 
-    fun sleep(minutes: Int) {
-        appContext.startService(
+    fun sleep(minutes: Int): Boolean =
+        dispatch(
             serviceIntent(TtsPlaybackService.ACTION_SLEEP)
                 .putExtra(TtsPlaybackService.EXTRA_MINUTES, minutes),
         )
-    }
 
-    fun terminate() {
-        appContext.stopService(Intent(appContext, TtsPlaybackService::class.java))
-    }
+    fun terminate(): Boolean =
+        runCatching { appContext.stopService(Intent(appContext, TtsPlaybackService::class.java)) }
+            .getOrDefault(false)
+
+    private fun dispatch(intent: Intent): Boolean =
+        runCatching {
+            appContext.startService(intent)
+            true
+        }.getOrDefault(false)
 
     private fun serviceIntent(action: String): Intent =
         Intent(appContext, TtsPlaybackService::class.java).setAction(action)
