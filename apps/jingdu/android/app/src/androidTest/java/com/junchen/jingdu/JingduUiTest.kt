@@ -248,15 +248,30 @@ class JingduUiTest {
             )
         }
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
+        composeRule.waitForIdle()
         val surface = composeRule.onNodeWithContentDescription(context.getString(R.string.reader_surface))
         val bounds = surface.fetchSemanticsNode().boundsInRoot
-        surface.performTouchInput {
-            val point = androidx.compose.ui.geometry.Offset(bounds.width * 0.50f, bounds.height * 0.38f)
-            down(point)
-            Thread.sleep(650L)
-            up()
-        }
-        composeRule.waitUntil(timeoutMillis = 3_000L) {
+        // Continuous text is an AndroidView. Compose touch synthesis batches its gesture events,
+        // which cannot exercise our real Handler-based long-press timeout. Inject DOWN and UP
+        // through Instrumentation with real elapsed time between them.
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val x = bounds.left + bounds.width * 0.36f
+        val y = bounds.top + bounds.height * 0.14f
+        val downAt = android.os.SystemClock.uptimeMillis()
+        instrumentation.sendPointerSync(
+            android.view.MotionEvent.obtain(
+                downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
+            ),
+        )
+        Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L)
+        val upAt = android.os.SystemClock.uptimeMillis()
+        instrumentation.sendPointerSync(
+            android.view.MotionEvent.obtain(
+                downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
+            ),
+        )
+        instrumentation.waitForIdleSync()
+        composeRule.waitUntil(timeoutMillis = 5_000L) {
             runCatching {
                 composeRule.onNodeWithText(context.getString(R.string.reader_copy)).fetchSemanticsNode()
                 true
