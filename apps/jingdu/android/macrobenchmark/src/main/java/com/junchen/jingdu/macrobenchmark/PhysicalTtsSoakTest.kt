@@ -22,16 +22,21 @@ class PhysicalTtsSoakTest {
             ?: 30
         check(minutes in setOf(30, 60)) { "invalid TTS soak duration: $minutes" }
         val mode = InstrumentationRegistry.getArguments().getString(MODE_ARG) ?: MODE_BACKGROUND
-        check(mode in setOf(MODE_BACKGROUND, MODE_FOREGROUND_CONTINUOUS)) { "invalid TTS soak mode: $mode" }
+        check(mode in setOf(MODE_BACKGROUND, MODE_FOREGROUND_CONTINUOUS, MODE_FOREGROUND_CONTINUOUS_STRESS)) {
+            "invalid TTS soak mode: $mode"
+        }
 
         seedFixture(FIXTURE_MIB)
-        if (mode == MODE_FOREGROUND_CONTINUOUS) fixtureCall("mode", "continuous")
+        val foregroundContinuous = mode == MODE_FOREGROUND_CONTINUOUS || mode == MODE_FOREGROUND_CONTINUOUS_STRESS
+        if (foregroundContinuous) {
+            fixtureCall("mode", if (mode == MODE_FOREGROUND_CONTINUOUS_STRESS) "continuous-stress" else "continuous")
+        }
         val launch = device.executeShellCommand("am start -W -n $PACKAGE_NAME/.MainActivity")
         check(launch.contains("Status: ok") && !launch.contains("Error:")) {
             "TTS soak Activity launch failed: $launch"
         }
 
-        if (mode == MODE_FOREGROUND_CONTINUOUS) openFixtureInReader()
+        if (foregroundContinuous) openFixtureInReader()
         val startResult = fixtureCall("ttsStartSoak", FIXTURE_MIB)
         val bookId = value(startResult, "bookId") ?: error("TTS soak bookId missing: $startResult")
         val initialPid = waitForPid()
@@ -52,7 +57,7 @@ class PhysicalTtsSoakTest {
         var advancingSamples = 0
         var stalledSamples = 0
         var peakPssKb = totalPssKb().coerceAtLeast(1L)
-        var previousForegroundPosition = if (mode == MODE_FOREGROUND_CONTINUOUS) foregroundPosition() else -1L
+        var previousForegroundPosition = if (foregroundContinuous) foregroundPosition() else -1L
 
         try {
             while (System.nanoTime() < deadline) {
@@ -80,7 +85,7 @@ class PhysicalTtsSoakTest {
                 }
                 previousProgress = progress
                 val foregroundPosition = longValue(state, "foregroundPosition")
-                if (mode == MODE_FOREGROUND_CONTINUOUS) {
+                if (foregroundContinuous) {
                     check(device.currentPackageName == PACKAGE_NAME) { "foreground TTS soak left Reader foreground" }
                     check(foregroundPosition >= previousForegroundPosition) {
                         "foreground Reader position moved backwards: previous=$previousForegroundPosition current=$foregroundPosition"
@@ -255,10 +260,11 @@ class PhysicalTtsSoakTest {
         const val MODE_ARG = "jingdu.ttsSoakMode"
         const val MODE_BACKGROUND = "background"
         const val MODE_FOREGROUND_CONTINUOUS = "foreground-continuous"
+        const val MODE_FOREGROUND_CONTINUOUS_STRESS = "foreground-continuous-stress"
         const val SAMPLE_KEY = "jingdu.ttsSoakSample"
         const val PASS_KEY = "jingdu.ttsSoakPass"
-        const val SAMPLE_INTERVAL_MS = 60_000L
-        const val MAX_CONSECUTIVE_STALLED_SAMPLES = 3
+        const val SAMPLE_INTERVAL_MS = 15_000L
+        const val MAX_CONSECUTIVE_STALLED_SAMPLES = 12
         const val MAX_PSS_KB = 512L * 1024L
     }
 }
