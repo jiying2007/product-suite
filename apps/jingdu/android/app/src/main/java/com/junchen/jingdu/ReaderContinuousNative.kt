@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -856,7 +857,7 @@ internal fun Text(
             )
         } else if (ready != null) {
             AndroidView(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().testTag("reader-continuous-native"),
                 factory = { androidContext -> ReaderContinuousViewportView(androidContext) },
                 update = { viewport ->
                     viewport.setTextLayout(ready, resolvedColor.toArgb())
