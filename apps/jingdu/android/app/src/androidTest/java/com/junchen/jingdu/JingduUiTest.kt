@@ -401,18 +401,11 @@ class JingduUiTest {
         }
         composeRule.waitForIdle()
         val healthList = composeRule.onNodeWithTag("txt-health-list")
-        val bounds = healthList.fetchSemanticsNode().boundsInRoot
-        repeat(6) {
-            healthList.performTouchInput {
-                swipe(
-                    start = Offset(bounds.width * 0.50f, bounds.height * 0.82f),
-                    end = Offset(bounds.width * 0.50f, bounds.height * 0.18f),
-                    durationMillis = 450L,
-                )
-            }
-            composeRule.waitForIdle()
-        }
+        healthList.performScrollToIndex(7)
+        composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
+        healthList.performScrollToIndex(8)
+        composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.txt_health_details)).assertIsDisplayed()
     }
 
@@ -442,7 +435,11 @@ class JingduUiTest {
         doctorList.performScrollToIndex(2)
         composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.text_encoding)).assertIsDisplayed()
+        doctorList.performScrollToIndex(3)
+        composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.chapters)).assertIsDisplayed()
+        doctorList.performScrollToIndex(4)
+        composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.smart_clean4)).assertIsDisplayed()
     }
 
