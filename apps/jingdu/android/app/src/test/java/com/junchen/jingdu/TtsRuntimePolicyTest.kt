@@ -18,4 +18,11 @@ class TtsRuntimePolicyTest {
         assertEquals(false, ttsRuntimeErrorRetryable("tts error: no offline voice"))
         assertEquals(false, ttsRuntimeErrorRetryable("audio focus denied"))
     }
+
+    @Test fun queuedNextOffsetAcceptsOnlyCurrentChunk() {
+        assertEquals(180L, ttsQueuedNextOffset(100L, 100L, 180L))
+        assertEquals(null, ttsQueuedNextOffset(100L, 80L, 160L))
+        assertEquals(null, ttsQueuedNextOffset(100L, 100L, 99L))
+    }
+
 }
