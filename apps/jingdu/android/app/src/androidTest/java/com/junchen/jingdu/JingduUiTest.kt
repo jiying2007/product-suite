@@ -248,15 +248,18 @@ class JingduUiTest {
             )
         }
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
+        composeRule.waitForIdle()
         val surface = composeRule.onNodeWithContentDescription(context.getString(R.string.reader_surface))
         val bounds = surface.fetchSemanticsNode().boundsInRoot
         surface.performTouchInput {
-            val point = androidx.compose.ui.geometry.Offset(bounds.width * 0.50f, bounds.height * 0.38f)
+            // The fixture begins with several dense text lines. Target the upper body rather than
+            // the viewport center so the single long press deterministically lands on a word.
+            val point = androidx.compose.ui.geometry.Offset(bounds.width * 0.36f, bounds.height * 0.14f)
             down(point)
-            Thread.sleep(650L)
+            Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L)
             up()
         }
-        composeRule.waitUntil(timeoutMillis = 3_000L) {
+        composeRule.waitUntil(timeoutMillis = 5_000L) {
             runCatching {
                 composeRule.onNodeWithText(context.getString(R.string.reader_copy)).fetchSemanticsNode()
                 true
