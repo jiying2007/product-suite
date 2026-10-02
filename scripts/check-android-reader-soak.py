@@ -86,6 +86,10 @@ if int(passed.group("interactions")) < args.duration_minutes * 20:
 
 try:
     memory_peaks, memory_slopes = memory_evidence(samples)
+    memory_peaks["peakPssKb"] = peak_pss
+    memory_peaks["peakJavaHeapKb"] = max(memory_peaks["peakJavaHeapKb"], int(passed.group("java")))
+    memory_peaks["peakNativeHeapKb"] = max(memory_peaks["peakNativeHeapKb"], int(passed.group("native")))
+    memory_peaks["peakGraphicsKb"] = max(memory_peaks["peakGraphicsKb"], int(passed.group("graphics")))
     enforce_memory_slopes(memory_slopes)
 except ValueError as error:
     raise SystemExit(str(error)) from error
@@ -109,9 +113,8 @@ summary = {
     "startPosition": int(passed.group("start")),
     "endPosition": int(passed.group("end")),
     "pid": int(passed.group("pid")),
-    "peakPssKb": peak_pss,
-    "maxPssKb": 512 * 1024,
     **memory_peaks,
+    "maxPssKb": 512 * 1024,
     **memory_slopes,
     "maxPssSlopeKbPerHour": MAX_PSS_SLOPE_KB_PER_HOUR,
     "maxComponentSlopeKbPerHour": MAX_COMPONENT_SLOPE_KB_PER_HOUR,
