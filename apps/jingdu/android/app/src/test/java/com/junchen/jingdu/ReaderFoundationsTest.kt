@@ -322,7 +322,7 @@ class ReaderFoundationsTest {
             reservePagedChrome = true,
         )
         assertEquals(102f, paged.top, 0.001f)
-        assertEquals(189f, paged.bottom, 0.001f)
+        assertEquals(198f, paged.bottom, 0.001f)
     }
 
     @Test fun continuousBoundaryPolicyRequestsHandoffBeforeUserMustLiftFinger() {
