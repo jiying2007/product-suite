@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +70,7 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
 
     ModalBottomSheet(onDismissRequest = actions.onClosePanel, sheetGesturesEnabled = false) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).navigationBarsPadding(),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).navigationBarsPadding().testTag("txt-doctor-list"),
             contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
