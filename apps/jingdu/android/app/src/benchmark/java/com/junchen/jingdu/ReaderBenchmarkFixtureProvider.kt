@@ -240,6 +240,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 Bundle().apply {
                     putString("bookId", book.id)
                     putLong("progress", book.progress)
+                    putBoolean("backgroundTtsActive", ReaderInteractionRuntime.backgroundTtsActive)
                     putBoolean("backgroundTtsPlaying", ReaderInteractionRuntime.backgroundTtsPlaying)
                     putLong("foregroundPosition", ReaderInteractionRuntime.foregroundPosition)
                 }
@@ -370,6 +371,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                 // Reset runtime-only launch evidence before every measured reader start. A source
                 // position of zero is valid, so -1 remains the unambiguous not-rendered sentinel.
                 ReaderInteractionRuntime.foregroundPosition = -1L
+                ReaderInteractionRuntime.backgroundTtsActive = false
                 ReaderInteractionRuntime.backgroundTtsPlaying = false
                 ReaderInteractionRuntime.continuousReady = false
                 ReaderInteractionRuntime.resetPagedLayoutReadiness()
@@ -424,6 +426,7 @@ class ReaderBenchmarkFixtureProvider : ContentProvider() {
                     putString("volumeKeyMode", settings.volumeKeyMode.name)
                     putBoolean("reverseVolumeKeys", settings.reverseVolumeKeys)
                     putBoolean("autoScrollEnabled", settings.autoScrollEnabled)
+                    putBoolean("backgroundTtsActive", ReaderInteractionRuntime.backgroundTtsActive)
                     putBoolean("backgroundTtsPlaying", ReaderInteractionRuntime.backgroundTtsPlaying)
                     putLong("volumeEligibilityChecks", ReaderInteractionRuntime.volumeEligibilityChecks)
                     putBoolean("lastVolumeForegroundTtsPlaying", ReaderInteractionRuntime.lastVolumeForegroundTtsPlaying)

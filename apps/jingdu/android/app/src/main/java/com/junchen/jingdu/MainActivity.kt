@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: BookRepository
     private lateinit var importCoordinator: ReaderImportCoordinator
-    private lateinit var ttsCatalog: TtsController
+    private var ttsCatalog: TtsController? = null
     private lateinit var ttsEngineStore: TtsEngineStore
     private lateinit var readerPreferences: ReaderPreferences
     private lateinit var ruleLibrary: RuleLibrary
@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
             val rangeStart = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_START, -1L)
             val rangeEnd = intent.getLongExtra(TtsPlaybackService.EXTRA_RANGE_END, -1L)
             val reason = intent.getStringExtra(TtsPlaybackService.EXTRA_REASON)
+            ReaderInteractionRuntime.backgroundTtsActive = active
             ReaderInteractionRuntime.backgroundTtsPlaying = playing
             if (active) motionController.start(ReaderMotionState.TTS)
             else if (motionController.state == ReaderMotionState.TTS) motionController.stop()
@@ -179,7 +180,13 @@ class MainActivity : ComponentActivity() {
             onEncodingSelected = ::redecode,
             onSettingsChanged = ::updateSettings,
             onTtsEngineSelected = ::selectTtsEngine,
-            onPreviewTtsVoice = { voice -> ttsCatalog.previewVoice(voice, getString(R.string.tts_preview_sample)) },
+            onPreviewTtsVoice = { voice ->
+                ttsCatalog().let { catalog ->
+                    catalog.setRate(uiState.settings.ttsRate)
+                    catalog.setPitch(uiState.settings.ttsPitch)
+                    catalog.previewVoice(voice, getString(R.string.tts_preview_sample))
+                }
+            },
             onToggleTts = ::toggleTts,
             onToggleAutoPaging = ::toggleAutoPaging,
             onSleepTimer = ::setSleepTimer,
@@ -220,7 +227,6 @@ class MainActivity : ComponentActivity() {
         smartTocCache = SmartTocCacheStore(this)
         txtHealthStore = TxtHealthStore(this)
         ttsEngineStore = TtsEngineStore(this)
-        ttsCatalog = TtsController(this, engineName = ttsEngineStore.load().ifBlank { null })
         userBackup = UserBackup(readerPreferences, ruleLibrary, annotationStore)
         uiState = uiState.copy(globalRules = ruleLibrary.load())
         refreshLibrary()
@@ -260,12 +266,12 @@ class MainActivity : ComponentActivity() {
             val settings = readerPreferences.load()
             main.post {
                 if (isDestroyed) return@post
-                ttsCatalog.setRate(settings.ttsRate); ttsCatalog.setPitch(settings.ttsPitch); ttsCatalog.setVoiceName(settings.ttsVoiceName)
-                uiState = uiState.copy(settings = settings)
-                refreshTtsVoices()
+                uiState = uiState.copy(settings = settings, ttsEngineName = ttsEngineStore.load())
             }
         }
-        startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STATE))
+        if (ReaderInteractionRuntime.backgroundTtsActive) {
+            startService(Intent(this, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_STATE))
+        }
         if (savedInstanceState == null) handleIncomingIntent(intent) else restoreSession(savedInstanceState)
     }
 
@@ -919,7 +925,11 @@ class MainActivity : ComponentActivity() {
             label = getString(R.string.busy_restore_backup),
             task = { userBackup.importJson(readLimitedUtf8(uri, MAX_BACKUP_BYTES)) },
             success = { result ->
-                ttsCatalog.setRate(result.settings.ttsRate); ttsCatalog.setPitch(result.settings.ttsPitch); ttsCatalog.setVoiceName(result.settings.ttsVoiceName)
+                ttsCatalog?.let { catalog ->
+                    catalog.setRate(result.settings.ttsRate)
+                    catalog.setPitch(result.settings.ttsPitch)
+                    catalog.setVoiceName(result.settings.ttsVoiceName)
+                }
                 refreshAnnotations()
                 uiState = uiState.copy(settings = result.settings, globalRules = result.globalRules, panel = ReaderPanel.SETTINGS)
                 refreshTtsVoices()
@@ -1046,26 +1056,38 @@ class MainActivity : ComponentActivity() {
         return (fraction * (newLength - 1).toDouble()).roundToLong().coerceIn(0, newLength - 1)
     }
 
+    private fun ttsCatalog(): TtsController =
+        ttsCatalog ?: TtsController(this, engineName = ttsEngineStore.load().ifBlank { null }).also { created ->
+            created.setRate(uiState.settings.ttsRate)
+            created.setPitch(uiState.settings.ttsPitch)
+            created.setVoiceName(uiState.settings.ttsVoiceName)
+            ttsCatalog = created
+        }
+
     private fun refreshTtsVoices() {
-        uiState = uiState.copy(
-            ttsVoices = ttsCatalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) },
-            ttsEngines = ttsCatalog.installedEngines().map { TtsEngineModel(it.name, it.label) },
-            ttsEngineName = ttsEngineStore.load(),
-        )
+        val catalog = ttsCatalog()
+        catalog.runWhenReady {
+            if (isDestroyed || ttsCatalog !== catalog) return@runWhenReady
+            uiState = uiState.copy(
+                ttsVoices = catalog.offlineVoices().map { TtsVoiceModel(it.name, it.label) },
+                ttsEngines = catalog.installedEngines().map { TtsEngineModel(it.name, it.label) },
+                ttsEngineName = ttsEngineStore.load(),
+            )
+        }
     }
 
     private fun selectTtsEngine(packageName: String) {
         if (!proUnlocked) { billing.purchase(); return }
         val selected = packageName.trim().take(255)
-        if (selected.isNotEmpty() && ttsCatalog.installedEngines().none { it.name == selected }) {
+        if (selected.isNotEmpty() && ttsCatalog().installedEngines().none { it.name == selected }) {
             showMessage(getString(R.string.tts_engine_unavailable))
             return
         }
         stopTts()
         runCatching { stopService(Intent(this, TtsPlaybackService::class.java)) }
         ttsEngineStore.save(selected)
-        ttsCatalog.close()
-        ttsCatalog = TtsController(this, engineName = selected.ifBlank { null })
+        ttsCatalog?.close()
+        ttsCatalog = null
         val reset = uiState.settings.copy(ttsVoiceName = "")
         readerPreferences.save(reset)
         uiState = uiState.copy(
@@ -1073,7 +1095,7 @@ class MainActivity : ComponentActivity() {
             ttsEngineName = selected,
             ttsVoices = emptyList(),
         )
-        main.postDelayed(::refreshTtsVoices, 750L)
+        refreshTtsVoices()
     }
 
     private fun updateSettings(settings: ReaderSettings) {
@@ -1102,7 +1124,11 @@ class MainActivity : ComponentActivity() {
         }
         normalized = normalized.copy(autoScrollEnabled = motionController.state == ReaderMotionState.AUTO_SCROLL)
         readerPreferences.save(normalized)
-        ttsCatalog.setRate(normalized.ttsRate); ttsCatalog.setPitch(normalized.ttsPitch); ttsCatalog.setVoiceName(normalized.ttsVoiceName)
+        ttsCatalog?.let { catalog ->
+            catalog.setRate(normalized.ttsRate)
+            catalog.setPitch(normalized.ttsPitch)
+            catalog.setVoiceName(normalized.ttsVoiceName)
+        }
         ReaderPageLayoutCache.clear()
         uiState = uiState.copy(settings = normalized, motion = motionController.state)
         if (previousReadingMode != normalized.readingMode && normalized.readingMode == ReaderMode.PAGED && currentBook != null) render()
@@ -1354,7 +1380,8 @@ override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         tocWorkers.shutdownNow(); progressWorkers.shutdown(); workers.shutdownNow()
         runCatching { unregisterReceiver(ttsStateReceiver) }
         if (::billing.isInitialized) billing.close()
-        if (::ttsCatalog.isInitialized) ttsCatalog.close()
+        ttsCatalog?.close()
+        ttsCatalog = null
         if (::statsStore.isInitialized) statsStore.finish()
         if (::readerPreferences.isInitialized) readerPreferences.save(uiState.settings)
         reader.close(); super.onDestroy()

@@ -70,6 +70,7 @@ class PhysicalTtsSoakTest {
                     "TTS soak book identity changed: expected=$bookId actual=$currentBookId"
                 }
                 val progress = longValue(state, "progress")
+                check(boolValue(state, "backgroundTtsActive")) { "TTS runtime lost active service state" }
                 check(progress >= previousProgress) {
                     "TTS progress moved backwards: previous=$previousProgress current=$progress"
                 }
@@ -107,6 +108,7 @@ class PhysicalTtsSoakTest {
                     delta = delta,
                     pssKb = pssKb,
                     pid = initialPid,
+                    runtimeActive = boolValue(state, "backgroundTtsActive"),
                     runtimePlaying = boolValue(state, "backgroundTtsPlaying"),
                     mode = mode,
                     foregroundPosition = foregroundPosition,
@@ -213,6 +215,7 @@ class PhysicalTtsSoakTest {
         delta: Long,
         pssKb: Long,
         pid: Int,
+        runtimeActive: Boolean,
         runtimePlaying: Boolean,
         mode: String,
         foregroundPosition: Long,
@@ -223,7 +226,8 @@ class PhysicalTtsSoakTest {
                 putString(
                     SAMPLE_KEY,
                     "durationMinutes=$minutes;mode=$mode;sample=$sample;progress=$progress;delta=$delta;" +
-                        "pssKb=$pssKb;pid=$pid;runtimePlaying=$runtimePlaying;foregroundPosition=$foregroundPosition",
+                        "pssKb=$pssKb;pid=$pid;runtimeActive=$runtimeActive;runtimePlaying=$runtimePlaying;" +
+                            "foregroundPosition=$foregroundPosition",
                 )
             },
         )

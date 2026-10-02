@@ -21,6 +21,12 @@ internal fun ttsRuntimeErrorRetryable(reason: String?): Boolean {
     return reason.removePrefix("tts error: ").toIntOrNull() in setOf(-3, -4, -5, -6, -7)
 }
 
+internal fun ttsQueuedNextOffset(
+    currentOffset: Long,
+    sourceOffset: Long,
+    nextOffset: Long,
+): Long? = nextOffset.takeIf { sourceOffset == currentOffset && it >= sourceOffset }
+
 internal data class ReaderTtsState(
     val active: Boolean = false,
     val playing: Boolean = false,
@@ -213,12 +219,17 @@ internal class ReaderTtsPlayer(
     private fun startSpeechWithRetry() {
         if (!active || !playing) return
         engine.start(reader, offset, chineseMode, chineseOverrides, object : TtsController.Listener {
+            override fun onChunkQueued(sourceOffset: Long, nextOffset: Long) {
+                ttsQueuedNextOffset(this@ReaderTtsPlayer.offset, sourceOffset, nextOffset)?.let { accepted ->
+                    this@ReaderTtsPlayer.nextOffset = accepted
+                }
+            }
+
             override fun onPosition(offset: Long) {
                 val previous = this@ReaderTtsPlayer.offset
                 this@ReaderTtsPlayer.offset = offset.coerceAtLeast(0)
                 if (this@ReaderTtsPlayer.offset > previous) runtimeRetries = 0
                 startRetries = 0
-                nextOffset = runCatching { reader.speech(offset, chineseMode, chineseOverrides).nextOffset }.getOrDefault(offset)
                 publish()
             }
 

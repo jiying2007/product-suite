@@ -126,6 +126,8 @@ class TtsPlaybackService : MediaSessionService() {
 
     private fun onPlayerState(state: ReaderTtsState) {
         if (destroying) return
+        ReaderInteractionRuntime.backgroundTtsActive = state.active
+        ReaderInteractionRuntime.backgroundTtsPlaying = state.playing
         book?.let { current ->
             if (state.offset >= 0) persistProgress(current, state.offset, force = !state.active || !state.playing)
         }
@@ -156,6 +158,8 @@ class TtsPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         destroying = true
+        ReaderInteractionRuntime.backgroundTtsActive = false
+        ReaderInteractionRuntime.backgroundTtsPlaying = false
         main.removeCallbacksAndMessages(null)
         if (::player.isInitialized) {
             val state = player.snapshot()

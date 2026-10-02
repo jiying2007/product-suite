@@ -24,6 +24,7 @@ internal class TtsController(
     interface Listener {
         fun onPosition(offset: Long)
         fun onStopped(reason: String?)
+        fun onChunkQueued(sourceOffset: Long, nextOffset: Long) = Unit
         fun onRange(sourceStart: Long, sourceEnd: Long) = Unit
         fun onPaused() = Unit
         fun onResumed() = Unit
@@ -53,6 +54,7 @@ internal class TtsController(
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val main = Handler(Looper.getMainLooper())
     private val generation = AtomicLong()
+    private val readyCallbacks = mutableListOf<() -> Unit>()
     private val pronunciation = TtsPronunciationStore(context.applicationContext)
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -91,11 +93,14 @@ internal class TtsController(
         val initListener = TextToSpeech.OnInitListener { status ->
             if (closed) return@OnInitListener
             ready = status == TextToSpeech.SUCCESS
-            if (ready) {
-                applyDesiredVoice()
-                queueObserver?.let { observer ->
-                    main.post { runCatching { observer.onEngineReady() } }
+            if (ready) applyDesiredVoice()
+            main.post {
+                if (closed) return@post
+                val callbacks = synchronized(readyCallbacks) {
+                    readyCallbacks.toList().also { readyCallbacks.clear() }
                 }
+                callbacks.forEach { callback -> runCatching(callback) }
+                if (ready) queueObserver?.let { observer -> runCatching { observer.onEngineReady() } }
             }
         }
         val requestedEngine = engineName?.trim().orEmpty()
@@ -212,6 +217,14 @@ internal class TtsController(
 
     fun isSpeaking(): Boolean = reader != null && !pausedForFocus
 
+    fun runWhenReady(callback: () -> Unit) {
+        main.post {
+            if (closed) return@post
+            if (ready) callback()
+            else synchronized(readyCallbacks) { readyCallbacks += callback }
+        }
+    }
+
     fun setRate(rate: Float) { tts.setSpeechRate(rate.coerceIn(0.5f, 2f)) }
     fun setPitch(pitch: Float) { tts.setPitch(pitch.coerceIn(0.5f, 2f)) }
 
@@ -327,6 +340,7 @@ internal class TtsController(
             currentChunkOffset = offset
             currentChunk = SpokenChunk(spoken.text, sourceToSpoken)
             pendingNextOffset = sourceChunk.nextOffset
+            listener?.onChunkQueued(offset, pendingNextOffset)
             listener?.onPosition(offset)
             val sourceEnd = (offset + sourceToSpoken.sourceCodePoints).coerceAtMost(sourceChunk.nextOffset)
             listener?.onRange(offset, sourceEnd.coerceAtLeast(offset + 1))
@@ -387,6 +401,7 @@ internal class TtsController(
         if (closed) return
         stop(null)
         closed = true
+        synchronized(readyCallbacks) { readyCallbacks.clear() }
         main.removeCallbacksAndMessages(null)
         runCatching { tts.shutdown() }
     }
