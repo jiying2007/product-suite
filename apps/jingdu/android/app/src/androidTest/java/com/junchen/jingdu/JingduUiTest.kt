@@ -401,16 +401,12 @@ class JingduUiTest {
         }
         composeRule.waitForIdle()
         val healthList = composeRule.onNodeWithTag("txt-health-list")
-        healthList.performScrollToIndex(7)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck))
-            .performScrollTo()
-            .assertIsDisplayed()
-        healthList.performScrollToIndex(8)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.txt_health_details))
-            .performScrollTo()
-            .assertIsDisplayed()
+        val recheck = composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck))
+        scrollUntilDisplayed(healthList, recheck)
+        recheck.assertIsDisplayed()
+        val details = composeRule.onNodeWithText(context.getString(R.string.txt_health_details))
+        scrollUntilDisplayed(healthList, details)
+        details.assertIsDisplayed()
     }
 
     @Test fun txtDoctorSheetScrollsToBottomActions() {
@@ -436,21 +432,34 @@ class JingduUiTest {
             }.getOrDefault(false)
         }
         val doctorList = composeRule.onNodeWithTag("txt-doctor-list")
-        doctorList.performScrollToIndex(2)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.text_encoding))
-            .performScrollTo()
-            .assertIsDisplayed()
-        doctorList.performScrollToIndex(3)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.chapters))
-            .performScrollTo()
-            .assertIsDisplayed()
-        doctorList.performScrollToIndex(4)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.smart_clean4))
-            .performScrollTo()
-            .assertIsDisplayed()
+        val encoding = composeRule.onNodeWithText(context.getString(R.string.text_encoding))
+        scrollUntilDisplayed(doctorList, encoding)
+        encoding.assertIsDisplayed()
+        val chapters = composeRule.onNodeWithText(context.getString(R.string.chapters))
+        scrollUntilDisplayed(doctorList, chapters)
+        chapters.assertIsDisplayed()
+        val clean = composeRule.onNodeWithText(context.getString(R.string.smart_clean4))
+        scrollUntilDisplayed(doctorList, clean)
+        clean.assertIsDisplayed()
+    }
+
+    private fun scrollUntilDisplayed(
+        list: androidx.compose.ui.test.SemanticsNodeInteraction,
+        target: androidx.compose.ui.test.SemanticsNodeInteraction,
+        attempts: Int = 12,
+    ) {
+        repeat(attempts) {
+            if (target.isDisplayed()) return
+            val bounds = list.fetchSemanticsNode().boundsInRoot
+            list.performTouchInput {
+                swipe(
+                    start = Offset(bounds.width * 0.50f, bounds.height * 0.72f),
+                    end = Offset(bounds.width * 0.50f, bounds.height * 0.38f),
+                    durationMillis = 260L,
+                )
+            }
+            composeRule.waitForIdle()
+        }
     }
 
     private fun sampleBook() = ReaderInstrumentationFixture.book(context)
