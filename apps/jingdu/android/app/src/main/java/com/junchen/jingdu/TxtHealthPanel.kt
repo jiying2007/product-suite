@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoFixHigh
@@ -42,7 +43,7 @@ internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
         sheetGesturesEnabled = false,
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).testTag("txt-health-list"),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).navigationBarsPadding().testTag("txt-health-list"),
             contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
