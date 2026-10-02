@@ -692,6 +692,7 @@ private fun ContinuousReaderPage(
     val context = LocalContext.current
     val book = state.currentBook ?: return
     val settings = state.settings
+    val selectionLocale = LocalConfiguration.current.locales[0]
     val engine = remember(book.id, book.normalizedSha256) { ReaderViewportEngine(context, book.id) }
     val scope = rememberCoroutineScope()
     val scrollModel = remember(book.id, book.normalizedSha256) { ReaderContinuousScrollModel() }
@@ -884,6 +885,22 @@ private fun ContinuousReaderPage(
                 onScrollSettled = { settleEvents.tryEmit(Unit) },
                 selectionMode = fastSelectionMode,
                 onRequestSelection = { fastSelectionMode = true },
+                onLongPressSelection = { displayUtf16 ->
+                    val currentWindow = window
+                    if (currentWindow == null) {
+                        fastSelectionMode = true
+                    } else {
+                        val range = ReaderSelectionController.wordAt(
+                            sourceBase = currentWindow.start,
+                            displayText = currentWindow.displayText,
+                            displayUtf16 = displayUtf16,
+                            map = currentWindow.map,
+                            locale = selectionLocale,
+                        )
+                        if (range != null) onSelection(SelectionPayload(range) { })
+                        else fastSelectionMode = true
+                    }
+                },
                 onTextLayout = { ready ->
                     val currentWindow = window
                     layoutResult = ready
