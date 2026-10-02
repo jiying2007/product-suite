@@ -160,13 +160,13 @@ internal fun TxtHealthPanel(state: AppUiState, actions: JingduActions) {
                 }
 
                 item {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { actions.onOpenPanel(ReaderPanel.TXT_HEALTH) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.txt_health_recheck))
-                        }
-                        OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.DOCTOR) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.txt_health_details))
-                        }
+                    Button(onClick = { actions.onOpenPanel(ReaderPanel.TXT_HEALTH) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.txt_health_recheck))
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.DOCTOR) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.txt_health_details))
                     }
                 }
             }
