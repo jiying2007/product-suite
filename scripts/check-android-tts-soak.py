@@ -92,7 +92,8 @@ if any(current < previous for previous, current in zip(progresses, progresses[1:
     raise SystemExit("TTS persisted progress moved backwards during soak")
 
 advancing = sum(1 for sample in samples if sample["delta"] > 0)
-required_advancing = max(3, int(len(samples) * 0.80))
+# Preserve the prior 15-second progression SLO while sampling memory more densely at 10 seconds.
+required_advancing = max(3, int(args.duration_minutes * 4 * 0.80))
 if advancing < required_advancing:
     raise SystemExit(f"TTS progress advancing sample floor failed: {advancing} < {required_advancing}")
 
@@ -118,6 +119,10 @@ if any(sample[key] < 0 for sample in samples for key in ("javaHeapKb", "nativeHe
 
 try:
     memory_peaks, memory_slopes = memory_evidence(samples)
+    memory_peaks["peakPssKb"] = peak_pss
+    memory_peaks["peakJavaHeapKb"] = max(memory_peaks["peakJavaHeapKb"], int(passed.group("java")))
+    memory_peaks["peakNativeHeapKb"] = max(memory_peaks["peakNativeHeapKb"], int(passed.group("native")))
+    memory_peaks["peakGraphicsKb"] = max(memory_peaks["peakGraphicsKb"], int(passed.group("graphics")))
     enforce_memory_slopes(memory_slopes)
 except ValueError as error:
     raise SystemExit(str(error)) from error
@@ -144,9 +149,8 @@ summary = {
     "endProgress": end,
     "progressDelta": end - start,
     "pid": int(passed.group("pid")),
-    "peakPssKb": peak_pss,
-    "maxPssKb": 512 * 1024,
     **memory_peaks,
+    "maxPssKb": 512 * 1024,
     **memory_slopes,
     "maxPssSlopeKbPerHour": MAX_PSS_SLOPE_KB_PER_HOUR,
     "maxComponentSlopeKbPerHour": MAX_COMPONENT_SLOPE_KB_PER_HOUR,
