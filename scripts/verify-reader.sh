@@ -40,6 +40,7 @@ required=(
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
+  apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderContinuousNative.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderInsightsPanels.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderPreferences.kt
   apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt
@@ -93,6 +94,7 @@ smart_panel=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderSmart
 smart_toc_cache=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/SmartTocCacheStore.kt
 hot_controls=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderHotControls.kt
 fast_text=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderFastText.kt
+continuous_native=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderContinuousNative.kt
 service=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsPlaybackService.kt
 user_backup=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/UserBackup.kt
 tts_controller=apps/jingdu/android/app/src/main/java/com/junchen/jingdu/TtsController.kt
@@ -183,34 +185,34 @@ forbid_literal "$screen" 'produceState<ReaderPresentedText?>' 'two-stage paged p
 forbid_literal "$screen" 'produceState<PageLayoutSnapshot?>' 'two-stage paged layout state'
 forbid_literal "$screen" 'annotated.subSequence(0, visibleEnd)' 'post-annotation pagination'
 forbid_literal "$screen" 'rememberScrollableState' 'Compose continuous scroll state'
-forbid_literal "$fast_text" 'scrollable(scrollableState, Orientation.Vertical)' 'Compose continuous scrollable layer'
+forbid_literal "$continuous_native" 'scrollable(scrollableState, Orientation.Vertical)' 'Compose continuous scrollable layer'
 forbid_literal "$screen" 'snapshotFlow { scrollableState.isScrollInProgress }' 'Compose scroll progress observer'
-require_literal "$fast_text" 'override fun onTouchEvent(event: MotionEvent)' 'native continuous gesture ownership'
-require_literal "$fast_text" 'OverScroller(context)' 'native continuous fling'
-require_literal "$fast_text" 'postOnAnimation(applyPendingScroll)' 'vsync-coalesced continuous scroll'
+require_literal "$continuous_native" 'override fun onTouchEvent(event: MotionEvent)' 'native continuous gesture ownership'
+require_literal "$continuous_native" 'OverScroller(context)' 'native continuous fling'
+require_literal "$continuous_native" 'postOnAnimation(applyPendingScroll)' 'vsync-coalesced continuous scroll'
 forbid_literal "$fast_text" 'ReaderPagedTextView' 'paged native wrapper that bypasses FrameTiming redraw'
 require_literal "$fast_text" 'Canvas(Modifier.fillMaxSize())' 'paged observable Canvas replay'
-require_literal "$fast_text" 'ReaderStaticLayoutBitmapTileSet' 'continuous worker-rasterized bitmap tiles'
-require_literal "$fast_text" 'Bitmap.Config.ARGB_8888' 'continuous bounded raster format'
-require_literal "$fast_text" 'bitmap.prepareToDraw()' 'continuous raster draw preparation'
-require_literal "$fast_text" 'tileSet?.draw(canvas, scrollY, height)' 'visible continuous tile replay'
-require_literal "$fast_text" 'canvas.drawBitmap(tile.bitmap' 'continuous cached bitmap replay'
-require_literal "$fast_text" 'viewportHeightPx,' 'viewport-height raster state key'
-require_literal "$fast_text" 'withContext(Dispatchers.Default)' 'off-main continuous raster build'
-forbid_literal "$fast_text" 'canvas.drawRenderNode(tile.node)' 'continuous text display-list replay residue'
-forbid_literal "$fast_text" 'RenderNode("ReaderContinuousTile' 'continuous RenderNode tile residue'
-require_literal "$fast_text" 'renderedOffsetPx = next' 'vsync-coalesced viewport offset'
-require_literal "$fast_text" 'postInvalidateOnAnimation()' 'real viewport frame invalidation'
-forbid_literal "$fast_text" 'ReaderFramePulseView' 'synthetic compositor pulse residue'
-forbid_literal "$fast_text" 'ReaderPageFramePulse' 'synthetic paged pulse residue'
-forbid_literal "$fast_text" 'content.translationY = translation' 'whole-window translated child'
-forbid_literal "$fast_text" 'content.setLayerType(View.LAYER_TYPE_HARDWARE, null)' 'oversized rasterized continuous layer'
-forbid_literal "$fast_text" 'content.buildLayer()' 'oversized raster layer prebuild'
-forbid_literal "$fast_text" 'scrollTo(0, pendingScrollY)' 'continuous ViewGroup scroll traversal'
-forbid_literal "$fast_text" 'fun consumeDelta(delta: Float)' 'obsolete Compose scroll adapter'
-require_literal "$fast_text" 'model.setOffset(requested)' 'native direct scroll property update'
-require_literal "$fast_text" 'signalBoundaryHandoff(requested, model)' 'continuous boundary handoff before finger-up'
-require_literal "$fast_text" 'readerContinuousBoundaryRequested(' 'testable continuous boundary policy'
+require_literal "$continuous_native" 'ReaderStaticLayoutBitmapTileSet' 'continuous worker-rasterized bitmap tiles'
+require_literal "$continuous_native" 'Bitmap.Config.ARGB_8888' 'continuous bounded raster format'
+require_literal "$continuous_native" 'bitmap.prepareToDraw()' 'continuous raster draw preparation'
+require_literal "$continuous_native" 'tileSet?.draw(canvas, scrollY, height)' 'visible continuous tile replay'
+require_literal "$continuous_native" 'canvas.drawBitmap(tile.bitmap' 'continuous cached bitmap replay'
+require_literal "$continuous_native" 'viewportHeightPx,' 'viewport-height raster state key'
+require_literal "$continuous_native" 'withContext(Dispatchers.Default)' 'off-main continuous raster build'
+forbid_literal "$continuous_native" 'canvas.drawRenderNode(tile.node)' 'continuous text display-list replay residue'
+forbid_literal "$continuous_native" 'RenderNode("ReaderContinuousTile' 'continuous RenderNode tile residue'
+require_literal "$continuous_native" 'renderedOffsetPx = next' 'vsync-coalesced viewport offset'
+require_literal "$continuous_native" 'postInvalidateOnAnimation()' 'real viewport frame invalidation'
+forbid_literal "$continuous_native" 'ReaderFramePulseView' 'synthetic compositor pulse residue'
+forbid_literal "$continuous_native" 'ReaderPageFramePulse' 'synthetic paged pulse residue'
+forbid_literal "$continuous_native" 'content.translationY = translation' 'whole-window translated child'
+forbid_literal "$continuous_native" 'content.setLayerType(View.LAYER_TYPE_HARDWARE, null)' 'oversized rasterized continuous layer'
+forbid_literal "$continuous_native" 'content.buildLayer()' 'oversized raster layer prebuild'
+forbid_literal "$continuous_native" 'scrollTo(0, pendingScrollY)' 'continuous ViewGroup scroll traversal'
+forbid_literal "$continuous_native" 'fun consumeDelta(delta: Float)' 'obsolete Compose scroll adapter'
+require_literal "$continuous_native" 'model.setOffset(requested)' 'native direct scroll property update'
+require_literal "$continuous_native" 'signalBoundaryHandoff(requested, model)' 'continuous boundary handoff before finger-up'
+require_literal "$continuous_native" 'readerContinuousBoundaryRequested(' 'testable continuous boundary policy'
 require_literal "$screen" 'readerContinuousNeedsNextWindow(' 'zero-scroll-range next-window handoff policy'
 require_literal "$screen" 'MutableSharedFlow<Unit>(extraBufferCapacity = 1)' 'settle-only continuous event channel'
 require_literal "$screen" 'settleEvents.collect' 'settle-only continuous mapping'
