@@ -15,7 +15,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
@@ -399,11 +398,11 @@ class JingduUiTest {
         }
         composeRule.waitForIdle()
         val healthList = composeRule.onNodeWithTag("txt-health-list")
-        healthList.performScrollToIndex(7)
-        composeRule.waitForIdle()
+        repeat(6) {
+            healthList.performTouchInput { swipeUp() }
+            composeRule.waitForIdle()
+        }
         composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
-        healthList.performScrollToIndex(8)
-        composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.txt_health_details)).assertIsDisplayed()
     }
 
