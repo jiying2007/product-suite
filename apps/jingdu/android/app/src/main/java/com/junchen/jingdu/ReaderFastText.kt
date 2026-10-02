@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,23 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
+@Composable
+internal fun rememberReaderTouchExplorationEnabled(): Boolean {
+    val context = LocalContext.current
+    val manager = remember(context) {
+        context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+    }
+    val enabled = remember(manager) { mutableStateOf(manager.isTouchExplorationEnabled) }
+    DisposableEffect(manager) {
+        val listener = AccessibilityManager.TouchExplorationStateChangeListener { active ->
+            enabled.value = active
+        }
+        manager.addTouchExplorationStateChangeListener(listener)
+        onDispose { manager.removeTouchExplorationStateChangeListener(listener) }
+    }
+    return enabled.value
+}
+
 /**
  * Paged normal reading reuses the exact StaticLayout that established the page boundary whenever
  * the visible body has no span that changes its appearance. Styled pages deliberately rebuild so
@@ -77,11 +95,9 @@ internal fun Text(
     text: AnnotatedString, modifier: Modifier, style: TextStyle, overflow: TextOverflow,
     selectionMode: Boolean? = null, onRequestSelection: (() -> Unit)? = null,
 ) {
-    val context = LocalContext.current
-    val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
     var internalSelectionMode by remember(text.text) { mutableStateOf(false) }
     val selecting = selectionMode ?: internalSelectionMode
-    if (selecting || accessibility.isTouchExplorationEnabled) {
+    if (selecting || rememberReaderTouchExplorationEnabled()) {
         androidx.compose.material3.Text(text = text, modifier = modifier, style = style, overflow = overflow)
         return
     }
@@ -185,12 +201,22 @@ internal class ReaderContinuousScrollModel {
         private set
     var maxOffsetPx: Float = 0f
         private set
+    private var scrollSinkOwner: Any? = null
     private var scrollSink: ((Float) -> Unit)? = null
 
-    fun attachScrollSink(sink: (Float) -> Unit) {
+    fun attachScrollSink(owner: Any, sink: (Float) -> Unit) {
+        scrollSinkOwner = owner
         scrollSink = sink
         sink(offsetPx)
     }
+
+    fun detachScrollSink(owner: Any) {
+        if (scrollSinkOwner !== owner) return
+        scrollSinkOwner = null
+        scrollSink = null
+    }
+
+    internal fun hasScrollSinkFor(owner: Any): Boolean = scrollSinkOwner === owner
 
     fun setRange(rangePx: Int) {
         setRangeAndOffset(rangePx, offsetPx)
@@ -249,6 +275,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var lastBoundarySignalAt = 0L
     private var pendingScrollY = 0
     private var scrollScheduled = false
+    private val scrollSinkCallback: (Float) -> Unit = ::setScrollOffset
+    private var pendingCenterTap: Runnable? = null
     private val applyPendingScroll = Runnable {
         scrollScheduled = false
         val next = pendingScrollY.coerceAtLeast(0)
@@ -296,6 +324,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         scrollSettled: () -> Unit,
         longPressAction: () -> Unit,
     ) {
+        if (scrollModel !== model) scrollModel?.detachScrollSink(this)
         scrollModel = model
         settings = nextSettings
         systemLeftInsetPx = leftInsetPx
@@ -311,15 +340,18 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         onAnyTouch = anyTouch
         onScrollSettled = scrollSettled
         onLongPress = longPressAction
-        model.attachScrollSink(::setScrollOffset)
+        model.attachScrollSink(this, scrollSinkCallback)
     }
 
     fun setTextLayout(ready: ReaderContinuousLayout, color: Int) {
         val changed = textLayout !== ready.layout || tileSet !== ready.raster || textColor != color
+        val previousTiles = tileSet
         textLayout = ready.layout
         tileSet = ready.raster
         textColor = color
+        if (previousTiles !== ready.raster) previousTiles?.close()
         if (changed) {
+            ready.raster.requestVisible(renderedOffsetPx, height) { postInvalidateOnAnimation() }
             postInvalidateOnAnimation()
             if (pendingHandoffVelocityY != 0) post(::resumePendingFling)
         }
@@ -342,6 +374,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         val layout = textLayout ?: return
         val maxOffset = (layout.height - height).coerceAtLeast(0)
         val scrollY = renderedOffsetPx.coerceIn(0, maxOffset)
+        tileSet?.requestVisible(scrollY, height) { postInvalidateOnAnimation() }
         if (tileSet?.draw(canvas, scrollY, height) == true) return
         canvas.save()
         canvas.clipRect(0, 0, width, height)
@@ -370,6 +403,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 removeCallbacks(longPress)
+                cancelPendingCenterTap()
                 if (event.pointerCount >= 2) {
                     pinching = true
                     pinchStart = pointerDistance(event).coerceAtLeast(1f)
@@ -385,7 +419,10 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                 }
                 val totalX = event.x - downX
                 val totalY = event.y - downY
-                if (abs(totalX) > viewConfig.scaledTouchSlop || abs(totalY) > viewConfig.scaledTouchSlop) removeCallbacks(longPress)
+                if (abs(totalX) > viewConfig.scaledTouchSlop || abs(totalY) > viewConfig.scaledTouchSlop) {
+                    removeCallbacks(longPress)
+                    cancelPendingCenterTap()
+                }
                 val brightnessZone = settings.brightnessGestureEnabled && downX >= systemLeftInsetPx + 8f * density && downX <= systemLeftInsetPx + width * 0.14f
                 if (!brightnessZone && !scrolling && abs(totalY) > viewConfig.scaledTouchSlop && abs(totalY) > abs(totalX) * 1.10f) scrolling = true
                 if (scrolling) scrollModel?.let { model ->
@@ -515,7 +552,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             onBrightnessDelta((-dy / height.coerceAtLeast(1).toFloat()) * 0.8f)
             return
         }
-        if (settings.swipePagingEnabled && downX > systemLeftInsetPx + edgeGuard && downX < width - systemRightInsetPx - edgeGuard && abs(dx) >= swipe && abs(dx) > abs(dy) * 1.25f) {
+        val pagedNavigation = settings.readingMode == ReaderMode.PAGED
+        if (pagedNavigation && settings.swipePagingEnabled && downX > systemLeftInsetPx + edgeGuard && downX < width - systemRightInsetPx - edgeGuard && abs(dx) >= swipe && abs(dx) > abs(dy) * 1.25f) {
             var forward = dx < 0f
             if (settings.reversePagingGestures) forward = !forward
             if (forward) onNext() else onPrevious()
@@ -529,8 +567,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             ReaderTapZonePreset.LEFT_HANDED -> width * 0.32f
         }
         when {
-            downX < edge && settings.tapPagingEnabled -> if (settings.reversePagingGestures) onNext() else onPrevious()
-            downX > width - edge && settings.tapPagingEnabled -> if (settings.reversePagingGestures) onPrevious() else onNext()
+            pagedNavigation && downX < edge && settings.tapPagingEnabled -> if (settings.reversePagingGestures) onNext() else onPrevious()
+            pagedNavigation && downX > width - edge && settings.tapPagingEnabled -> if (settings.reversePagingGestures) onPrevious() else onNext()
             else -> dispatchCenterTap(event.eventTime)
         }
     }
@@ -547,13 +585,33 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         }
         val centerAction = if (settings.advancedGestureCustomizationEnabled) settings.centerTapAction else ReaderGestureAction.CONTROLS
         val doubleAction = if (settings.advancedGestureCustomizationEnabled) settings.doubleTapAction else if (settings.doubleTapBookmarkEnabled) ReaderGestureAction.BOOKMARK else ReaderGestureAction.NONE
-        if (doubleAction != ReaderGestureAction.NONE && lastCenterTapAt > 0L && tapAt - lastCenterTapAt in 40L..320L) {
-            lastCenterTapAt = 0L
-            dispatch(doubleAction)
-        } else {
-            lastCenterTapAt = tapAt
+        if (doubleAction == ReaderGestureAction.NONE) {
+            cancelPendingCenterTap()
             dispatch(centerAction)
+            return
         }
+        if (ReaderGesturePolicy.isDoubleTap(lastCenterTapAt, tapAt)) {
+            cancelPendingCenterTap()
+            dispatch(doubleAction)
+            return
+        }
+        cancelPendingCenterTap()
+        lastCenterTapAt = tapAt
+        val task = Runnable {
+            if (lastCenterTapAt == tapAt) {
+                lastCenterTapAt = 0L
+                pendingCenterTap = null
+                dispatch(centerAction)
+            }
+        }
+        pendingCenterTap = task
+        postDelayed(task, DOUBLE_TAP_CONFIRM_MS)
+    }
+
+    private fun cancelPendingCenterTap() {
+        pendingCenterTap?.let(::removeCallbacks)
+        pendingCenterTap = null
+        lastCenterTapAt = 0L
     }
 
     private fun pointerDistance(event: MotionEvent): Float {
@@ -569,60 +627,160 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
 
     override fun onDetachedFromWindow() {
         removeCallbacks(applyPendingScroll)
+        removeCallbacks(longPress)
+        cancelPendingCenterTap()
+        scrollModel?.detachScrollSink(this)
+        scrollModel = null
+        if (!scroller.isFinished) scroller.abortAnimation()
+        flingRunning = false
+        activeFlingVelocityY = 0
+        pendingHandoffVelocityY = 0
+        velocityTracker?.recycle()
+        velocityTracker = null
         scrollScheduled = false
         super.onDetachedFromWindow()
     }
+
+    private companion object {
+        const val DOUBLE_TAP_CONFIRM_MS = 330L
+    }
+}
+
+internal fun readerContinuousTilePrefetchIndices(
+    scrollY: Int,
+    viewportHeight: Int,
+    tileHeight: Int,
+    tileCount: Int,
+): List<Int> {
+    if (tileCount <= 0 || tileHeight <= 0) return emptyList()
+    val first = (scrollY.coerceAtLeast(0) / tileHeight).coerceIn(0, tileCount - 1)
+    val last = ((scrollY.coerceAtLeast(0) + viewportHeight.coerceAtLeast(1) - 1) / tileHeight)
+        .coerceIn(first, tileCount - 1)
+    val start = (first - 1).coerceAtLeast(0)
+    val end = (last + 1).coerceAtMost(tileCount - 1)
+    return (start..end).toList()
 }
 
 internal class ReaderStaticLayoutBitmapTileSet(
-    layout: StaticLayout,
+    private val layout: StaticLayout,
     requestedTileHeightPx: Int,
-    backgroundColor: Int,
-) {
+    private val backgroundColor: Int,
+) : AutoCloseable {
     private data class Tile(val top: Int, val bitmap: android.graphics.Bitmap)
+    private val width = layout.width.coerceAtLeast(1)
+    private val totalHeight = layout.height.coerceAtLeast(1)
     private val tileHeightPx = requestedTileHeightPx.coerceIn(MIN_BITMAP_TILE_HEIGHT_PX, MAX_BITMAP_TILE_HEIGHT_PX)
-    private val tiles: List<Tile>
+    private val tileCount = ((totalHeight + tileHeightPx - 1) / tileHeightPx).coerceAtLeast(1)
+    private val tiles = object : java.util.LinkedHashMap<Int, Tile>(MAX_CACHED_TILES, 0.75f, true) {}
+    private val inFlight = mutableSetOf<Int>()
+    @Volatile private var closed = false
 
     init {
-        val width = layout.width.coerceAtLeast(1)
-        val totalHeight = layout.height.coerceAtLeast(1)
-        val built = ArrayList<Tile>((totalHeight + tileHeightPx - 1) / tileHeightPx)
-        var top = 0
-        while (top < totalHeight) {
-            val tileHeight = minOf(tileHeightPx, totalHeight - top).coerceAtLeast(1)
-            val bitmap = android.graphics.Bitmap.createBitmap(width, tileHeight, android.graphics.Bitmap.Config.ARGB_8888)
-            bitmap.eraseColor(backgroundColor)
-            val canvas = android.graphics.Canvas(bitmap)
-            canvas.save()
-            canvas.clipRect(0, 0, width, tileHeight)
-            canvas.translate(0f, -top.toFloat())
-            layout.draw(canvas)
-            canvas.restore()
-            bitmap.setHasAlpha(false)
-            // Pre-upload only the opening viewport pair. Preparing the complete bounded-window tile
-            // set can evict the textures required by the immediately following hosted scroll frames;
-            // later tiles upload lazily when the real viewport reaches them.
-            if (built.size < 2) bitmap.prepareToDraw()
-            built += Tile(top, bitmap)
-            top += tileHeight
-        }
-        tiles = built
+        // Construction already runs on the layout worker. Seed only the opening tile; all other
+        // tiles are created on demand and the LRU is bounded independently of source-window height.
+        publishTile(0, renderTile(0))
     }
 
+    fun requestVisible(scrollY: Int, viewportHeight: Int, onReady: () -> Unit) {
+        readerContinuousTilePrefetchIndices(scrollY, viewportHeight, tileHeightPx, tileCount)
+            .forEach { requestTile(it, onReady) }
+    }
+
+    @Synchronized
     fun draw(canvas: android.graphics.Canvas, scrollY: Int, viewportHeight: Int): Boolean {
-        if (tiles.isEmpty()) return false
-        val first = (scrollY / tileHeightPx).coerceIn(0, tiles.lastIndex)
-        val last = ((scrollY + viewportHeight.coerceAtLeast(1) - 1) / tileHeightPx).coerceIn(first, tiles.lastIndex)
-        for (index in first..last) {
-            val tile = tiles[index]
+        if (closed) return false
+        val visible = readerContinuousTilePrefetchIndices(
+            scrollY,
+            viewportHeight,
+            tileHeightPx,
+            tileCount,
+        ).filter { index ->
+            val top = index * tileHeightPx
+            top < scrollY + viewportHeight.coerceAtLeast(1) && top + tileHeightPx > scrollY
+        }
+        if (visible.isEmpty() || visible.any { !tiles.containsKey(it) }) return false
+        visible.forEach { index ->
+            val tile = tiles[index] ?: return false
             canvas.drawBitmap(tile.bitmap, 0f, (tile.top - scrollY).toFloat(), null)
         }
         return true
     }
 
+    private fun requestTile(index: Int, onReady: () -> Unit) {
+        synchronized(this) {
+            if (closed || index !in 0 until tileCount || tiles.containsKey(index) || !inFlight.add(index)) return
+        }
+        TILE_WORKER.execute {
+            val tile = runCatching { renderTile(index) }.getOrNull()
+            var published = false
+            synchronized(this) {
+                inFlight.remove(index)
+                if (!closed && tile != null) {
+                    publishTileLocked(index, tile)
+                    published = true
+                } else {
+                    tile?.bitmap?.recycle()
+                }
+            }
+            if (published) onReady()
+        }
+    }
+
+    private fun renderTile(index: Int): Tile {
+        val top = index * tileHeightPx
+        val tileHeight = minOf(tileHeightPx, totalHeight - top).coerceAtLeast(1)
+        val bitmap = android.graphics.Bitmap.createBitmap(width, tileHeight, android.graphics.Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(backgroundColor)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.save()
+        canvas.clipRect(0, 0, width, tileHeight)
+        canvas.translate(0f, -top.toFloat())
+        layout.draw(canvas)
+        canvas.restore()
+        bitmap.setHasAlpha(false)
+        bitmap.prepareToDraw()
+        return Tile(top, bitmap)
+    }
+
+    @Synchronized
+    private fun publishTile(index: Int, tile: Tile) {
+        if (closed) {
+            tile.bitmap.recycle()
+            return
+        }
+        publishTileLocked(index, tile)
+    }
+
+    private fun publishTileLocked(index: Int, tile: Tile) {
+        tiles.put(index, tile)?.bitmap?.recycle()
+        while (tiles.size > MAX_CACHED_TILES) {
+            val iterator = tiles.entries.iterator()
+            if (!iterator.hasNext()) break
+            val eldest = iterator.next()
+            iterator.remove()
+            eldest.value.bitmap.recycle()
+        }
+    }
+
+    @Synchronized
+    internal fun cachedTileCountForTest(): Int = tiles.size
+
+    @Synchronized
+    override fun close() {
+        if (closed) return
+        closed = true
+        tiles.values.forEach { it.bitmap.recycle() }
+        tiles.clear()
+        inFlight.clear()
+    }
+
     private companion object {
         const val MIN_BITMAP_TILE_HEIGHT_PX = 256
-        const val MAX_BITMAP_TILE_HEIGHT_PX = 4096
+        const val MAX_BITMAP_TILE_HEIGHT_PX = 1536
+        const val MAX_CACHED_TILES = 5
+        val TILE_WORKER = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "jingdu-continuous-raster").apply { isDaemon = true }
+        }
     }
 }
 
@@ -652,10 +810,8 @@ internal fun Text(
     onRequestSelection: (() -> Unit)? = null,
     onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
-    val context = LocalContext.current
-    val accessibility = remember(context) { context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager }
     var internalSelectionMode by remember(text.text) { mutableStateOf(false) }
-    val fallback = (selectionMode ?: internalSelectionMode) || accessibility.isTouchExplorationEnabled
+    val fallback = (selectionMode ?: internalSelectionMode) || rememberReaderTouchExplorationEnabled()
     val density = LocalDensity.current
     val resolver = LocalFontFamilyResolver.current
     val nativeTypeface by resolver.resolveAsTypeface(
