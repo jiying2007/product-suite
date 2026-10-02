@@ -51,8 +51,8 @@ internal class TtsPlaybackBridge(context: Context) {
             .putExtra(TtsPlaybackService.EXTRA_CHINESE_MODE, settings.chineseMode.name)
             .putExtra(TtsPlaybackService.EXTRA_CHINESE_OVERRIDES, settings.chineseOverrides)
         // MediaSessionService owns the foreground transition once playback is actually ongoing.
-        // Forcing startForegroundService() here creates a system crash window while a slow/broken
-        // vendor TTS engine is still initializing and the media session has not promoted itself.
+        // Forcing an explicit foreground-service start here creates a system crash window while a
+        // slow/broken vendor TTS engine is still initializing and the media session has not promoted itself.
         return dispatch(intent)
     }
 
