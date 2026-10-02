@@ -105,6 +105,6 @@ if (( STATUS != 0 )) || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTA
 fi
 
 cd "$ROOT"
-python3 scripts/check-android-reader-soak.py   "$LOG"   "$RESULT_ROOT/reader-logcat.txt"   --duration-minutes "$DURATION_MINUTES"   --summary-json "$RESULT_ROOT/reader-soak-slo.json"
+python3 scripts/check-android-reader-soak.py   "$LOG"   "$RESULT_ROOT/reader-logcat.txt"   --duration-minutes "$DURATION_MINUTES"   --mode "$SOAK_MODE"   --summary-json "$RESULT_ROOT/reader-soak-slo.json"
 
 echo "Physical Reader long-session soak PASS"
