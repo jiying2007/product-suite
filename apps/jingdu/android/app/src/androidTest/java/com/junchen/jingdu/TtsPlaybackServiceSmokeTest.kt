@@ -19,11 +19,12 @@ class TtsPlaybackServiceSmokeTest {
         val repository = BookRepository(context)
         val book = repository.list().first { it.id == card.id }
         val source = repository.normalizedFile(book)
+        val bridge = TtsPlaybackBridge(context)
         val observed = AtomicReference<TtsPlaybackBroadcastState?>()
         val stateArrived = CountDownLatch(1)
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                val state = TtsPlaybackBridge(this@TtsPlaybackServiceSmokeTest.context()).parseState(intent) ?: return
+                val state = bridge.parseState(intent) ?: return
                 observed.set(state)
                 stateArrived.countDown()
             }
@@ -35,7 +36,7 @@ class TtsPlaybackServiceSmokeTest {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         try {
-            val started = TtsPlaybackBridge(context).start(
+            val started = bridge.start(
                 source = source,
                 bookId = book.id,
                 title = "TTS smoke",
@@ -54,7 +55,4 @@ class TtsPlaybackServiceSmokeTest {
             runCatching { context.stopService(Intent(context, TtsPlaybackService::class.java)) }
         }
     }
-
-    private fun context(): Context =
-        InstrumentationRegistry.getInstrumentation().targetContext
 }
