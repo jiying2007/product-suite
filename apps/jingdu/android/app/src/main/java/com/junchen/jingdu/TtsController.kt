@@ -173,32 +173,37 @@ internal class TtsController(
             listener.onStopped("tts error: controller closed")
             return
         }
-        stop(null)
-        if (!ready) {
-            listener.onStopped("TTS engine not ready")
-            return
+        try {
+            stop(null)
+            if (!ready) {
+                listener.onStopped("TTS engine not ready")
+                return
+            }
+            chineseMode = mode
+            chineseOverrides = overrides
+            val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
+            val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
+            if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
+                listener.onStopped("tts error: no offline voice")
+                return
+            }
+            if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                listener.onStopped("audio focus denied")
+                return
+            }
+            this.reader = reader
+            this.listener = listener
+            offset = from.coerceAtLeast(0)
+            pendingNextOffset = offset
+            currentChunkOffset = offset
+            currentChunk = null
+            pausedForFocus = false
+            resumeOnFocusGain = false
+            speakNext(generation.incrementAndGet())
+        } catch (_: RuntimeException) {
+            runCatching { stop(null) }
+            listener.onStopped("tts error: engine unavailable")
         }
-        chineseMode = mode
-        chineseOverrides = overrides
-        val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
-        val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
-        if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
-            listener.onStopped("tts error: no offline voice")
-            return
-        }
-        if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            listener.onStopped("audio focus denied")
-            return
-        }
-        this.reader = reader
-        this.listener = listener
-        offset = from.coerceAtLeast(0)
-        pendingNextOffset = offset
-        currentChunkOffset = offset
-        currentChunk = null
-        pausedForFocus = false
-        resumeOnFocusGain = false
-        speakNext(generation.incrementAndGet())
     }
 
     fun stop(reason: String?) {
