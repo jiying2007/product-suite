@@ -87,7 +87,7 @@ class PhysicalLongSessionSoakTest {
                     initialPid,
                 )
                 lastPosition = position
-                nextSampleNs = System.nanoTime() + SAMPLE_INTERVAL_NS
+                nextSampleNs += SAMPLE_INTERVAL_NS
             }
         }
 
