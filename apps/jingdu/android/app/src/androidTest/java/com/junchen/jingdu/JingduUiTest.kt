@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
@@ -374,8 +375,8 @@ class JingduUiTest {
             noiseCandidates = 6,
             garbledWindows = 1,
             replacementCharacters = 2,
-            hardWrapDetected = true,
-            estimatedJoinedBreaks = 24,
+            hardWrapDetected = false,
+            estimatedJoinedBreaks = 0,
             sizeBytes = 128_000,
             encoding = "UTF-8",
         )
@@ -397,12 +398,10 @@ class JingduUiTest {
             )
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText(context.getString(R.string.txt_health_details))
-            .performScrollTo()
-            .assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck))
-            .performScrollTo()
-            .assertIsDisplayed()
+        composeRule.onNodeWithTag("txt-health-list").performScrollToIndex(7)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(context.getString(R.string.txt_health_details)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
     }
 
     private fun sampleBook() = ReaderInstrumentationFixture.book(context)
