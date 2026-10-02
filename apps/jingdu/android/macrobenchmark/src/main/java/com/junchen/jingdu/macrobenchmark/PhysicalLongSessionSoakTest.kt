@@ -43,11 +43,16 @@ class PhysicalLongSessionSoakTest {
 
         val initialPid = pid()
         check(initialPid > 0) { "Reader PID unavailable at soak start" }
-        val deadline = System.nanoTime() + minutes.toLong() * 60L * 1_000_000_000L
+        val soakStartNs = System.nanoTime()
+        val deadline = soakStartNs + minutes.toLong() * 60L * 1_000_000_000L
         var interactions = 0
+        var samples = 0
         var lastPosition = startingPosition
-        var nextSampleNs = System.nanoTime()
+        var nextSampleNs = soakStartNs
         var peakPssKb = 0L
+        var peakJavaHeapKb = 0L
+        var peakNativeHeapKb = 0L
+        var peakGraphicsKb = 0L
 
         while (System.nanoTime() < deadline) {
             check(pid() == initialPid) { "Reader process restarted during soak" }
@@ -65,10 +70,22 @@ class PhysicalLongSessionSoakTest {
 
             if (System.nanoTime() >= nextSampleNs) {
                 val position = readerPosition()
-                val pssKb = totalPssKb()
-                check(pssKb > 0L) { "Reader total PSS unavailable during soak" }
-                peakPssKb = maxOf(peakPssKb, pssKb)
-                reportSample(minutes, mode, interactions, position, pssKb, initialPid)
+                val memory = memorySnapshot()
+                peakPssKb = maxOf(peakPssKb, memory.totalPssKb)
+                peakJavaHeapKb = maxOf(peakJavaHeapKb, memory.javaHeapKb)
+                peakNativeHeapKb = maxOf(peakNativeHeapKb, memory.nativeHeapKb)
+                peakGraphicsKb = maxOf(peakGraphicsKb, memory.graphicsKb)
+                samples++
+                reportSample(
+                    minutes,
+                    mode,
+                    samples,
+                    (System.nanoTime() - soakStartNs) / 1_000_000_000L,
+                    interactions,
+                    position,
+                    memory,
+                    initialPid,
+                )
                 lastPosition = position
                 nextSampleNs = System.nanoTime() + SAMPLE_INTERVAL_NS
             }
@@ -82,7 +99,19 @@ class PhysicalLongSessionSoakTest {
         check(peakPssKb in 1..MAX_PSS_KB) {
             "Reader peak PSS exceeded soak ceiling: ${peakPssKb}KB > ${MAX_PSS_KB}KB"
         }
-        reportPass(minutes, mode, interactions, startingPosition, finalPosition, peakPssKb, initialPid)
+        reportPass(
+            minutes,
+            mode,
+            samples,
+            interactions,
+            startingPosition,
+            finalPosition,
+            peakPssKb,
+            peakJavaHeapKb,
+            peakNativeHeapKb,
+            peakGraphicsKb,
+            initialPid,
+        )
     }
 
     private fun seedFixture(mib: Int) {
@@ -119,32 +148,54 @@ class PhysicalLongSessionSoakTest {
     private fun pid(): Int =
         device.executeShellCommand("pidof $PACKAGE_NAME").trim().substringBefore(' ').toIntOrNull() ?: -1
 
-    private fun totalPssKb(): Long {
-        val meminfo = device.executeShellCommand("dumpsys meminfo $PACKAGE_NAME")
-        return Regex("""TOTAL PSS:\s+(\d+)""").find(meminfo)?.groupValues?.get(1)?.toLongOrNull()
-            ?: Regex("""^\s*TOTAL\s+(\d+)""", RegexOption.MULTILINE).find(meminfo)?.groupValues?.get(1)?.toLongOrNull()
-            ?: 0L
-    }
+    private fun memorySnapshot(): PhysicalMemorySnapshot =
+        PhysicalMemorySnapshot.parse(device.executeShellCommand("dumpsys meminfo $PACKAGE_NAME"))
 
-    private fun reportSample(minutes: Int, mode: String, interactions: Int, position: Long, pssKb: Long, pid: Int) {
+    private fun reportSample(
+        minutes: Int,
+        mode: String,
+        sample: Int,
+        elapsedSeconds: Long,
+        interactions: Int,
+        position: Long,
+        memory: PhysicalMemorySnapshot,
+        pid: Int,
+    ) {
         instrumentation.sendStatus(
             0,
             Bundle().apply {
                 putString(
                     SAMPLE_KEY,
-                    "durationMinutes=$minutes;mode=$mode;interactions=$interactions;position=$position;pssKb=$pssKb;pid=$pid",
+                    "durationMinutes=$minutes;mode=$mode;sample=$sample;elapsedSeconds=$elapsedSeconds;" +
+                        "interactions=$interactions;position=$position;pssKb=${memory.totalPssKb};" +
+                        "javaHeapKb=${memory.javaHeapKb};nativeHeapKb=${memory.nativeHeapKb};" +
+                        "graphicsKb=${memory.graphicsKb};pid=$pid",
                 )
             },
         )
     }
 
-    private fun reportPass(minutes: Int, mode: String, interactions: Int, start: Long, end: Long, peakPssKb: Long, pid: Int) {
+    private fun reportPass(
+        minutes: Int,
+        mode: String,
+        samples: Int,
+        interactions: Int,
+        start: Long,
+        end: Long,
+        peakPssKb: Long,
+        peakJavaHeapKb: Long,
+        peakNativeHeapKb: Long,
+        peakGraphicsKb: Long,
+        pid: Int,
+    ) {
         instrumentation.sendStatus(
             0,
             Bundle().apply {
                 putString(
                     PASS_KEY,
-                    "durationMinutes=$minutes;mode=$mode;interactions=$interactions;start=$start;end=$end;peakPssKb=$peakPssKb;pid=$pid",
+                    "durationMinutes=$minutes;mode=$mode;samples=$samples;interactions=$interactions;" +
+                        "start=$start;end=$end;peakPssKb=$peakPssKb;peakJavaHeapKb=$peakJavaHeapKb;" +
+                        "peakNativeHeapKb=$peakNativeHeapKb;peakGraphicsKb=$peakGraphicsKb;pid=$pid",
                 )
             },
         )
@@ -162,7 +213,7 @@ class PhysicalLongSessionSoakTest {
         const val LIBRARY_TIMEOUT_MS = 10_000L
         const val READY_TIMEOUT_NS = 15_000_000_000L
         const val PAGE_INTERVAL_MS = 2_000L
-        const val SAMPLE_INTERVAL_NS = 15_000_000_000L
+        const val SAMPLE_INTERVAL_NS = 10_000_000_000L
         const val MAX_PSS_KB = 512L * 1024L
     }
 }
