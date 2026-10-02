@@ -398,10 +398,13 @@ class JingduUiTest {
             )
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("txt-health-list").performScrollToIndex(7)
+        val healthList = composeRule.onNodeWithTag("txt-health-list")
+        healthList.performScrollToIndex(7)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
+        healthList.performScrollToIndex(8)
         composeRule.waitForIdle()
         composeRule.onNodeWithText(context.getString(R.string.txt_health_details)).assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck)).assertIsDisplayed()
     }
 
     private fun sampleBook() = ReaderInstrumentationFixture.book(context)
