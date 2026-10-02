@@ -384,4 +384,23 @@ class ReaderFoundationsTest {
         )
     }
 
+
+    @Test fun continuousTtsOverlayMapsAcrossCleanedProjection() {
+        val source = "hello XXX world"
+        val display = "hello world"
+        val map = SourceDisplayMap.between(source, display)
+        val overlay = readerContinuousTtsOverlay(
+            sourceStart = 100L,
+            displayText = display,
+            map = map,
+            tts = TtsPlaybackModel(
+                active = true,
+                rangeStart = 110L,
+                rangeEnd = 115L,
+            ),
+        ) ?: error("projected TTS overlay missing")
+        assertEquals(display.indexOf("world"), overlay.startUtf16)
+        assertEquals(display.length, overlay.endUtf16)
+    }
+
 }
