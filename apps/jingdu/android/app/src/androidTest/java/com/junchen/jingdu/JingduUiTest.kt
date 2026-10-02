@@ -362,6 +362,49 @@ class JingduUiTest {
         composeRule.onNodeWithText(context.getString(R.string.batch_import_picker_hint)).assertIsDisplayed()
     }
 
+    @Test fun txtHealthPanelScrollsToBottomActions() {
+        val report = TxtDoctorReport(
+            healthScore = 72,
+            encodingScore = 88,
+            tocScore = 70,
+            cleanScore = 64,
+            textScore = 92,
+            chapterCount = 18,
+            tocAnomalies = 3,
+            noiseCandidates = 6,
+            garbledWindows = 1,
+            replacementCharacters = 2,
+            hardWrapDetected = true,
+            estimatedJoinedBreaks = 24,
+            sizeBytes = 128_000,
+            encoding = "UTF-8",
+        )
+        composeRule.setContent {
+            JingduApp(
+                AppUiState(
+                    screen = AppScreen.READER,
+                    currentBook = sampleBook(),
+                    pageText = buildString {
+                        repeat(24) { append("A wrapped TXT health preview line that makes the inspection sheet taller than one screen.\n") }
+                    },
+                    position = 500,
+                    length = 10_000,
+                    panel = ReaderPanel.TXT_HEALTH,
+                    txtHealthReport = report,
+                    settings = ReaderSettings(gestureCoachDismissed = true),
+                ),
+                noOpActions(),
+            )
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(context.getString(R.string.txt_health_details))
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.txt_health_recheck))
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
     private fun sampleBook() = ReaderInstrumentationFixture.book(context)
 
     private fun noOpActions() = JingduActions(
