@@ -25,4 +25,10 @@ class TtsRuntimePolicyTest {
         assertEquals(null, ttsQueuedNextOffset(100L, 100L, 99L))
     }
 
+
+    @Test fun ttsEnginePackageNormalizationIsBoundedAndTrimmed() {
+        assertEquals("engine.pkg", normalizedTtsEnginePackage("  engine.pkg  "))
+        assertEquals(255, normalizedTtsEnginePackage("x".repeat(400)).length)
+    }
+
 }
