@@ -3,7 +3,9 @@ package com.junchen.jingdu
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.graphics.text.LineBreakConfig
 import android.graphics.text.LineBreaker
+import android.os.Build
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
@@ -154,13 +156,23 @@ internal fun buildFastStaticLayout(text: AnnotatedString, style: TextStyle, dens
     val letterSpacingEm = if (style.letterSpacing == TextUnit.Unspecified || style.fontSize.value <= 0f) 0f else style.letterSpacing.value / style.fontSize.value
     val paint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply { color = resolvedColor.toArgb(); textSize = fontSizePx; letterSpacing = letterSpacingEm; typeface = nativeTypeface }
     val rendered = fastSpannable(text, style, density, resolvedColor)
-    return StaticLayout.Builder.obtain(rendered, 0, rendered.length, paint, widthPx)
+    val builder = StaticLayout.Builder.obtain(rendered, 0, rendered.length, paint, widthPx)
         .setIncludePad(false)
         .setLineSpacing(0f, lineHeightMultiplier)
         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
         .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
-        .apply { if (style.textAlign == TextAlign.Justify) setJustificationMode(LineBreaker.JUSTIFICATION_MODE_INTER_WORD) }
-        .build()
+    if (Build.VERSION.SDK_INT >= 33 && ReaderCjkTypography.containsCjk(text.text)) {
+        builder.setLineBreakConfig(
+            LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NORMAL)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE)
+                .build(),
+        )
+    }
+    if (style.textAlign == TextAlign.Justify) {
+        builder.setJustificationMode(LineBreaker.JUSTIFICATION_MODE_INTER_WORD)
+    }
+    return builder.build()
 }
 
 private fun Modifier.armSelectionOnLongPress(key: String, onLongPress: () -> Unit): Modifier = pointerInput(key) {
