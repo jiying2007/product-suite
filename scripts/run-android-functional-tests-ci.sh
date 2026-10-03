@@ -232,8 +232,11 @@ start_emulator "normal functional"
 cd "$ANDROID_DIR"
 TEST_SOURCE="app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt"
 [[ -f "$TEST_SOURCE" ]] || { echo "functional test source missing: $TEST_SOURCE" >&2; exit 1; }
+EXPECTED_UI_TESTS="$(grep -Ec '^[[:space:]]*@Test[[:space:]]+fun[[:space:]]+' "$TEST_SOURCE")"
+[[ "$EXPECTED_UI_TESTS" =~ ^[1-9][0-9]*$ ]] || { echo "JingduUiTest source contains no discoverable @Test fun methods" >&2; exit 1; }
 echo "Functional checkout SHA: $(git rev-parse HEAD)"
 echo "JingduUiTest source SHA256: $(sha256sum "$TEST_SOURCE" | awk '{print $1}')"
+echo "JingduUiTest expected count: $EXPECTED_UI_TESTS"
 
 # The first lifecycle owns the complete source-bound app instrumentation suite. Macrobenchmark and
 # Baseline Profile instrumentation remain exclusively in android-performance.
@@ -289,10 +292,10 @@ fi
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_ABORTED|INSTRUMENTATION_FAILED|shortMsg=Process crashed|DeadSystemException' "$FONT_SCALE_LOG"; then
   fail_emulator "Android 200% font-scale JingduUiTest reported a failure or system abort"
 fi
-if ! grep -Eq '^OK \(16 tests\)$' "$FONT_SCALE_LOG"; then
-  fail_emulator "Android 200% font-scale JingduUiTest did not report OK (16 tests)"
+if ! grep -Eq "^OK \\(${EXPECTED_UI_TESTS} tests\\)$" "$FONT_SCALE_LOG"; then
+  fail_emulator "Android 200% font-scale JingduUiTest did not report OK (${EXPECTED_UI_TESTS} tests)"
 fi
 "$ADB" shell settings put system font_scale 1.0
 
-echo "Android 200% font-scale JingduUiTest PASS (16/16)"
+echo "Android 200% font-scale JingduUiTest PASS (${EXPECTED_UI_TESTS}/${EXPECTED_UI_TESTS})"
 echo "Android functional instrumentation suite PASS on independent 16 KiB runtimes"
