@@ -250,6 +250,15 @@ internal class ReaderTtsPlayer(
             }
 
             override fun onPosition(offset: Long) {
+                val selected = preferredEngineName
+                val resolved = controller.activeEngineName()
+                if (selected != null && resolved.isNotBlank() && resolved != selected) {
+                    // Android may silently resolve a removed/unavailable requested package to the
+                    // platform default. Keep the successful playback instance, but clear the stale
+                    // device-local preference so the next service start does not retry that package.
+                    preferredEngineName = null
+                    engineStore.save("")
+                }
                 val previous = this@ReaderTtsPlayer.offset
                 this@ReaderTtsPlayer.offset = offset.coerceAtLeast(0)
                 if (this@ReaderTtsPlayer.offset > previous) {
