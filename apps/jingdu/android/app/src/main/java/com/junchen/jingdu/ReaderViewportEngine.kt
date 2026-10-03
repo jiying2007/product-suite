@@ -485,8 +485,19 @@ internal object ReaderPageLayoutCache {
         }
         fun endFor(layout: StaticLayout?, textLength: Int): Int {
             if (layout == null || layout.lineCount <= 0) return 0
-            val bottoms = IntArray(layout.lineCount) { line -> layout.getLineBottom(line) }
-            val line = readerLastFullyVisibleLineIndex(bottoms, contentHeight)
+            // This is the page-turn worker hot path. Scan the already-bounded StaticLayout directly
+            // instead of allocating an IntArray of every line bottom for every measured page.
+            // Semantics stay identical to readerLastFullyVisibleLineIndex, including the oversized
+            // first-line fallback that guarantees forward progress at extreme accessibility sizes.
+            var lastFullyVisible = -1
+            for (lineIndex in 0 until layout.lineCount) {
+                if (layout.getLineBottom(lineIndex) <= contentHeight.coerceAtLeast(1)) {
+                    lastFullyVisible = lineIndex
+                } else {
+                    break
+                }
+            }
+            val line = (if (lastFullyVisible >= 0) lastFullyVisible else 0)
                 .coerceIn(0, layout.lineCount - 1)
             return layout.getLineEnd(line).coerceIn(0, textLength)
         }
