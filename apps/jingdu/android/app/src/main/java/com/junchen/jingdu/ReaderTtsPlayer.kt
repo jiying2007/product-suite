@@ -16,9 +16,14 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.io.File
 
 internal fun ttsRuntimeErrorRetryable(reason: String?): Boolean {
-    if (reason == "tts error" || reason == "tts error: speak failed") return true
+    if (reason == "tts error" || reason == "tts error: speak failed" || reason == "tts error: engine unavailable") return true
     if (reason?.startsWith("tts error: ") != true) return false
     return reason.removePrefix("tts error: ").toIntOrNull() in setOf(-3, -4, -5, -6, -7)
+}
+
+internal fun ttsEngineRecoveryRecommended(reason: String?, hasPreferredEngine: Boolean): Boolean {
+    if (hasPreferredEngine && (reason == "TTS engine not ready" || reason?.startsWith("tts error") == true)) return true
+    return reason == "TTS engine not ready" || ttsRuntimeErrorRetryable(reason)
 }
 
 internal fun ttsQueuedNextOffset(
@@ -50,7 +55,13 @@ internal class ReaderTtsPlayer(
     private val appContext = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val reader = ReaderController()
-    private val engine = TtsController(appContext, engineName = engineName)
+    private val engineStore = TtsEngineStore(appContext)
+    private var preferredEngineName = engineName?.trim()?.takeIf { it.isNotEmpty() }
+    private var engine: TtsController? = null
+    private var ttsRate = 1f
+    private var ttsPitch = 1f
+    private var ttsVoiceName = ""
+    private var engineRecoveries = 0
     private var active = false
     private var playing = false
     private var offset = 0L
@@ -88,7 +99,7 @@ internal class ReaderTtsPlayer(
         chineseOverrides: String,
     ) {
         assertApplicationThread()
-        engine.stop(null)
+        engine?.stop(null)
         reader.close()
         reader.open(file, fromOffset.coerceAtLeast(0))
         bookId = requestedBookId
@@ -98,15 +109,16 @@ internal class ReaderTtsPlayer(
         rangeStart = -1L
         rangeEnd = -1L
         lastReason = null
-        engine.setRate(rate)
-        engine.setPitch(pitch)
-        engine.setVoiceName(voiceName)
+        ttsRate = rate.coerceIn(0.5f, 2f)
+        ttsPitch = pitch.coerceIn(0.5f, 2f)
+        ttsVoiceName = voiceName
         this.chineseMode = chineseMode
         this.chineseOverrides = chineseOverrides
         active = true
         playing = true
         startRetries = 0
         runtimeRetries = 0
+        engineRecoveries = 0
         lastRangePublishAt = 0L
         publish()
         startSpeechWithRetry()
@@ -121,7 +133,7 @@ internal class ReaderTtsPlayer(
 
     fun stopTts(reason: String? = "user") {
         assertApplicationThread()
-        engine.stop(null)
+        engine?.stop(null)
         active = false
         playing = false
         rangeStart = -1L
@@ -174,7 +186,8 @@ internal class ReaderTtsPlayer(
 
     override fun handleRelease(): ListenableFuture<*> {
         main.removeCallbacksAndMessages(null)
-        engine.close()
+        engine?.close()
+        engine = null
         reader.close()
         active = false
         playing = false
@@ -192,7 +205,7 @@ internal class ReaderTtsPlayer(
 
     private fun pauseTts() {
         if (!active || !playing) return
-        engine.stop(null)
+        engine?.stop(null)
         playing = false
         lastReason = "paused"
         publish()
@@ -211,14 +224,25 @@ internal class ReaderTtsPlayer(
         rangeStart = -1L
         rangeEnd = -1L
         reader.jump(target)
-        engine.stop(null)
+        engine?.stop(null)
         publish()
         if (playing) startSpeechWithRetry()
     }
 
     private fun startSpeechWithRetry() {
         if (!active || !playing) return
-        engine.start(reader, offset, chineseMode, chineseOverrides, object : TtsController.Listener {
+        val controller = ensureEngine()
+        if (controller == null) {
+            if (recoverEngine("tts error: engine unavailable")) return
+            active = false
+            playing = false
+            rangeStart = -1L
+            rangeEnd = -1L
+            lastReason = "tts error: engine unavailable"
+            publish()
+            return
+        }
+        controller.start(reader, offset, chineseMode, chineseOverrides, object : TtsController.Listener {
             override fun onChunkQueued(sourceOffset: Long, nextOffset: Long) {
                 ttsQueuedNextOffset(this@ReaderTtsPlayer.offset, sourceOffset, nextOffset)?.let { accepted ->
                     this@ReaderTtsPlayer.nextOffset = accepted
@@ -226,9 +250,21 @@ internal class ReaderTtsPlayer(
             }
 
             override fun onPosition(offset: Long) {
+                val selected = preferredEngineName
+                val resolved = controller.activeEngineName()
+                if (selected != null && resolved.isNotBlank() && resolved != selected) {
+                    // Android may silently resolve a removed/unavailable requested package to the
+                    // platform default. Keep the successful playback instance, but clear the stale
+                    // device-local preference so the next service start does not retry that package.
+                    preferredEngineName = null
+                    engineStore.save("")
+                }
                 val previous = this@ReaderTtsPlayer.offset
                 this@ReaderTtsPlayer.offset = offset.coerceAtLeast(0)
-                if (this@ReaderTtsPlayer.offset > previous) runtimeRetries = 0
+                if (this@ReaderTtsPlayer.offset > previous) {
+                    runtimeRetries = 0
+                    engineRecoveries = 0
+                }
                 startRetries = 0
                 publish()
             }
@@ -256,18 +292,21 @@ internal class ReaderTtsPlayer(
             }
 
             override fun onStopped(reason: String?) {
-                if (reason == "TTS engine not ready" && startRetries < MAX_START_RETRIES && active && playing) {
+                if (reason == "TTS engine not ready" &&
+                    startRetries < MAX_START_RETRIES_BEFORE_RECOVERY && active && playing
+                ) {
                     startRetries++
                     main.postDelayed(::startSpeechWithRetry, START_RETRY_MS)
                     return
                 }
                 if (ttsRuntimeErrorRetryable(reason) &&
-                    runtimeRetries < MAX_RUNTIME_RETRIES && active && playing
+                    runtimeRetries < MAX_RUNTIME_RETRIES_BEFORE_RECOVERY && active && playing
                 ) {
                     runtimeRetries++
                     main.postDelayed(::startSpeechWithRetry, RUNTIME_RETRY_MS * runtimeRetries)
                     return
                 }
+                if (recoverEngine(reason)) return
                 active = false
                 playing = false
                 rangeStart = -1L
@@ -276,6 +315,59 @@ internal class ReaderTtsPlayer(
                 publish()
             }
         })
+    }
+
+    private fun ensureEngine(): TtsController? {
+        engine?.let { return it }
+        val preferred = preferredEngineName
+        createConfiguredEngine(preferred)?.let { created ->
+            engine = created
+            return created
+        }
+        if (preferred != null) {
+            // Construction can fail before OnInit is delivered (removed/broken vendor package).
+            // Clear only the device-local engine choice and immediately retry the platform default.
+            preferredEngineName = null
+            engineStore.save("")
+            createConfiguredEngine(null)?.let { fallback ->
+                engine = fallback
+                return fallback
+            }
+        }
+        return null
+    }
+
+    private fun createConfiguredEngine(engineName: String?): TtsController? =
+        runCatching {
+            TtsController(appContext, engineName = engineName).also(::applyEngineSettings)
+        }.getOrNull()
+
+    private fun applyEngineSettings(controller: TtsController) {
+        controller.setRate(ttsRate)
+        controller.setPitch(ttsPitch)
+        controller.setVoiceName(ttsVoiceName)
+    }
+
+    private fun recoverEngine(reason: String?): Boolean {
+        if (!active || !playing ||
+            !ttsEngineRecoveryRecommended(reason, preferredEngineName != null) ||
+            engineRecoveries >= MAX_ENGINE_RECOVERIES
+        ) return false
+
+        engineRecoveries++
+        engine?.close()
+        engine = null
+        if (preferredEngineName != null) {
+            // A selected vendor engine that initializes but later errors is treated the same as a
+            // construction failure: fall back once to Android's current system default.
+            preferredEngineName = null
+            engineStore.save("")
+        }
+        startRetries = 0
+        runtimeRetries = 0
+        lastReason = null
+        main.postDelayed(::startSpeechWithRetry, ENGINE_RECOVERY_RETRY_MS * engineRecoveries)
+        return true
     }
 
     private fun publish() {
@@ -288,10 +380,12 @@ internal class ReaderTtsPlayer(
     }
 
     private companion object {
-        const val MAX_START_RETRIES = 12
-        const val MAX_RUNTIME_RETRIES = 3
+        const val MAX_START_RETRIES_BEFORE_RECOVERY = 8
+        const val MAX_RUNTIME_RETRIES_BEFORE_RECOVERY = 1
+        const val MAX_ENGINE_RECOVERIES = 2
         const val START_RETRY_MS = 250L
         const val RUNTIME_RETRY_MS = 450L
+        const val ENGINE_RECOVERY_RETRY_MS = 500L
         const val RANGE_PUBLISH_INTERVAL_MS = 400L
     }
 }

@@ -398,7 +398,7 @@ internal fun ReaderImmersiveProgressRail(
     Canvas(
         Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(READER_PROGRESS_RAIL_HEIGHT_DP.dp)
             .then(scrubber)
             .semantics {
                 this.contentDescription = contentDescription

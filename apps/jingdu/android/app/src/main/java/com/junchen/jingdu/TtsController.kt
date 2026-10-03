@@ -79,6 +79,8 @@ internal class TtsController(
     private var pausedForFocus = false
     private var resumeOnFocusGain = false
     private var desiredVoiceName = ""
+    private var desiredRate = 1f
+    private var desiredPitch = 1f
     private var preferredLocale: Locale = Locale.getDefault()
     private var reader: ReaderController? = null
     private var listener: Listener? = null
@@ -95,7 +97,15 @@ internal class TtsController(
             ready = status == TextToSpeech.SUCCESS
             main.post {
                 if (closed) return@post
-                if (ready) runCatching { applyDesiredVoice() }
+                if (ready) {
+                    // Some engines ignore setters issued before OnInit(SUCCESS). Re-apply every
+                    // persisted playback preference only after the engine is actually ready.
+                    runCatching { tts.setAudioAttributes(attributes) }
+                    runCatching { tts.setSpeechRate(desiredRate) }
+                    runCatching { tts.setPitch(desiredPitch) }
+                    runCatching { tts.language = preferredLocale }
+                    runCatching { applyDesiredVoice() }
+                }
                 val callbacks = synchronized(readyCallbacks) {
                     readyCallbacks.toList().also { readyCallbacks.clear() }
                 }
@@ -230,12 +240,19 @@ internal class TtsController(
         }
     }
 
-    fun setRate(rate: Float) { runCatching { tts.setSpeechRate(rate.coerceIn(0.5f, 2f)) } }
-    fun setPitch(pitch: Float) { runCatching { tts.setPitch(pitch.coerceIn(0.5f, 2f)) } }
+    fun setRate(rate: Float) {
+        desiredRate = rate.coerceIn(0.5f, 2f)
+        if (ready) runCatching { tts.setSpeechRate(desiredRate) }
+    }
+
+    fun setPitch(pitch: Float) {
+        desiredPitch = pitch.coerceIn(0.5f, 2f)
+        if (ready) runCatching { tts.setPitch(desiredPitch) }
+    }
 
     fun setLanguage(locale: Locale?) {
         preferredLocale = locale ?: Locale.getDefault()
-        runCatching { tts.language = preferredLocale }
+        if (ready) runCatching { tts.language = preferredLocale }
     }
 
     fun setVoiceName(voiceName: String?) {
@@ -255,15 +272,18 @@ internal class TtsController(
         }
     }
 
+    fun activeEngineName(): String =
+        runCatching { tts.defaultEngine.orEmpty() }.getOrDefault("")
+
     fun installedEngines(): List<EngineOption> =
-        tts.engines.orEmpty()
+        runCatching { tts.engines.orEmpty() }.getOrDefault(emptyList())
             .map { EngineOption(it.name, it.label?.toString().orEmpty().ifBlank { it.name }) }
             .distinctBy(EngineOption::name)
             .sortedBy { it.label.lowercase(Locale.ROOT) }
 
     fun offlineVoices(): List<VoiceOption> {
-        val voices = tts.voices ?: return emptyList()
         if (!ready) return emptyList()
+        val voices = runCatching { tts.voices?.toList().orEmpty() }.getOrDefault(emptyList())
         val preferredLanguage = preferredLocale.language
         return voices.asSequence()
             .filter { !it.isNetworkConnectionRequired }
@@ -280,19 +300,38 @@ internal class TtsController(
 
     private fun applyDesiredVoice(mode: ChineseDisplayMode? = null): Boolean {
         if (!ready || desiredVoiceName.isEmpty()) return false
-        val voice = tts.voices?.firstOrNull { !it.isNetworkConnectionRequired && it.name == desiredVoiceName } ?: return false
+        val voice = runCatching {
+            tts.voices?.firstOrNull { !it.isNetworkConnectionRequired && it.name == desiredVoiceName }
+        }.getOrNull() ?: return false
         val voiceLocale = voice.locale ?: if (mode == null || mode == ChineseDisplayMode.ORIGINAL) Locale.getDefault() else return false
         if (mode != null && !TtsLocalePolicy.acceptsSavedVoice(mode, voiceLocale)) return false
         preferredLocale = voiceLocale
-        tts.voice = voice
-        return true
+        return runCatching {
+            tts.voice = voice
+            true
+        }.getOrDefault(false)
     }
 
     private fun applyOfflineVoice(mode: ChineseDisplayMode, documentLocale: Locale): Boolean {
         if (!ready) return false
-        val offline = tts.voices.orEmpty().filter { !it.isNetworkConnectionRequired }
-        if (offline.isEmpty()) return false
         val candidates = TtsLocalePolicy.candidates(mode, documentLocale, Locale.getDefault())
+        // A few vendor engines expose a valid current offline voice before populating voices().
+        // Accept that local voice first instead of falsely reporting "no offline voice".
+        val current = runCatching { tts.voice }.getOrNull()
+        val currentLocale = current?.locale
+        val currentMatchesDocument = currentLocale != null && candidates.any { candidate ->
+            currentLocale.toLanguageTag().equals(candidate.toLanguageTag(), ignoreCase = true) ||
+                currentLocale.language.equals(candidate.language, ignoreCase = true)
+        }
+        if (current != null && !current.isNetworkConnectionRequired && currentLocale != null &&
+            currentMatchesDocument
+        ) {
+            preferredLocale = currentLocale
+            return true
+        }
+        val offline = runCatching { tts.voices?.toList().orEmpty() }.getOrDefault(emptyList())
+            .filter { !it.isNetworkConnectionRequired }
+        if (offline.isEmpty()) return false
         val exact = candidates.firstNotNullOfOrNull { candidate ->
             offline.firstOrNull { voice ->
                 val locale = voice.locale ?: return@firstOrNull false
@@ -306,8 +345,10 @@ internal class TtsController(
         }
         val voice = exact ?: languageFallback ?: return false
         preferredLocale = voice.locale ?: documentLocale
-        tts.voice = voice
-        return true
+        return runCatching {
+            tts.voice = voice
+            true
+        }.getOrDefault(false)
     }
 
     private fun pauseForFocus() {
@@ -315,7 +356,7 @@ internal class TtsController(
         resumeOnFocusGain = true
         pausedForFocus = true
         generation.incrementAndGet()
-        tts.stop()
+        runCatching { tts.stop() }
         listener?.onPaused()
     }
 

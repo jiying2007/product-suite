@@ -322,7 +322,7 @@ class ReaderFoundationsTest {
             reservePagedChrome = true,
         )
         assertEquals(102f, paged.top, 0.001f)
-        assertEquals(198f, paged.bottom, 0.001f)
+        assertEquals(182f, paged.bottom, 0.001f)
     }
 
     @Test fun continuousBoundaryPolicyRequestsHandoffBeforeUserMustLiftFinger() {
@@ -412,6 +412,25 @@ class ReaderFoundationsTest {
         ) ?: error("projected TTS overlay missing")
         assertEquals(display.indexOf("world"), overlay.startUtf16)
         assertEquals(display.length, overlay.endUtf16)
+    }
+
+    @Test fun pagedBoundaryConsumesOnlyFullyVisibleLines() {
+        assertEquals(1, readerLastFullyVisibleLineIndex(intArrayOf(38, 78, 118), 100))
+        assertEquals(2, readerLastFullyVisibleLineIndex(intArrayOf(38, 78, 100), 100))
+        assertEquals(0, readerLastFullyVisibleLineIndex(intArrayOf(120, 240), 100))
+        assertEquals(-1, readerLastFullyVisibleLineIndex(intArrayOf(), 100))
+    }
+
+    @Test fun pagedProjectionKeepsNextSourceStartExactlyAtVisiblePrefixEnd() {
+        val source = "第一行正文。\n\n\n第二段正文继续。"
+        val settings = ReaderSettings(paragraphSpacingEm = 0.45f, compressBlankLines = true)
+        val presented = ReaderPresentationPipeline.present(source, settings, prewarmSelection = false)
+        val secondParagraph = presented.displayText.indexOf("第二段")
+        assertTrue(secondParagraph > 0)
+        val visibleDisplayPoints = presented.displayText.codePointCount(0, secondParagraph).toLong()
+        val sourceEnd = presented.map.sourceForDisplay(visibleDisplayPoints)
+        val sourceUtf16 = source.offsetByCodePoints(0, sourceEnd.toInt())
+        assertEquals("第二段正文继续。", source.substring(sourceUtf16))
     }
 
 }

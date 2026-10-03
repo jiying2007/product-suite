@@ -215,6 +215,23 @@ private class ReaderPageBitmapSpan(
     }
 }
 
+/**
+ * Page navigation may consume only lines whose full glyph box fits in the measured content height.
+ * StaticLayout#getLineForVertical returns a line that merely intersects the probe Y coordinate; using
+ * its end directly can skip the clipped tail of that line on the next page.
+ */
+internal fun readerLastFullyVisibleLineIndex(lineBottoms: IntArray, contentHeightPx: Int): Int {
+    if (lineBottoms.isEmpty()) return -1
+    val limit = contentHeightPx.coerceAtLeast(1)
+    var last = -1
+    for (index in lineBottoms.indices) {
+        if (lineBottoms[index] <= limit) last = index else break
+    }
+    // Extremely large accessibility text can make even the first line taller than the viewport.
+    // Consume that first line so paging remains reachable rather than publishing a zero-length page.
+    return if (last >= 0) last else 0
+}
+
 /** Small LRU used to keep exact page measurement out of repeated Compose layout churn. */
 internal object ReaderPageLayoutCache {
     private val cache = object : LinkedHashMap<PageLayoutKey, PageLayoutSnapshot>(20, 0.75f, true) {
@@ -363,6 +380,8 @@ internal object ReaderPageLayoutCache {
         return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
+            // One replacement glyph only: keep this wrapper fixed-cost. The source layout already
+            // owns the real phrase-aware line geometry and is rasterized above.
             .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
             .build()
     }
@@ -373,6 +392,7 @@ internal object ReaderPageLayoutCache {
         widthPx: Int,
         heightPx: Int,
         columns: Int,
+        maxPageWidthPx: Int,
         settings: ReaderSettings,
         density: Density,
         typeface: Typeface? = null,
@@ -383,10 +403,12 @@ internal object ReaderPageLayoutCache {
         // page's benchmark readiness generation.
         val pagedPosition = ReaderInteractionRuntime.foregroundPosition
         val safeColumns = columns.coerceIn(1, 2)
-        val maxContentWidth = with(density) { (if (safeColumns == 2) 1200.dp else 760.dp).toPx() }.roundToInt()
         val horizontalPadding = with(density) { settings.horizontalPaddingDp.dp.toPx() }.roundToInt() * 2
         val verticalPadding = with(density) { settings.verticalPaddingDp.dp.toPx() }.roundToInt() * 2
-        val boundedWidth = minOf(widthPx, maxContentWidth).coerceAtLeast(1)
+        // The caller passes the exact adaptive width used by the Compose page container. Keeping
+        // measurement and rendering on one width prevents different line wraps from advancing the
+        // source boundary past text that the user never saw.
+        val boundedWidth = minOf(widthPx, maxPageWidthPx.coerceAtLeast(1)).coerceAtLeast(1)
         val gap = if (safeColumns == 2) with(density) { 28.dp.toPx() }.roundToInt() else 0
         val columnWidth = ((boundedWidth - horizontalPadding - gap) / safeColumns).coerceAtLeast(1)
         val contentHeight = (heightPx - verticalPadding).coerceAtLeast(1)
@@ -463,8 +485,10 @@ internal object ReaderPageLayoutCache {
         }
         fun endFor(layout: StaticLayout?, textLength: Int): Int {
             if (layout == null || layout.lineCount <= 0) return 0
-            val line = layout.getLineForVertical((contentHeight - 1).coerceAtLeast(0))
-            return layout.getLineEnd(line.coerceIn(0, layout.lineCount - 1)).coerceIn(0, textLength)
+            val bottoms = IntArray(layout.lineCount) { line -> layout.getLineBottom(line) }
+            val line = readerLastFullyVisibleLineIndex(bottoms, contentHeight)
+                .coerceIn(0, layout.lineCount - 1)
+            return layout.getLineEnd(line).coerceIn(0, textLength)
         }
 
         val firstLayout = buildLayout(layoutText)
