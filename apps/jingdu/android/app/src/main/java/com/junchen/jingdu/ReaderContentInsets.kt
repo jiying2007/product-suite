@@ -36,4 +36,8 @@ internal fun readerContentInsetsDp(
 
 internal const val READER_READING_STATUS_BASE_RESERVE_DP = 34f
 internal const val READER_PAGED_TOP_CHROME_RESERVE_DP = 62f
-internal const val READER_PAGED_BOTTOM_CHROME_RESERVE_DP = 132f
+internal const val READER_PROGRESS_RAIL_HEIGHT_DP = 32f
+// Normal paged chrome: 16dp outer vertical padding + 16dp surface padding + 48dp action row
+// + 3dp spacing + 32dp progress rail, rounded up by 1dp. Transient skim/history rows may overlay,
+// but the stable page geometry no longer sacrifices an extra full text line for inactive controls.
+internal const val READER_PAGED_BOTTOM_CHROME_RESERVE_DP = 116f
