@@ -419,6 +419,12 @@ class ReaderFoundationsTest {
         assertEquals(2, readerLastFullyVisibleLineIndex(intArrayOf(38, 78, 100), 100))
         assertEquals(0, readerLastFullyVisibleLineIndex(intArrayOf(120, 240), 100))
         assertEquals(-1, readerLastFullyVisibleLineIndex(intArrayOf(), 100))
+
+        val directBottoms = intArrayOf(38, 78, 118)
+        assertEquals(
+            1,
+            readerLastFullyVisibleLineIndex(directBottoms.size, 100) { index -> directBottoms[index] },
+        )
     }
 
     @Test fun pagedProjectionKeepsNextSourceStartExactlyAtVisiblePrefixEnd() {
