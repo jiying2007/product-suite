@@ -333,7 +333,10 @@ internal fun ReaderScreen(
     val displayCutout = WindowInsets.displayCutout
     val readerInsets = readerContentInsetsDp(
         cutoutLeftDp = displayCutout.getLeft(readerDensity, readerLayoutDirection) / readerDensity.density,
-        cutoutTopDp = displayCutout.getTop(readerDensity) / readerDensity.density,
+        cutoutTopDp = maxOf(
+            displayCutout.getTop(readerDensity),
+            WindowInsets.statusBars.getTop(readerDensity),
+        ) / readerDensity.density,
         cutoutRightDp = displayCutout.getRight(readerDensity, readerLayoutDirection) / readerDensity.density,
         bottomGestureDp = maxOf(
             WindowInsets.navigationBars.getBottom(readerDensity),
@@ -341,6 +344,7 @@ internal fun ReaderScreen(
         ) / readerDensity.density,
         showReadingStatus = settings.showReadingStatus,
         fontScale = readerDensity.fontScale,
+        reservePagedChrome = settings.readingMode == ReaderMode.PAGED || state.cleanMode,
     )
     Box(Modifier.fillMaxSize().background(background)) {
         Box(

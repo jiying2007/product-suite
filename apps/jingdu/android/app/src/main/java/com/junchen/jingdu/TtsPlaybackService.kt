@@ -35,7 +35,17 @@ class TtsPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         repository = BookRepository(this)
-        player = ReaderTtsPlayer(this, ::onPlayerState, TtsEngineStore(this).load().ifBlank { null })
+        val engineStore = TtsEngineStore(this)
+        val preferredEngine = engineStore.load().ifBlank { null }
+        player = try {
+            ReaderTtsPlayer(this, ::onPlayerState, preferredEngine)
+        } catch (error: RuntimeException) {
+            if (preferredEngine == null) throw error
+            // A saved vendor engine can disappear or fail construction after an OS/app update.
+            // Clear only that device-local preference and retry with the platform default engine.
+            engineStore.save("")
+            ReaderTtsPlayer(this, ::onPlayerState, null)
+        }
         val sessionActivity = PendingIntent.getActivity(
             this,
             0,

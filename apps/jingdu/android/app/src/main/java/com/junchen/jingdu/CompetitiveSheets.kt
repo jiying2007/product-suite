@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +39,7 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
     var loading by remember(book?.id) { mutableStateOf(false) }
     var error by remember(book?.id) { mutableStateOf<String?>(null) }
     var scanRequest by remember(book?.id) { mutableIntStateOf(0) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun request() {
         scanRequest++
@@ -67,9 +69,13 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = actions.onClosePanel, sheetGesturesEnabled = false) {
+    ModalBottomSheet(
+        onDismissRequest = actions.onClosePanel,
+        sheetState = sheetState,
+        sheetGesturesEnabled = false,
+    ) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).navigationBarsPadding().testTag("txt-doctor-list"),
             contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -99,10 +105,18 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
                     }
                 }
                 item {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.ENCODING) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.text_encoding)) }
-                        OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.CHAPTERS) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.chapters)) }
-                        Button(onClick = { actions.onOpenPanel(ReaderPanel.SMART_CLEAN_LAB) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.smart_clean4)) }
+                    OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.ENCODING) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.text_encoding))
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { actions.onOpenPanel(ReaderPanel.CHAPTERS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.chapters))
+                    }
+                }
+                item {
+                    Button(onClick = { actions.onOpenPanel(ReaderPanel.SMART_CLEAN_LAB) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.smart_clean4))
                     }
                 }
             }

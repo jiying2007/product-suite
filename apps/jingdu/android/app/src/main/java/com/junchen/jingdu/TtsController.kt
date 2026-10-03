@@ -93,9 +93,9 @@ internal class TtsController(
         val initListener = TextToSpeech.OnInitListener { status ->
             if (closed) return@OnInitListener
             ready = status == TextToSpeech.SUCCESS
-            if (ready) applyDesiredVoice()
             main.post {
                 if (closed) return@post
+                if (ready) runCatching { applyDesiredVoice() }
                 val callbacks = synchronized(readyCallbacks) {
                     readyCallbacks.toList().also { readyCallbacks.clear() }
                 }
@@ -109,7 +109,7 @@ internal class TtsController(
         } else {
             TextToSpeech(context.applicationContext, initListener, requestedEngine)
         }
-        tts.setAudioAttributes(attributes)
+        runCatching { tts.setAudioAttributes(attributes) }
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
 
@@ -173,32 +173,37 @@ internal class TtsController(
             listener.onStopped("tts error: controller closed")
             return
         }
-        stop(null)
-        if (!ready) {
-            listener.onStopped("TTS engine not ready")
-            return
+        try {
+            stop(null)
+            if (!ready) {
+                listener.onStopped("TTS engine not ready")
+                return
+            }
+            chineseMode = mode
+            chineseOverrides = overrides
+            val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
+            val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
+            if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
+                listener.onStopped("tts error: no offline voice")
+                return
+            }
+            if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                listener.onStopped("audio focus denied")
+                return
+            }
+            this.reader = reader
+            this.listener = listener
+            offset = from.coerceAtLeast(0)
+            pendingNextOffset = offset
+            currentChunkOffset = offset
+            currentChunk = null
+            pausedForFocus = false
+            resumeOnFocusGain = false
+            speakNext(generation.incrementAndGet())
+        } catch (_: RuntimeException) {
+            runCatching { stop(null) }
+            listener.onStopped("tts error: engine unavailable")
         }
-        chineseMode = mode
-        chineseOverrides = overrides
-        val documentLocale = runCatching { detectDocumentLocale(reader.page()) }.getOrDefault(Locale.getDefault())
-        val voiceApplied = desiredVoiceName.isNotEmpty() && applyDesiredVoice(mode)
-        if (!voiceApplied && !applyOfflineVoice(mode, documentLocale)) {
-            listener.onStopped("tts error: no offline voice")
-            return
-        }
-        if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            listener.onStopped("audio focus denied")
-            return
-        }
-        this.reader = reader
-        this.listener = listener
-        offset = from.coerceAtLeast(0)
-        pendingNextOffset = offset
-        currentChunkOffset = offset
-        currentChunk = null
-        pausedForFocus = false
-        resumeOnFocusGain = false
-        speakNext(generation.incrementAndGet())
     }
 
     fun stop(reason: String?) {
@@ -207,8 +212,8 @@ internal class TtsController(
         pausedForFocus = false
         pendingNextOffset = offset
         currentChunk = null
-        tts.stop()
-        audio.abandonAudioFocusRequest(focus)
+        runCatching { tts.stop() }
+        runCatching { audio.abandonAudioFocusRequest(focus) }
         val old = listener
         listener = null
         reader = null
@@ -225,17 +230,17 @@ internal class TtsController(
         }
     }
 
-    fun setRate(rate: Float) { tts.setSpeechRate(rate.coerceIn(0.5f, 2f)) }
-    fun setPitch(pitch: Float) { tts.setPitch(pitch.coerceIn(0.5f, 2f)) }
+    fun setRate(rate: Float) { runCatching { tts.setSpeechRate(rate.coerceIn(0.5f, 2f)) } }
+    fun setPitch(pitch: Float) { runCatching { tts.setPitch(pitch.coerceIn(0.5f, 2f)) } }
 
     fun setLanguage(locale: Locale?) {
         preferredLocale = locale ?: Locale.getDefault()
-        tts.language = preferredLocale
+        runCatching { tts.language = preferredLocale }
     }
 
     fun setVoiceName(voiceName: String?) {
         desiredVoiceName = voiceName.orEmpty()
-        if (ready) applyDesiredVoice()
+        if (ready) runCatching { applyDesiredVoice() }
     }
 
     fun previewVoice(voiceName: String, text: String): Boolean {
@@ -386,7 +391,11 @@ internal class TtsController(
             object : Runnable {
                 override fun run() {
                     if (closed || token != generation.get() || pausedForFocus || reader == null) return
-                    if (!tts.isSpeaking) {
+                    val speaking = runCatching { tts.isSpeaking }.getOrElse {
+                        stop("tts error: engine unavailable")
+                        return
+                    }
+                    if (!speaking) {
                         completeUtterance(token)
                     } else {
                         main.postDelayed(this, TTS_COMPLETION_WATCHDOG_POLL_MS)

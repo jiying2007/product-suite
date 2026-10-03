@@ -290,7 +290,7 @@ class ReaderFoundationsTest {
         assertEquals(420f, offsets.last(), 0.001f)
     }
 
-    @Test fun readerSafeContentInsetsReserveCutoutGestureAndStatusSpace() {
+    @Test fun readerSafeContentInsetsReserveCutoutGestureStatusAndPagedChromeSpace() {
         val insets = readerContentInsetsDp(
             cutoutLeftDp = 0f,
             cutoutTopDp = 32f,
@@ -312,6 +312,17 @@ class ReaderFoundationsTest {
             fontScale = 2f,
         )
         assertEquals(100f, largeText.bottom, 0.001f)
+
+        val paged = readerContentInsetsDp(
+            cutoutLeftDp = 0f,
+            cutoutTopDp = 32f,
+            cutoutRightDp = 0f,
+            bottomGestureDp = 24f,
+            showReadingStatus = true,
+            reservePagedChrome = true,
+        )
+        assertEquals(102f, paged.top, 0.001f)
+        assertEquals(198f, paged.bottom, 0.001f)
     }
 
     @Test fun continuousBoundaryPolicyRequestsHandoffBeforeUserMustLiftFinger() {

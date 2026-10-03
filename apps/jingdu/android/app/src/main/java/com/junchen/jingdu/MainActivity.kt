@@ -1156,13 +1156,18 @@ class MainActivity : ComponentActivity() {
         val book = currentBook ?: return
         if (cleanMode) return
         beginMotion(ReaderMotionState.TTS)
-        ttsPlaybackBridge.start(
+        val started = ttsPlaybackBridge.start(
             source = repository.normalizedFile(book),
             bookId = book.id,
             title = stripTxt(book.name),
             offset = reader.position(),
             settings = uiState.settings,
         )
+        if (!started) {
+            motionController.stop(ReaderMotionState.TTS)
+            uiState = uiState.copy(motion = motionController.state)
+            showMessage(getString(R.string.tts_engine_error))
+        }
     }
 
     private fun toggleTts() {
