@@ -390,6 +390,7 @@ internal object ReaderPageLayoutCache {
         widthPx: Int,
         heightPx: Int,
         columns: Int,
+        maxPageWidthPx: Int,
         settings: ReaderSettings,
         density: Density,
         typeface: Typeface? = null,
@@ -400,10 +401,12 @@ internal object ReaderPageLayoutCache {
         // page's benchmark readiness generation.
         val pagedPosition = ReaderInteractionRuntime.foregroundPosition
         val safeColumns = columns.coerceIn(1, 2)
-        val maxContentWidth = with(density) { (if (safeColumns == 2) 1200.dp else 760.dp).toPx() }.roundToInt()
         val horizontalPadding = with(density) { settings.horizontalPaddingDp.dp.toPx() }.roundToInt() * 2
         val verticalPadding = with(density) { settings.verticalPaddingDp.dp.toPx() }.roundToInt() * 2
-        val boundedWidth = minOf(widthPx, maxContentWidth).coerceAtLeast(1)
+        // The caller passes the exact adaptive width used by the Compose page container. Keeping
+        // measurement and rendering on one width prevents different line wraps from advancing the
+        // source boundary past text that the user never saw.
+        val boundedWidth = minOf(widthPx, maxPageWidthPx.coerceAtLeast(1)).coerceAtLeast(1)
         val gap = if (safeColumns == 2) with(density) { 28.dp.toPx() }.roundToInt() else 0
         val columnWidth = ((boundedWidth - horizontalPadding - gap) / safeColumns).coerceAtLeast(1)
         val contentHeight = (heightPx - verticalPadding).coerceAtLeast(1)
