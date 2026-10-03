@@ -45,7 +45,13 @@ grep -Fq 'exited before boot completed' "$FUNCTIONAL"
 grep -Fq 'Functional checkout SHA:' "$FUNCTIONAL"
 grep -Fq 'JingduUiTest source SHA256:' "$FUNCTIONAL"
 grep -Fq -- '--no-build-cache clean :app:connectedDebugAndroidTest' "$FUNCTIONAL"
-grep -Fq 'OK \(16 tests\)' "$FUNCTIONAL"
+grep -Fq 'EXPECTED_UI_TESTS="$(grep -Ec' "$FUNCTIONAL"
+grep -Fq 'JingduUiTest expected count: $EXPECTED_UI_TESTS' "$FUNCTIONAL"
+grep -Fq '${EXPECTED_UI_TESTS} tests' "$FUNCTIONAL"
+if grep -Fq 'OK \(16 tests\)' "$FUNCTIONAL"; then
+  echo "functional maturity contract forbids a fixed JingduUiTest count" >&2
+  exit 1
+fi
 if grep -Eq 'dalvik\.vm\.(gctype|backgroundgctype)' "$FUNCTIONAL"; then
   echo "functional gate must not override the system image ART collector" >&2
   exit 1
