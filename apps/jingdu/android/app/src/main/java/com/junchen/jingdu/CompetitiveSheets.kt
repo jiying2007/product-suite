@@ -39,6 +39,7 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
     var loading by remember(book?.id) { mutableStateOf(false) }
     var error by remember(book?.id) { mutableStateOf<String?>(null) }
     var scanRequest by remember(book?.id) { mutableIntStateOf(0) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun request() {
         scanRequest++
@@ -68,7 +69,11 @@ internal fun DoctorSheet(state: AppUiState, actions: JingduActions) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = actions.onClosePanel, sheetGesturesEnabled = false) {
+    ModalBottomSheet(
+        onDismissRequest = actions.onClosePanel,
+        sheetState = sheetState,
+        sheetGesturesEnabled = false,
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).navigationBarsPadding().testTag("txt-doctor-list"),
             contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 36.dp),
