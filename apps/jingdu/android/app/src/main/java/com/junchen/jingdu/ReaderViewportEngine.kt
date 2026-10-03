@@ -380,7 +380,9 @@ internal object ReaderPageLayoutCache {
         return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
-            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_HIGH_QUALITY)
+            // One replacement glyph only: keep this wrapper fixed-cost. The source layout already
+            // owns the real phrase-aware line geometry and is rasterized above.
+            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
             .build()
     }
 
