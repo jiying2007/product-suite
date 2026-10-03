@@ -559,6 +559,15 @@ private fun PagedReaderPage(
         ReaderWideColumns.DOUBLE -> if (adaptiveLayout.width >= ReaderAdaptiveWidth.MEDIUM && !adaptiveLayout.tabletop) 2 else 1
         ReaderWideColumns.AUTO -> if (adaptiveLayout.prefersTwoColumns) 2 else 1
     }
+    val configuration = LocalConfiguration.current
+    val maxPageWidthPx = remember(columns, settings.fontSizeSp, configuration.screenWidthDp, density.density) {
+        val widthDp = if (columns == 2) {
+            readerAdaptiveTwoColumnWidthDp(settings.fontSizeSp, configuration.screenWidthDp.toFloat())
+        } else {
+            readerAdaptiveTextWidthDp(settings.fontSizeSp, configuration.screenWidthDp.toFloat())
+        }
+        with(density) { widthDp.dp.toPx() }.roundToInt().coerceAtLeast(1)
+    }
 
     val preparedRequest = remember(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint) {
         ReaderPreparedRequest(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint)
@@ -586,6 +595,7 @@ private fun PagedReaderPage(
                 widthPx,
                 heightPx,
                 columns,
+                maxPageWidthPx,
                 settings,
                 density,
                 typeface,
