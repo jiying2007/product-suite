@@ -272,6 +272,9 @@ internal class TtsController(
         }
     }
 
+    fun activeEngineName(): String =
+        runCatching { tts.defaultEngine.orEmpty() }.getOrDefault("")
+
     fun installedEngines(): List<EngineOption> =
         runCatching { tts.engines.orEmpty() }.getOrDefault(emptyList())
             .map { EngineOption(it.name, it.label?.toString().orEmpty().ifBlank { it.name }) }
