@@ -316,8 +316,12 @@ internal class TtsController(
         // Accept that local voice first instead of falsely reporting "no offline voice".
         val current = runCatching { tts.voice }.getOrNull()
         val currentLocale = current?.locale
+        val currentMatchesDocument = currentLocale != null && candidates.any { candidate ->
+            currentLocale.toLanguageTag().equals(candidate.toLanguageTag(), ignoreCase = true) ||
+                currentLocale.language.equals(candidate.language, ignoreCase = true)
+        }
         if (current != null && !current.isNetworkConnectionRequired && currentLocale != null &&
-            TtsLocalePolicy.acceptsSavedVoice(mode, currentLocale)
+            currentMatchesDocument
         ) {
             preferredLocale = currentLocale
             return true
