@@ -371,7 +371,7 @@ internal class ReaderTtsPlayer(
     }
 
     private companion object {
-        const val MAX_START_RETRIES_BEFORE_RECOVERY = 4
+        const val MAX_START_RETRIES_BEFORE_RECOVERY = 8
         const val MAX_RUNTIME_RETRIES_BEFORE_RECOVERY = 1
         const val MAX_ENGINE_RECOVERIES = 2
         const val START_RETRY_MS = 250L
