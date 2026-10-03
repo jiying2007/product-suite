@@ -215,6 +215,23 @@ private class ReaderPageBitmapSpan(
     }
 }
 
+/**
+ * Page navigation may consume only lines whose full glyph box fits in the measured content height.
+ * StaticLayout#getLineForVertical returns a line that merely intersects the probe Y coordinate; using
+ * its end directly can skip the clipped tail of that line on the next page.
+ */
+internal fun readerLastFullyVisibleLineIndex(lineBottoms: IntArray, contentHeightPx: Int): Int {
+    if (lineBottoms.isEmpty()) return -1
+    val limit = contentHeightPx.coerceAtLeast(1)
+    var last = -1
+    for (index in lineBottoms.indices) {
+        if (lineBottoms[index] <= limit) last = index else break
+    }
+    // Extremely large accessibility text can make even the first line taller than the viewport.
+    // Consume that first line so paging remains reachable rather than publishing a zero-length page.
+    return if (last >= 0) last else 0
+}
+
 /** Small LRU used to keep exact page measurement out of repeated Compose layout churn. */
 internal object ReaderPageLayoutCache {
     private val cache = object : LinkedHashMap<PageLayoutKey, PageLayoutSnapshot>(20, 0.75f, true) {
@@ -363,7 +380,7 @@ internal object ReaderPageLayoutCache {
         return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
-            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
+            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_HIGH_QUALITY)
             .build()
     }
 
@@ -463,8 +480,10 @@ internal object ReaderPageLayoutCache {
         }
         fun endFor(layout: StaticLayout?, textLength: Int): Int {
             if (layout == null || layout.lineCount <= 0) return 0
-            val line = layout.getLineForVertical((contentHeight - 1).coerceAtLeast(0))
-            return layout.getLineEnd(line.coerceIn(0, layout.lineCount - 1)).coerceIn(0, textLength)
+            val bottoms = IntArray(layout.lineCount) { line -> layout.getLineBottom(line) }
+            val line = readerLastFullyVisibleLineIndex(bottoms, contentHeight)
+                .coerceIn(0, layout.lineCount - 1)
+            return layout.getLineEnd(line).coerceIn(0, textLength)
         }
 
         val firstLayout = buildLayout(layoutText)
