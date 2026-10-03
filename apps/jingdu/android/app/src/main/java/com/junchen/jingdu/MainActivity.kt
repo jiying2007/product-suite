@@ -1304,6 +1304,7 @@ class MainActivity : ComponentActivity() {
     private fun ttsReason(reason: String): String = when {
         reason == "audio focus" -> getString(R.string.tts_audio_focus)
         reason == "sleep" -> getString(R.string.sleep_timer_finished)
+        reason == "tts error: no offline voice" -> getString(R.string.no_offline_voice)
         reason.startsWith("tts error") -> getString(R.string.tts_engine_error)
         reason == "TTS engine not ready" -> getString(R.string.tts_engine_not_ready)
         reason == "audio focus denied" -> getString(R.string.tts_audio_focus_denied)
