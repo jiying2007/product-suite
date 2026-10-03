@@ -274,7 +274,11 @@ class JingduUiTest {
             ),
         )
         instrumentation.waitForIdleSync()
-        composeRule.waitUntil(timeoutMillis = 5_000L) {
+        // The gesture itself must still be the first and only long press. At 200% font on the
+        // hosted API 36 image, the native AndroidView selection callback can cross multiple UI
+        // loop turns under system load, so give that callback the same readiness budget as the
+        // native viewport without retrying the gesture or weakening the selection assertion.
+        composeRule.waitUntil(timeoutMillis = 10_000L) {
             runCatching {
                 composeRule.onNodeWithText(context.getString(R.string.reader_copy)).fetchSemanticsNode()
                 true
