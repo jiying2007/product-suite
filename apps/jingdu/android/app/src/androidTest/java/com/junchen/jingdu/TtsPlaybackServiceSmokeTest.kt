@@ -94,6 +94,7 @@ class TtsPlaybackServiceSmokeTest {
         )
         try {
             context.stopService(Intent(context, TtsPlaybackService::class.java))
+            android.os.SystemClock.sleep(300L)
             store.save("com.junchen.jingdu.missing.tts.engine")
             val started = bridge.start(
                 source = source,
