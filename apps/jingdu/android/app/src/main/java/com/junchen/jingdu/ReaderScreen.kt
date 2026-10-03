@@ -93,6 +93,7 @@ private data class ReaderPreparedRequest(
     val widthPx: Int,
     val heightPx: Int,
     val columns: Int,
+    val maxPageWidthPx: Int,
     val typographyFingerprint: Int,
 )
 
@@ -570,7 +571,7 @@ private fun PagedReaderPage(
     }
 
     val preparedRequest = remember(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint) {
-        ReaderPreparedRequest(sourceStart, sourceText, settings, widthPx, heightPx, columns, spec.fingerprint)
+        ReaderPreparedRequest(sourceStart, sourceText, settings, widthPx, heightPx, columns, maxPageWidthPx, spec.fingerprint)
     }
     LaunchedEffect(documentKey, preparedRequest) {
         // A size/typography/presentation change invalidates the old measured end immediately.
