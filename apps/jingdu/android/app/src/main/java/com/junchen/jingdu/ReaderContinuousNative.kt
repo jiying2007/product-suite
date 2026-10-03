@@ -125,6 +125,16 @@ internal fun readerContinuousBoundaryRequested(
     return hitTop || hitBottom
 }
 
+internal fun readerContinuousShouldDispatchLongPressOnUp(
+    eligible: Boolean,
+    alreadyTriggered: Boolean,
+    heldMillis: Long,
+    timeoutMillis: Long,
+): Boolean =
+    eligible &&
+        !alreadyTriggered &&
+        heldMillis >= timeoutMillis.coerceAtLeast(0L)
+
 internal class ReaderContinuousScrollModel {
     var offsetPx: Float = 0f
         private set
@@ -175,6 +185,7 @@ internal class ReaderContinuousScrollModel {
  */
 private class ReaderContinuousViewportView(context: Context) : View(context) {
     private val viewConfig = ViewConfiguration.get(context)
+    private val longPressTimeoutMs = ViewConfiguration.getLongPressTimeout().toLong()
     private val scroller = OverScroller(context)
     private val density = resources.displayMetrics.density
     private var textLayout: StaticLayout? = null
@@ -197,6 +208,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var pinchStart = 0f
     private var pinchScale = 1f
     private var longPressTriggered = false
+    private var longPressEligible = false
     private var lastCenterTapAt = 0L
     private var flingRunning = false
     private var activeFlingVelocityY = 0
@@ -227,7 +239,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var onScrollSettled: () -> Unit = {}
     private var onLongPress: (Float, Float) -> Unit = { _, _ -> }
     private val longPress = Runnable {
-        if (!scrolling && !pinching) {
+        if (longPressEligible && !longPressTriggered && !scrolling && !pinching) {
             longPressTriggered = true
             onLongPress(downX, downY)
         }
@@ -364,12 +376,14 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                 velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                 downX = event.x; downY = event.y; lastY = event.y; downAt = event.eventTime
                 scrolling = false; pinching = false; pinchScale = 1f; longPressTriggered = false
+                longPressEligible = true
                 removeCallbacks(longPress)
-                postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
+                postDelayed(longPress, longPressTimeoutMs)
                 onAnyTouch()
                 return true
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
+                longPressEligible = false
                 removeCallbacks(longPress)
                 cancelPendingCenterTap()
                 if (event.pointerCount >= 2) {
@@ -388,6 +402,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                 val totalX = event.x - downX
                 val totalY = event.y - downY
                 if (abs(totalX) > viewConfig.scaledTouchSlop || abs(totalY) > viewConfig.scaledTouchSlop) {
+                    longPressEligible = false
                     removeCallbacks(longPress)
                     cancelPendingCenterTap()
                 }
@@ -403,6 +418,21 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(longPress)
+                // A busy UI thread can delay the posted timeout callback until ACTION_UP is already
+                // queued. Preserve the user's real gesture deadline: if the pointer stayed eligible
+                // for the full system long-press duration, dispatch the same selection exactly once
+                // before ACTION_UP can demote it to a tap. Movement/pinch paths clear eligibility.
+                if (!scrolling && !pinching &&
+                    readerContinuousShouldDispatchLongPressOnUp(
+                        longPressEligible,
+                        longPressTriggered,
+                        event.eventTime - downAt,
+                        longPressTimeoutMs,
+                    )
+                ) {
+                    longPressTriggered = true
+                    onLongPress(downX, downY)
+                }
                 val handledScroll = scrolling
                 val handledPinch = pinching
                 val handledLongPress = longPressTriggered
@@ -590,7 +620,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private fun recycleTouch() {
         removeCallbacks(longPress)
         velocityTracker?.recycle(); velocityTracker = null
-        scrolling = false; pinching = false
+        scrolling = false; pinching = false; longPressEligible = false
     }
 
     override fun onDetachedFromWindow() {
