@@ -84,6 +84,9 @@ internal class ReaderContinuousLayout internal constructor(
     fun getLineTop(line: Int): Float = layout.getLineTop(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0))).toFloat()
     fun getLineForVerticalPosition(y: Float): Int = layout.getLineForVertical(y.roundToInt().coerceAtLeast(0))
     fun getLineStart(line: Int): Int = layout.getLineStart(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)))
+    fun getLineVisibleEnd(line: Int): Int =
+        layout.getLineVisibleEnd(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)))
+            .coerceIn(0, layout.text.length)
     fun getOffsetForHorizontal(line: Int, x: Float): Int =
         layout.getOffsetForHorizontal(line.coerceIn(0, (layout.lineCount - 1).coerceAtLeast(0)), x)
             .coerceIn(0, layout.text.length)
@@ -134,6 +137,16 @@ internal fun readerContinuousShouldDispatchLongPressOnUp(
     eligible &&
         !alreadyTriggered &&
         heldMillis >= timeoutMillis.coerceAtLeast(0L)
+
+internal fun readerContinuousSelectableOffset(
+    rawOffset: Int,
+    lineStart: Int,
+    lineVisibleEnd: Int,
+): Int {
+    val start = lineStart.coerceAtLeast(0)
+    val visibleEnd = lineVisibleEnd.coerceAtLeast(start)
+    return if (visibleEnd > start) rawOffset.coerceIn(start, visibleEnd - 1) else start
+}
 
 internal class ReaderContinuousScrollModel {
     var offsetPx: Float = 0f
@@ -237,11 +250,14 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
     private var onBookmark: () -> Unit = {}
     private var onAnyTouch: () -> Unit = {}
     private var onScrollSettled: () -> Unit = {}
-    private var onLongPress: (Float, Float) -> Unit = { _, _ -> }
+    private var onLongPress: (Float, Float) -> Boolean = { _, _ -> false }
+    private var onUnresolvedLongPress: () -> Unit = {}
     private val longPress = Runnable {
         if (longPressEligible && !longPressTriggered && !scrolling && !pinching) {
-            longPressTriggered = true
-            onLongPress(downX, downY)
+            // "Triggered" means selection was actually accepted. If a transient layout/source
+            // mismatch cannot resolve the timeout callback, ACTION_UP may retry the same gesture
+            // against the latest mapping rather than silently consuming the only long press.
+            longPressTriggered = onLongPress(downX, downY)
         }
     }
 
@@ -265,7 +281,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         bookmark: () -> Unit,
         anyTouch: () -> Unit,
         scrollSettled: () -> Unit,
-        longPressAction: (Float, Float) -> Unit,
+        longPressAction: (Float, Float) -> Boolean,
+        unresolvedLongPressAction: () -> Unit,
     ) {
         if (scrollModel !== model) scrollModel?.detachScrollSink(this)
         scrollModel = model
@@ -283,6 +300,7 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
         onAnyTouch = anyTouch
         onScrollSettled = scrollSettled
         onLongPress = longPressAction
+        onUnresolvedLongPress = unresolvedLongPressAction
         model.attachScrollSink(this, scrollSinkCallback)
     }
 
@@ -430,8 +448,8 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
                         longPressTimeoutMs,
                     )
                 ) {
-                    longPressTriggered = true
-                    onLongPress(downX, downY)
+                    longPressTriggered = onLongPress(downX, downY)
+                    if (!longPressTriggered) onUnresolvedLongPress()
                 }
                 val handledScroll = scrolling
                 val handledPinch = pinching
@@ -448,6 +466,19 @@ private class ReaderContinuousViewportView(context: Context) : View(context) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(longPress)
+                // If a system/parent cancellation arrives only after a valid long-press deadline,
+                // give the same eligible gesture one final chance to commit selection. Do not enter
+                // fallback selection mode on cancel.
+                if (!scrolling && !pinching &&
+                    readerContinuousShouldDispatchLongPressOnUp(
+                        longPressEligible,
+                        longPressTriggered,
+                        event.eventTime - downAt,
+                        longPressTimeoutMs,
+                    )
+                ) {
+                    longPressTriggered = onLongPress(downX, downY)
+                }
                 if (scrolling) onScrollSettled()
                 recycleTouch()
                 return true
@@ -807,7 +838,8 @@ internal fun Text(
     onScrollSettled: () -> Unit,
     overlay: ReaderContinuousOverlay? = null,
     selectionMode: Boolean? = null,
-    onRequestSelectionAt: ((Int) -> Unit)? = null,
+    onRequestSelectionAt: ((Int) -> Boolean)? = null,
+    onRequestSelectionFallback: (() -> Unit)? = null,
     onTextLayout: (ReaderContinuousLayout) -> Float?,
 ) {
     var internalSelectionMode by remember(text.text) { mutableStateOf(false) }
@@ -893,26 +925,40 @@ internal fun Text(
                     viewport.setTextLayout(ready, resolvedColor.toArgb())
                     viewport.setOverlay(overlay)
                     viewport.configure(
-                        scrollModel,
-                        settings,
-                        systemLeftInsetPx,
-                        systemRightInsetPx,
-                        canHandoffPrevious,
-                        canHandoffNext,
-                        onPrevious,
-                        onNext,
-                        onToggleControls,
-                        onBrightnessDelta,
-                        onResizeFont,
-                        onBookmark,
-                        onAnyTouch,
-                        onScrollSettled,
-                    ) { x, y ->
-                        val line = ready.getLineForVerticalPosition(scrollModel.offsetPx + y)
-                        val utf = ready.getOffsetForHorizontal(line, x)
-                        if (onRequestSelectionAt != null) onRequestSelectionAt(utf)
-                        else internalSelectionMode = true
-                    }
+                        model = scrollModel,
+                        nextSettings = settings,
+                        leftInsetPx = systemLeftInsetPx,
+                        rightInsetPx = systemRightInsetPx,
+                        canPreviousWindowHandoff = canHandoffPrevious,
+                        canNextWindowHandoff = canHandoffNext,
+                        previous = onPrevious,
+                        next = onNext,
+                        toggleControls = onToggleControls,
+                        brightnessDelta = onBrightnessDelta,
+                        resizeFont = onResizeFont,
+                        bookmark = onBookmark,
+                        anyTouch = onAnyTouch,
+                        scrollSettled = onScrollSettled,
+                        longPressAction = { x, y ->
+                            val line = ready.getLineForVerticalPosition(scrollModel.offsetPx + y)
+                            val rawOffset = ready.getOffsetForHorizontal(line, x)
+                            val utf = readerContinuousSelectableOffset(
+                                rawOffset = rawOffset,
+                                lineStart = ready.getLineStart(line),
+                                lineVisibleEnd = ready.getLineVisibleEnd(line),
+                            )
+                            if (onRequestSelectionAt != null) {
+                                onRequestSelectionAt(utf)
+                            } else {
+                                internalSelectionMode = true
+                                true
+                            }
+                        },
+                        unresolvedLongPressAction = {
+                            if (onRequestSelectionFallback != null) onRequestSelectionFallback()
+                            else internalSelectionMode = true
+                        },
+                    )
                 },
             )
         }
