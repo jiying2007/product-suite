@@ -36,6 +36,12 @@ class ReaderGesturePolicyTest {
         assertFalse(readerContinuousShouldDispatchLongPressOnUp(true, true, 950L, 500L))
     }
 
+    @Test fun continuousLongPressClampsTrailingWhitespaceToVisibleText() {
+        assertTrue(readerContinuousSelectableOffset(18, 10, 18) == 17)
+        assertTrue(readerContinuousSelectableOffset(12, 10, 18) == 12)
+        assertTrue(readerContinuousSelectableOffset(10, 10, 10) == 10)
+    }
+
     @Test fun continuousScrollSinkDetachesByViewportOwner() {
         val model = ReaderContinuousScrollModel()
         val firstOwner = Any()
