@@ -919,10 +919,12 @@ private fun ContinuousReaderPage(
                     val range = ReaderSelectionController.wordAt(start, display, utf, map, selectionLocale)
                     if (range != null) {
                         onSelection(SelectionPayload(range) { })
+                        true
                     } else {
-                        fastSelectionMode = true
+                        false
                     }
                 },
+                onRequestSelectionFallback = { fastSelectionMode = true },
                 onTextLayout = { ready ->
                     val currentWindow = window
                     layoutResult = ready
