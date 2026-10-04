@@ -422,10 +422,10 @@ class ReaderFoundationsTest {
     }
 
     @Test fun pagedRasterBitmapReuseWaitsForQuarantineGenerations() {
-        assertFalse(readerPageRasterBitmapCanReuse(4L, 4L))
-        assertFalse(readerPageRasterBitmapCanReuse(4L, 5L))
-        assertTrue(readerPageRasterBitmapCanReuse(4L, 6L))
-        assertTrue(readerPageRasterBitmapCanReuse(4L, 7L))
+        assertEquals(false, readerPageRasterBitmapCanReuse(4L, 4L))
+        assertEquals(false, readerPageRasterBitmapCanReuse(4L, 5L))
+        assertEquals(true, readerPageRasterBitmapCanReuse(4L, 6L))
+        assertEquals(true, readerPageRasterBitmapCanReuse(4L, 7L))
     }
 
     @Test fun pagedBoundaryVerticalProbeBacksOffClippedLineWithoutTopScan() {
