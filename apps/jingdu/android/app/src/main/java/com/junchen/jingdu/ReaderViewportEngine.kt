@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.Closeable
+import java.util.ArrayDeque
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
 
@@ -172,7 +173,25 @@ private data class ReaderPageRaster(
     val heightPx: Int,
     val hasHeadingStyle: Boolean,
     val layout: StaticLayout,
+    val bitmap: Bitmap,
 )
+
+private data class ReaderRasterizedPageLayout(
+    val layout: StaticLayout,
+    val bitmap: Bitmap,
+)
+
+private data class ReaderRetiredPageBitmap(
+    val bitmap: Bitmap,
+    val retiredGeneration: Long,
+)
+
+internal fun readerPageRasterBitmapCanReuse(
+    retiredGeneration: Long,
+    currentGeneration: Long,
+    quarantineGenerations: Long = 2L,
+): Boolean =
+    currentGeneration - retiredGeneration >= quarantineGenerations.coerceAtLeast(0L)
 
 /**
  * One replacement glyph owns a worker-rendered alpha mask for the current plain/heading-only page.
@@ -264,6 +283,12 @@ internal object ReaderPageLayoutCache {
     private var mostRecentRaster: ReaderPageRaster? = null
     private var previousRaster: ReaderPageRaster? = null
     private var olderRaster: ReaderPageRaster? = null
+    // Full-page ALPHA_8 rasters are large enough that allocating one for every forward turn can
+    // trigger GC exactly where the page-turn P99 gate is most sensitive. Keep a tiny quarantine
+    // queue after a raster leaves the three active transition slots, then reuse only same-sized
+    // bitmaps that have stayed retired for at least two further publish generations.
+    private val retiredRasterBitmaps = ArrayDeque<ReaderRetiredPageBitmap>()
+    private var rasterGeneration = 0L
 
     @Synchronized
     fun get(key: PageLayoutKey): PageLayoutSnapshot? = cache[key]?.also { mostRecent = it }
@@ -281,6 +306,8 @@ internal object ReaderPageLayoutCache {
         mostRecentRaster = null
         previousRaster = null
         olderRaster = null
+        retiredRasterBitmaps.clear()
+        rasterGeneration = 0L
     }
 
     /**
@@ -365,23 +392,84 @@ internal object ReaderPageLayoutCache {
         widthPx: Int,
         heightPx: Int,
         hasHeadingStyle: Boolean,
-        layout: StaticLayout,
+        rasterized: ReaderRasterizedPageLayout,
     ) {
         // A concurrent cache hit may have rebuilt this exact raster while another worker was still
-        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page.
-        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) return
+        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page. This
+        // bitmap was never exposed to the UI, so it can return to the pool without quarantine.
+        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) {
+            retiredRasterBitmaps.addLast(
+                ReaderRetiredPageBitmap(
+                    rasterized.bitmap,
+                    rasterGeneration - RASTER_BITMAP_QUARANTINE_GENERATIONS,
+                ),
+            )
+            trimRetiredRasterBitmaps()
+            return
+        }
+
+        val evicted = olderRaster
         olderRaster = previousRaster
         previousRaster = mostRecentRaster
-        mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
+        mostRecentRaster = ReaderPageRaster(
+            visibleText,
+            widthPx,
+            heightPx,
+            hasHeadingStyle,
+            rasterized.layout,
+            rasterized.bitmap,
+        )
+        rasterGeneration += 1L
+        evicted?.bitmap?.takeUnless(Bitmap::isRecycled)?.let { bitmap ->
+            retiredRasterBitmaps.addLast(ReaderRetiredPageBitmap(bitmap, rasterGeneration))
+            trimRetiredRasterBitmaps()
+        }
     }
 
-    private fun rasterizedRenderLayout(source: StaticLayout, widthPx: Int, heightPx: Int): StaticLayout {
-        val bitmap = Bitmap.createBitmap(widthPx.coerceAtLeast(1), heightPx.coerceAtLeast(1), Bitmap.Config.ALPHA_8)
+    @Synchronized
+    private fun acquireRasterBitmap(widthPx: Int, heightPx: Int): Bitmap {
+        val safeWidth = widthPx.coerceAtLeast(1)
+        val safeHeight = heightPx.coerceAtLeast(1)
+        val count = retiredRasterBitmaps.size
+        repeat(count) {
+            val retired = retiredRasterBitmaps.removeFirst()
+            val bitmap = retired.bitmap
+            val reusable =
+                !bitmap.isRecycled &&
+                    bitmap.width == safeWidth &&
+                    bitmap.height == safeHeight &&
+                    readerPageRasterBitmapCanReuse(
+                        retired.retiredGeneration,
+                        rasterGeneration,
+                        RASTER_BITMAP_QUARANTINE_GENERATIONS,
+                    )
+            if (reusable) {
+                bitmap.eraseColor(0)
+                return bitmap
+            }
+            retiredRasterBitmaps.addLast(retired)
+        }
+        return Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ALPHA_8)
+    }
+
+    @Synchronized
+    private fun trimRetiredRasterBitmaps() {
+        while (retiredRasterBitmaps.size > MAX_RETIRED_RASTER_BITMAPS) {
+            // Drop the oldest reference and let Android/GC reclaim it naturally. Do not call
+            // recycle(): a very stale transition frame may still hold the wrapper layout briefly.
+            retiredRasterBitmaps.removeFirst()
+        }
+    }
+
+    private fun rasterizedRenderLayout(
+        source: StaticLayout,
+        widthPx: Int,
+        heightPx: Int,
+    ): ReaderRasterizedPageLayout {
+        val bitmap = acquireRasterBitmap(widthPx, heightPx)
         val canvas = Canvas(bitmap)
-        canvas.save()
-        canvas.clipRect(0, 0, widthPx, heightPx)
+        // Bitmap bounds already clip the source; avoid save/clip/restore on every prepared page.
         source.draw(canvas)
-        canvas.restore()
         bitmap.prepareToDraw()
 
         val placeholder = SpannableString("\uFFFC")
@@ -396,14 +484,18 @@ internal object ReaderPageLayoutCache {
         }
         // The span draws the full bitmap and ignores line geometry. Keep the wrapper layout to one
         // pixel so Layout.draw() cannot replay full-page width/height bookkeeping on every frame.
-        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
+        val layout = StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
             // One replacement glyph only: keep this wrapper fixed-cost. The source layout already
             // owns the real phrase-aware line geometry and is rasterized above.
             .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
             .build()
+        return ReaderRasterizedPageLayout(layout, bitmap)
     }
+
+    private const val RASTER_BITMAP_QUARANTINE_GENERATIONS = 2L
+    private const val MAX_RETIRED_RASTER_BITMAPS = 4
 
     fun measure(
         sourceText: String,
