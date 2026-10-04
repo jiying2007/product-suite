@@ -28,6 +28,14 @@ class ReaderGesturePolicyTest {
         assertFalse(ReaderGesturePolicy.isDoubleTap(0, 180))
     }
 
+    @Test fun continuousLongPressDeadlineFallsBackOnUpWithoutRetryingGesture() {
+        assertTrue(readerContinuousShouldDispatchLongPressOnUp(true, false, 500L, 500L))
+        assertTrue(readerContinuousShouldDispatchLongPressOnUp(true, false, 950L, 500L))
+        assertFalse(readerContinuousShouldDispatchLongPressOnUp(true, false, 499L, 500L))
+        assertFalse(readerContinuousShouldDispatchLongPressOnUp(false, false, 950L, 500L))
+        assertFalse(readerContinuousShouldDispatchLongPressOnUp(true, true, 950L, 500L))
+    }
+
     @Test fun continuousScrollSinkDetachesByViewportOwner() {
         val model = ReaderContinuousScrollModel()
         val firstOwner = Any()

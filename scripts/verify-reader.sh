@@ -213,6 +213,8 @@ forbid_literal "$screen" 'rememberScrollableState' 'Compose continuous scroll st
 forbid_literal "$continuous_native" 'scrollable(scrollableState, Orientation.Vertical)' 'Compose continuous scrollable layer'
 forbid_literal "$screen" 'snapshotFlow { scrollableState.isScrollInProgress }' 'Compose scroll progress observer'
 require_literal "$continuous_native" 'override fun onTouchEvent(event: MotionEvent)' 'native continuous gesture ownership'
+require_literal "$continuous_native" 'readerContinuousShouldDispatchLongPressOnUp' 'deadline-safe continuous long-press ACTION_UP fallback'
+require_literal "$continuous_native" 'longPressEligible = false' 'movement and multi-touch can cancel continuous long press'
 require_literal "$continuous_native" 'testTag("reader-continuous-native")' 'native continuous viewport test target'
 require_literal "$continuous_native" 'OverScroller(context)' 'native continuous fling'
 require_literal "$continuous_native" 'postOnAnimation(applyPendingScroll)' 'vsync-coalesced continuous scroll'
