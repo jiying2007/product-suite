@@ -232,6 +232,25 @@ internal fun readerLastFullyVisibleLineIndex(lineBottoms: IntArray, contentHeigh
     return if (last >= 0) last else 0
 }
 
+internal inline fun readerLastFullyVisibleLineIndexFromVertical(
+    lineCount: Int,
+    contentHeightPx: Int,
+    lineForVertical: (Int) -> Int,
+    lineBottom: (Int) -> Int,
+): Int {
+    if (lineCount <= 0) return -1
+    val limit = contentHeightPx.coerceAtLeast(1)
+    // StaticLayout#getLineForVertical returns the line intersecting the probe. Probe the final
+    // visible pixel, then walk upward only if that intersecting line is clipped at the viewport
+    // bottom. This preserves exact full-line semantics without scanning every line from the top.
+    var candidate = lineForVertical((limit - 1).coerceAtLeast(0)).coerceIn(0, lineCount - 1)
+    while (candidate > 0 && lineBottom(candidate) > limit) candidate--
+    if (lineBottom(candidate) <= limit) return candidate
+    // Extreme accessibility text can make the first line taller than the viewport. Preserve the
+    // existing forward-progress contract rather than publishing a zero-length page.
+    return 0
+}
+
 /** Small LRU used to keep exact page measurement out of repeated Compose layout churn. */
 internal object ReaderPageLayoutCache {
     private val cache = object : LinkedHashMap<PageLayoutKey, PageLayoutSnapshot>(20, 0.75f, true) {
@@ -485,20 +504,12 @@ internal object ReaderPageLayoutCache {
         }
         fun endFor(layout: StaticLayout?, textLength: Int): Int {
             if (layout == null || layout.lineCount <= 0) return 0
-            // This is the page-turn worker hot path. Scan the already-bounded StaticLayout directly
-            // instead of allocating an IntArray of every line bottom for every measured page.
-            // Semantics stay identical to readerLastFullyVisibleLineIndex, including the oversized
-            // first-line fallback that guarantees forward progress at extreme accessibility sizes.
-            var lastFullyVisible = -1
-            for (lineIndex in 0 until layout.lineCount) {
-                if (layout.getLineBottom(lineIndex) <= contentHeight.coerceAtLeast(1)) {
-                    lastFullyVisible = lineIndex
-                } else {
-                    break
-                }
-            }
-            val line = (if (lastFullyVisible >= 0) lastFullyVisible else 0)
-                .coerceIn(0, layout.lineCount - 1)
+            val line = readerLastFullyVisibleLineIndexFromVertical(
+                lineCount = layout.lineCount,
+                contentHeightPx = contentHeight,
+                lineForVertical = layout::getLineForVertical,
+                lineBottom = layout::getLineBottom,
+            ).coerceIn(0, layout.lineCount - 1)
             return layout.getLineEnd(line).coerceIn(0, textLength)
         }
 

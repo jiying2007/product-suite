@@ -1,8 +1,10 @@
 package com.junchen.jingdu
 
 import androidx.compose.ui.text.AnnotatedString
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReaderSelectionControllerTest {
@@ -42,4 +44,37 @@ class ReaderSelectionControllerTest {
         assertEquals(52L, range.sourceEnd)
         assertEquals("🙂", range.excerpt)
     }
+    @Test
+    fun continuousWordAtFallsBackToNearestSelectableTextFromWhitespace() {
+        val display = "Alpha     Beta"
+        val map = SourceDisplayMap.between(display, display)
+        val range = ReaderSelectionController.wordAt(
+            sourceBase = 100L,
+            displayText = display,
+            displayUtf16 = 7,
+            map = map,
+            locale = Locale.ENGLISH,
+        )
+
+        assertNotNull(range)
+        assertEquals(100L, range!!.sourceStart)
+        assertEquals(105L, range.sourceEnd)
+        assertEquals("Alpha", range.excerpt)
+    }
+
+    @Test
+    fun continuousWordAtDoesNotJumpAcrossLargeBlankRegion() {
+        val display = "Alpha" + " ".repeat(120) + "Beta"
+        val map = SourceDisplayMap.between(display, display)
+        val range = ReaderSelectionController.wordAt(
+            sourceBase = 0L,
+            displayText = display,
+            displayUtf16 = 65,
+            map = map,
+            locale = Locale.ENGLISH,
+        )
+
+        assertNull(range)
+    }
+
 }

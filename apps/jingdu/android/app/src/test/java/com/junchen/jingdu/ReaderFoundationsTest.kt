@@ -421,6 +421,45 @@ class ReaderFoundationsTest {
         assertEquals(-1, readerLastFullyVisibleLineIndex(intArrayOf(), 100))
     }
 
+    @Test fun pagedBoundaryVerticalProbeBacksOffClippedLineWithoutTopScan() {
+        val bottoms = intArrayOf(38, 78, 118)
+        fun lineForVertical(y: Int): Int =
+            bottoms.indexOfFirst { it > y }.let { if (it >= 0) it else bottoms.lastIndex }
+
+        assertEquals(
+            1,
+            readerLastFullyVisibleLineIndexFromVertical(
+                bottoms.size,
+                100,
+                ::lineForVertical,
+            ) { index -> bottoms[index] },
+        )
+        assertEquals(
+            2,
+            readerLastFullyVisibleLineIndexFromVertical(
+                bottoms.size,
+                118,
+                ::lineForVertical,
+            ) { index -> bottoms[index] },
+        )
+        assertEquals(
+            0,
+            readerLastFullyVisibleLineIndexFromVertical(
+                2,
+                100,
+                { 0 },
+            ) { index -> intArrayOf(120, 240)[index] },
+        )
+        assertEquals(
+            -1,
+            readerLastFullyVisibleLineIndexFromVertical(
+                0,
+                100,
+                { 0 },
+            ) { 0 },
+        )
+    }
+
     @Test fun pagedProjectionKeepsNextSourceStartExactlyAtVisiblePrefixEnd() {
         val source = "第一行正文。\n\n\n第二段正文继续。"
         val settings = ReaderSettings(paragraphSpacingEm = 0.45f, compressBlankLines = true)
