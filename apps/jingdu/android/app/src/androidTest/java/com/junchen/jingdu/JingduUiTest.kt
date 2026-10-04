@@ -1,5 +1,7 @@
 package com.junchen.jingdu
 
+import android.view.View
+import android.view.ViewGroup
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +23,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +32,41 @@ import org.junit.Test
 class JingduUiTest {
     @get:Rule val composeRule = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private fun findContinuousNativeViewport(root: View): View? {
+        if (root.javaClass.simpleName == "ReaderContinuousViewportView") return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                findContinuousNativeViewport(root.getChildAt(index))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun continuousNativeViewportScreenBounds(): FloatArray {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        var bounds: FloatArray? = null
+        instrumentation.runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED)
+                .singleOrNull()
+                ?: error("expected exactly one resumed Jingdu test activity")
+            val viewport = findContinuousNativeViewport(activity.window.decorView)
+                ?: error("continuous native viewport is not attached")
+            check(viewport.isShown && viewport.width > 0 && viewport.height > 0) {
+                "continuous native viewport is not visible"
+            }
+            val location = IntArray(2)
+            viewport.getLocationOnScreen(location)
+            bounds = floatArrayOf(
+                location[0].toFloat(),
+                location[1].toFloat(),
+                viewport.width.toFloat(),
+                viewport.height.toFloat(),
+            )
+        }
+        return requireNotNull(bounds)
+    }
 
     @Test fun emptyLibraryExplainsValueAndImportActionInActiveLocale() {
         composeRule.setContent { JingduApp(AppUiState(), noOpActions()) }
@@ -253,13 +292,15 @@ class JingduUiTest {
         }
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
-        val viewport = composeRule.onNodeWithTag("reader-continuous-native")
-        val bounds = viewport.fetchSemanticsNode().boundsInRoot
-        // Continuous text is an AndroidView. Target the actual native text viewport rather than
-        // the whole Reader surface so large-font/inset geometry cannot move the gesture into chrome.
+        composeRule.onNodeWithTag("reader-continuous-native").assertIsDisplayed()
+        // Instrumentation MotionEvents use display/screen coordinates, while Compose semantics
+        // bounds are root-local. Resolve the actual AndroidView and read getLocationOnScreen so
+        // transient system-bar/task-window offsets cannot move the single real long press off the
+        // native text viewport.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val x = bounds.left + bounds.width * 0.36f
-        val y = bounds.top + bounds.height * 0.12f
+        val bounds = continuousNativeViewportScreenBounds()
+        val x = bounds[0] + bounds[2] * 0.36f
+        val y = bounds[1] + bounds[3] * 0.12f
         val downAt = android.os.SystemClock.uptimeMillis()
         instrumentation.sendPointerSync(
             android.view.MotionEvent.obtain(
