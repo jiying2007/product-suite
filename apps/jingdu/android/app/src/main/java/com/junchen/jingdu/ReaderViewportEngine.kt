@@ -420,8 +420,9 @@ internal object ReaderPageLayoutCache {
             rasterized.bitmap,
         )
         rasterGeneration += 1L
-        evicted?.bitmap?.takeUnless(Bitmap::isRecycled)?.let { bitmap ->
-            retiredRasterBitmaps.addLast(ReaderRetiredPageBitmap(bitmap, rasterGeneration))
+        val evictedBitmap = evicted?.bitmap
+        if (evictedBitmap != null && !evictedBitmap.isRecycled) {
+            retiredRasterBitmaps.addLast(ReaderRetiredPageBitmap(evictedBitmap, rasterGeneration))
             trimRetiredRasterBitmaps()
         }
     }
