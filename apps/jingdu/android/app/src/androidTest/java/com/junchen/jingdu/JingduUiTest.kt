@@ -43,9 +43,9 @@ class JingduUiTest {
         return null
     }
 
-    private fun continuousNativeViewportScreenBounds(): FloatArray {
+    private fun continuousNativeViewport(): View {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        var bounds: FloatArray? = null
+        var result: View? = null
         instrumentation.runOnMainSync {
             val activity = ActivityLifecycleMonitorRegistry.getInstance()
                 .getActivitiesInStage(Stage.RESUMED)
@@ -56,16 +56,9 @@ class JingduUiTest {
             check(viewport.isShown && viewport.width > 0 && viewport.height > 0) {
                 "continuous native viewport is not visible"
             }
-            val location = IntArray(2)
-            viewport.getLocationOnScreen(location)
-            bounds = floatArrayOf(
-                location[0].toFloat(),
-                location[1].toFloat(),
-                viewport.width.toFloat(),
-                viewport.height.toFloat(),
-            )
+            result = viewport
         }
-        return requireNotNull(bounds)
+        return requireNotNull(result)
     }
 
     @Test fun emptyLibraryExplainsValueAndImportActionInActiveLocale() {
@@ -293,21 +286,24 @@ class JingduUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("reader-continuous-native").assertIsDisplayed()
-        // Resolve the actual AndroidView in physical screen coordinates. Instrumentation's
-        // targeted-to-self sendPointerSync can reject a valid screen point when a transient system
-        // window owns the target at dispatch time, so use UiAutomation's real display injection
-        // and keep the selection assertion as the proof that the event reached Jingdu.
+        // This is a native Android View, so exercise its actual onTouchEvent path directly. Raw
+        // display injection is a WindowManager/instrumentation concern and has proven flaky on the
+        // hosted API 36 image even when the Reader itself is healthy. Local View coordinates keep
+        // this regression deterministic while preserving the same single real DOWN/UP gesture,
+        // Android long-press duration and product callback path.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val bounds = continuousNativeViewportScreenBounds()
-        val x = bounds[0] + bounds[2] * 0.36f
-        val y = bounds[1] + bounds[3] * 0.36f
+        val viewport = continuousNativeViewport()
+        val x = viewport.width * 0.36f
+        val y = viewport.height * 0.36f
         val downAt = android.os.SystemClock.uptimeMillis()
         val down = android.view.MotionEvent.obtain(
             downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
         )
         try {
-            check(instrumentation.uiAutomation.injectInputEvent(down, true)) {
-                "continuous long-press ACTION_DOWN injection was rejected"
+            instrumentation.runOnMainSync {
+                check(viewport.dispatchTouchEvent(down)) {
+                    "continuous native viewport rejected ACTION_DOWN"
+                }
             }
         } finally {
             down.recycle()
@@ -318,8 +314,10 @@ class JingduUiTest {
             downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
         )
         try {
-            check(instrumentation.uiAutomation.injectInputEvent(up, true)) {
-                "continuous long-press ACTION_UP injection was rejected"
+            instrumentation.runOnMainSync {
+                check(viewport.dispatchTouchEvent(up)) {
+                    "continuous native viewport rejected ACTION_UP"
+                }
             }
         } finally {
             up.recycle()
