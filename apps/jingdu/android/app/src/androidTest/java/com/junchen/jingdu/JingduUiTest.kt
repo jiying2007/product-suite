@@ -293,27 +293,37 @@ class JingduUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("reader-continuous-native").assertIsDisplayed()
-        // Instrumentation MotionEvents use display/screen coordinates, while Compose semantics
-        // bounds are root-local. Resolve the actual AndroidView and read getLocationOnScreen so
-        // transient system-bar/task-window offsets cannot move the single real long press off the
-        // native text viewport.
+        // Resolve the actual AndroidView in physical screen coordinates. Instrumentation's
+        // targeted-to-self sendPointerSync can reject a valid screen point when a transient system
+        // window owns the target at dispatch time, so use UiAutomation's real display injection
+        // and keep the selection assertion as the proof that the event reached Jingdu.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bounds = continuousNativeViewportScreenBounds()
         val x = bounds[0] + bounds[2] * 0.36f
-        val y = bounds[1] + bounds[3] * 0.12f
+        val y = bounds[1] + bounds[3] * 0.36f
         val downAt = android.os.SystemClock.uptimeMillis()
-        instrumentation.sendPointerSync(
-            android.view.MotionEvent.obtain(
-                downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
-            ),
+        val down = android.view.MotionEvent.obtain(
+            downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
         )
+        try {
+            check(instrumentation.uiAutomation.injectInputEvent(down, true)) {
+                "continuous long-press ACTION_DOWN injection was rejected"
+            }
+        } finally {
+            down.recycle()
+        }
         Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L)
         val upAt = android.os.SystemClock.uptimeMillis()
-        instrumentation.sendPointerSync(
-            android.view.MotionEvent.obtain(
-                downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
-            ),
+        val up = android.view.MotionEvent.obtain(
+            downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
         )
+        try {
+            check(instrumentation.uiAutomation.injectInputEvent(up, true)) {
+                "continuous long-press ACTION_UP injection was rejected"
+            }
+        } finally {
+            up.recycle()
+        }
         instrumentation.waitForIdleSync()
         // The gesture itself must still be the first and only long press. At 200% font on the
         // hosted API 36 image, the native AndroidView selection callback can cross multiple UI
