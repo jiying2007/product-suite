@@ -421,6 +421,13 @@ class ReaderFoundationsTest {
         assertEquals(-1, readerLastFullyVisibleLineIndex(intArrayOf(), 100))
     }
 
+    @Test fun pagedRasterBitmapReuseWaitsForQuarantineGenerations() {
+        assertFalse(readerPageRasterBitmapCanReuse(4L, 4L))
+        assertFalse(readerPageRasterBitmapCanReuse(4L, 5L))
+        assertTrue(readerPageRasterBitmapCanReuse(4L, 6L))
+        assertTrue(readerPageRasterBitmapCanReuse(4L, 7L))
+    }
+
     @Test fun pagedBoundaryVerticalProbeBacksOffClippedLineWithoutTopScan() {
         val bottoms = intArrayOf(38, 78, 118)
         fun lineForVertical(y: Int): Int =
