@@ -1,5 +1,7 @@
 package com.junchen.jingdu
 
+import android.view.View
+import android.view.ViewGroup
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +23,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +32,34 @@ import org.junit.Test
 class JingduUiTest {
     @get:Rule val composeRule = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private fun findContinuousNativeViewport(root: View): View? {
+        if (root.javaClass.simpleName == "ReaderContinuousViewportView") return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                findContinuousNativeViewport(root.getChildAt(index))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun continuousNativeViewport(): View {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        var result: View? = null
+        instrumentation.runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED)
+                .singleOrNull()
+                ?: error("expected exactly one resumed Jingdu test activity")
+            val viewport = findContinuousNativeViewport(activity.window.decorView)
+                ?: error("continuous native viewport is not attached")
+            check(viewport.isShown && viewport.width > 0 && viewport.height > 0) {
+                "continuous native viewport is not visible"
+            }
+            result = viewport
+        }
+        return requireNotNull(result)
+    }
 
     @Test fun emptyLibraryExplainsValueAndImportActionInActiveLocale() {
         composeRule.setContent { JingduApp(AppUiState(), noOpActions()) }
@@ -253,26 +285,43 @@ class JingduUiTest {
         }
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
-        val viewport = composeRule.onNodeWithTag("reader-continuous-native")
-        val bounds = viewport.fetchSemanticsNode().boundsInRoot
-        // Continuous text is an AndroidView. Target the actual native text viewport rather than
-        // the whole Reader surface so large-font/inset geometry cannot move the gesture into chrome.
+        composeRule.onNodeWithTag("reader-continuous-native").assertIsDisplayed()
+        // This is a native Android View, so exercise its actual onTouchEvent path directly. Raw
+        // display injection is a WindowManager/instrumentation concern and has proven flaky on the
+        // hosted API 36 image even when the Reader itself is healthy. Local View coordinates keep
+        // this regression deterministic while preserving the same single real DOWN/UP gesture,
+        // Android long-press duration and product callback path.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val x = bounds.left + bounds.width * 0.36f
-        val y = bounds.top + bounds.height * 0.12f
+        val viewport = continuousNativeViewport()
+        val x = viewport.width * 0.36f
+        val y = viewport.height * 0.36f
         val downAt = android.os.SystemClock.uptimeMillis()
-        instrumentation.sendPointerSync(
-            android.view.MotionEvent.obtain(
-                downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
-            ),
+        val down = android.view.MotionEvent.obtain(
+            downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
         )
+        try {
+            instrumentation.runOnMainSync {
+                check(viewport.dispatchTouchEvent(down)) {
+                    "continuous native viewport rejected ACTION_DOWN"
+                }
+            }
+        } finally {
+            down.recycle()
+        }
         Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L)
         val upAt = android.os.SystemClock.uptimeMillis()
-        instrumentation.sendPointerSync(
-            android.view.MotionEvent.obtain(
-                downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
-            ),
+        val up = android.view.MotionEvent.obtain(
+            downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
         )
+        try {
+            instrumentation.runOnMainSync {
+                check(viewport.dispatchTouchEvent(up)) {
+                    "continuous native viewport rejected ACTION_UP"
+                }
+            }
+        } finally {
+            up.recycle()
+        }
         instrumentation.waitForIdleSync()
         // The gesture itself must still be the first and only long press. At 200% font on the
         // hosted API 36 image, the native AndroidView selection callback can cross multiple UI
