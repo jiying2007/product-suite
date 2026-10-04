@@ -128,14 +128,46 @@ internal object ReaderSelectionController {
         if (displayText.isEmpty()) return null
         val safe = displayUtf16.coerceIn(0, displayText.length - 1)
         val breaker = BreakIterator.getWordInstance(locale).apply { setText(displayText) }
-        var start = breaker.preceding((safe + 1).coerceAtMost(displayText.length))
-        if (start == BreakIterator.DONE) start = 0
-        var end = breaker.following(safe)
-        if (end == BreakIterator.DONE) end = displayText.length
-        while (start < end && displayText[start].isWhitespace()) start++
-        while (end > start && displayText[end - 1].isWhitespace()) end--
-        if (end <= start) return null
-        return rangeForDisplay(sourceBase, displayText, start, end, map)
+
+        fun rangeAt(utf16: Int): ReaderSelectionRange? {
+            val probe = utf16.coerceIn(0, displayText.length - 1)
+            var start = breaker.preceding((probe + 1).coerceAtMost(displayText.length))
+            if (start == BreakIterator.DONE) start = 0
+            var end = breaker.following(probe)
+            if (end == BreakIterator.DONE) end = displayText.length
+            while (start < end && displayText[start].isWhitespace()) start++
+            while (end > start && displayText[end - 1].isWhitespace()) end--
+            if (end <= start) return null
+            return rangeForDisplay(sourceBase, displayText, start, end, map)
+                ?.takeIf { it.excerpt.isNotEmpty() }
+        }
+
+        rangeAt(safe)?.let { return it }
+
+        // StaticLayout#getOffsetForHorizontal can legitimately resolve a long press beyond the
+        // visible glyphs of a short line to that line's newline/blank boundary. A first long press
+        // must still select nearby readable text instead of merely switching into fallback mode and
+        // forcing a second gesture. Search a small source-local neighborhood only; never jump across
+        // a large blank region or change the projection contract.
+        val safeCodePoint = displayText.codePointCount(0, safe)
+        val totalCodePoints = displayText.codePointCount(0, displayText.length)
+        val maxDistance = minOf(NEAREST_SELECTION_PROBE_CODE_POINTS, totalCodePoints)
+
+        fun nearbyRange(codePointIndex: Int): ReaderSelectionRange? {
+            if (codePointIndex !in 0 until totalCodePoints) return null
+            val utf16 = displayText.offsetByCodePoints(0, codePointIndex)
+            val codePoint = Character.codePointAt(displayText, utf16)
+            if (Character.isWhitespace(codePoint) ||
+                codePoint == ReaderTypographySpec.PARAGRAPH_SPACER.code
+            ) return null
+            return rangeAt(utf16)
+        }
+
+        for (distance in 1..maxDistance) {
+            nearbyRange(safeCodePoint - distance)?.let { return it }
+            nearbyRange(safeCodePoint + distance)?.let { return it }
+        }
+        return null
     }
 
     fun rangeForDisplay(
@@ -190,5 +222,6 @@ internal object ReaderSelectionController {
         return text.offsetByCodePoints(0, count.coerceIn(0, total.toLong()).toInt())
     }
 
+    private const val NEAREST_SELECTION_PROBE_CODE_POINTS = 48
     private const val MAX_EXCERPT = 800
 }
