@@ -115,23 +115,50 @@ jobs:
   android-performance:
     if: github.event_name == 'push'
     needs: android
-    # Exact-main remains the mandatory hosted Reader regression gate. Pull requests run the same
-    # job from reader-performance-pr.yml only when Jingdu/shared performance paths change.
-    # Emulator timing is guarded by the checked-in baseline + 15% budget and 160/220 anti-drift
-    # ceilings; 40/80 is exclusively the physical-device Release SLO.
+    # Exact-main keeps a mandatory Reader performance decision, but a commit that cannot change
+    # production Reader/benchmark code inherits the already-qualified first-parent runtime evidence
+    # instead of launching a noisy hosted emulator. Runtime/build/shared-native/SLO changes still run
+    # the unchanged Macrobenchmark thresholds; 40/80 remains exclusively the physical-device SLO.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2
+      - name: Determine Reader performance scope
+        id: reader-performance-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="$(git rev-parse "${GITHUB_SHA}^1" 2>/dev/null || true)"
+          if [[ -z "$parent" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "No first parent is available; running hosted Reader performance conservatively."
+            exit 0
+          fi
+          mapfile -t changed < <(git diff --name-only "$parent" "$GITHUB_SHA")
+          printf 'Changed path: %s\n' "${changed[@]}"
+          run="$(python3 scripts/reader-performance-scope.py "${changed[@]}")"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          if [[ "$run" == "false" ]]; then
+            {
+              echo "### Reader hosted performance"
+              echo
+              echo "Production Reader runtime/benchmark paths are unchanged from first parent $parent."
+              echo "Hosted Macrobenchmark is inherited from the qualified parent runtime; thresholds and baselines are unchanged."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: steps.reader-performance-scope.outputs.run == 'true'
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
       - name: Run Reader hosted Macrobenchmark and enforce frame SLO
+        if: steps.reader-performance-scope.outputs.run == 'true'
         run: bash ./scripts/run-android-macrobenchmark-ci.sh
       - name: Preserve Macrobenchmark evidence and failure Perfetto traces
-        if: always()
+        if: always() && steps.reader-performance-scope.outputs.run == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reader-macrobenchmark-${{ github.sha }}
