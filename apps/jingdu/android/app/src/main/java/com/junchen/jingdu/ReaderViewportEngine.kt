@@ -3,17 +3,13 @@ package com.junchen.jingdu
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.text.LineBreakConfig
 import android.graphics.text.LineBreaker
 import android.os.Build
 import android.text.Layout
-import android.text.SpannableString
-import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
-import android.text.style.ReplacementSpan
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -171,49 +167,8 @@ private data class ReaderPageRaster(
     val widthPx: Int,
     val heightPx: Int,
     val hasHeadingStyle: Boolean,
-    val layout: StaticLayout,
+    val bitmap: Bitmap,
 )
-
-/**
- * One replacement glyph owns a worker-rendered alpha mask for the current plain/heading-only page.
- * The wrapper itself is intentionally 1x1: ReaderFastText still receives a StaticLayout for its
- * existing fallback contract, but Layout.draw() performs only minimal one-glyph bookkeeping before
- * the span blits the full pre-rasterized bitmap. The alpha bitmap is tinted by the current Paint, so
- * palette changes still do not require a color-specific raster cache.
- */
-private class ReaderPageBitmapSpan(
-    private val bitmap: Bitmap,
-) : ReplacementSpan() {
-    override fun getSize(
-        paint: Paint,
-        text: CharSequence?,
-        start: Int,
-        end: Int,
-        fm: Paint.FontMetricsInt?,
-    ): Int {
-        fm?.apply {
-            ascent = -1
-            descent = 0
-            top = -1
-            bottom = 0
-        }
-        return 1
-    }
-
-    override fun draw(
-        canvas: Canvas,
-        text: CharSequence?,
-        start: Int,
-        end: Int,
-        x: Float,
-        top: Int,
-        y: Int,
-        bottom: Int,
-        paint: Paint,
-    ) {
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-    }
-}
 
 /**
  * Page navigation may consume only lines whose full glyph box fits in the measured content height.
@@ -284,32 +239,26 @@ internal object ReaderPageLayoutCache {
     }
 
     /**
-     * Paged rendering normally receives exactly the visible prefix measured below. For the current
-     * page or either of the two immediately preceding pages, prefer a worker-rasterized alpha-mask
-     * layout so a rapid transition sequence cannot fall back to glyph replay merely because newer
-     * rasters published first. Older history still returns the exact measured StaticLayout, and
-     * styled pages continue to fall back in ReaderFastText.
+     * Paged rendering normally receives exactly the visible prefix measured below. Return the
+     * worker-rendered alpha bitmap directly for the current page or either of the two immediately
+     * preceding pages. ReaderFastText can then blit the cached raster without replaying a wrapper
+     * StaticLayout/ReplacementSpan on every frame.
      */
     @Synchronized
-    fun reusableLayoutFor(visibleText: String, widthPx: Int, heightPx: Int, hasHeadingStyle: Boolean): StaticLayout? {
+    fun reusableBitmapFor(visibleText: String, widthPx: Int, heightPx: Int, hasHeadingStyle: Boolean): Bitmap? {
         if (visibleText.isEmpty() || widthPx <= 0 || heightPx <= 0) return null
-        fun matches(snapshot: PageLayoutSnapshot): Boolean =
-            snapshot.reusableWidthPx == widthPx &&
-                snapshot.reusableHeightPx == heightPx &&
-                snapshot.reusableVisibleText == visibleText &&
-                snapshot.reusableHasHeadingStyle == hasHeadingStyle
         fun rasterMatches(raster: ReaderPageRaster): Boolean =
             raster.widthPx == widthPx &&
                 raster.heightPx == heightPx &&
                 raster.visibleText == visibleText &&
                 raster.hasHeadingStyle == hasHeadingStyle
 
-        mostRecentRaster?.takeIf(::rasterMatches)?.let { return it.layout }
+        mostRecentRaster?.takeIf(::rasterMatches)?.let { return it.bitmap }
         previousRaster?.takeIf(::rasterMatches)?.let { previous ->
             val current = mostRecentRaster
             mostRecentRaster = previous
             previousRaster = current
-            return previous.layout
+            return previous.bitmap
         }
         olderRaster?.takeIf(::rasterMatches)?.let { older ->
             val current = mostRecentRaster
@@ -317,21 +266,7 @@ internal object ReaderPageLayoutCache {
             mostRecentRaster = older
             previousRaster = current
             olderRaster = previous
-            return older.layout
-        }
-        // The draw immediately following page measurement overwhelmingly asks for the snapshot that
-        // was just inserted. Resolve that case without allocating cache.values.toList() on the UI
-        // path; only history/back-navigation falls through to the tiny bounded LRU scan.
-        mostRecent?.takeIf(::matches)?.let { return it.reusableLayout }
-        val iterator = cache.values.iterator()
-        var match: PageLayoutSnapshot? = null
-        while (iterator.hasNext()) {
-            val snapshot = iterator.next()
-            if (matches(snapshot)) match = snapshot
-        }
-        if (match != null) {
-            mostRecent = match
-            return match.reusableLayout
+            return older.bitmap
         }
         return null
     }
@@ -365,17 +300,17 @@ internal object ReaderPageLayoutCache {
         widthPx: Int,
         heightPx: Int,
         hasHeadingStyle: Boolean,
-        layout: StaticLayout,
+        bitmap: Bitmap,
     ) {
         // A concurrent cache hit may have rebuilt this exact raster while another worker was still
         // finishing. Do not duplicate it and accidentally evict a distinct outgoing page.
         if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) return
         olderRaster = previousRaster
         previousRaster = mostRecentRaster
-        mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
+        mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, bitmap)
     }
 
-    private fun rasterizedRenderLayout(source: StaticLayout, widthPx: Int, heightPx: Int): StaticLayout {
+    private fun rasterizedRenderBitmap(source: StaticLayout, widthPx: Int, heightPx: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(widthPx.coerceAtLeast(1), heightPx.coerceAtLeast(1), Bitmap.Config.ALPHA_8)
         val canvas = Canvas(bitmap)
         canvas.save()
@@ -383,26 +318,7 @@ internal object ReaderPageLayoutCache {
         source.draw(canvas)
         canvas.restore()
         bitmap.prepareToDraw()
-
-        val placeholder = SpannableString("\uFFFC")
-        placeholder.setSpan(
-            ReaderPageBitmapSpan(bitmap),
-            0,
-            placeholder.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-        )
-        val rasterPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG or TextPaint.SUBPIXEL_TEXT_FLAG).apply {
-            set(source.paint)
-        }
-        // The span draws the full bitmap and ignores line geometry. Keep the wrapper layout to one
-        // pixel so Layout.draw() cannot replay full-page width/height bookkeeping on every frame.
-        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
-            .setIncludePad(false)
-            .setMaxLines(1)
-            // One replacement glyph only: keep this wrapper fixed-cost. The source layout already
-            // owns the real phrase-aware line geometry and is rasterized above.
-            .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
-            .build()
+        return bitmap
     }
 
     fun measure(
@@ -455,7 +371,7 @@ internal object ReaderPageLayoutCache {
                         cached.reusableWidthPx,
                         cached.reusableHeightPx,
                         cached.reusableHasHeadingStyle,
-                        rasterizedRenderLayout(reusableLayout, cached.reusableWidthPx, cached.reusableHeightPx),
+                        rasterizedRenderBitmap(reusableLayout, cached.reusableWidthPx, cached.reusableHeightPx),
                     )
                 }
                 // Readiness is published only after the matching reusable raster is resident, even
@@ -545,7 +461,7 @@ internal object ReaderPageLayoutCache {
                 columnWidth,
                 contentHeight,
                 reusableHasHeadingStyle,
-                rasterizedRenderLayout(reusable, columnWidth, contentHeight),
+                rasterizedRenderBitmap(reusable, columnWidth, contentHeight),
             )
             ReaderInteractionRuntime.publishPagedLayoutReady(pagedPosition)
         }
