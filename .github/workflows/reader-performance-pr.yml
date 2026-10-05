@@ -9,6 +9,8 @@ on:
       - 'apps/jingdu/android/**'
       - '!apps/jingdu/android/.gitignore'
       - '!apps/jingdu/android/**/*.md'
+      - '!apps/jingdu/android/app/src/androidTest/**'
+      - '!apps/jingdu/android/app/src/test/**'
       - 'platform/**'
       - 'native/**'
       - 'scripts/run-android-macrobenchmark-ci.sh'
