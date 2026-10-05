@@ -172,6 +172,12 @@ private data class ReaderPageRaster(
     val heightPx: Int,
     val hasHeadingStyle: Boolean,
     val layout: StaticLayout,
+    val bitmap: Bitmap,
+)
+
+private data class ReaderRasterizedLayout(
+    val layout: StaticLayout,
+    val bitmap: Bitmap,
 )
 
 /**
@@ -264,6 +270,11 @@ internal object ReaderPageLayoutCache {
     private var mostRecentRaster: ReaderPageRaster? = null
     private var previousRaster: ReaderPageRaster? = null
     private var olderRaster: ReaderPageRaster? = null
+    // The fourth-oldest raster is no longer visible, but its full-page ALPHA_8 allocation is
+    // exactly the size needed by the next page in steady-state reading. Keep one spare so page
+    // turns redraw into bounded reusable memory instead of allocating/GC'ing a multi-megabyte
+    // bitmap on every turn. Peak residency remains the same as the old 3-active + 1-new pattern.
+    private var spareRasterBitmap: Bitmap? = null
 
     @Synchronized
     fun get(key: PageLayoutKey): PageLayoutSnapshot? = cache[key]?.also { mostRecent = it }
@@ -281,6 +292,7 @@ internal object ReaderPageLayoutCache {
         mostRecentRaster = null
         previousRaster = null
         olderRaster = null
+        spareRasterBitmap = null
     }
 
     /**
@@ -360,26 +372,61 @@ internal object ReaderPageLayoutCache {
             olderRaster?.let { rasterMatches(it, visibleText, widthPx, heightPx, hasHeadingStyle) } == true
 
     @Synchronized
+    private fun takeSpareRasterBitmap(widthPx: Int, heightPx: Int): Bitmap? {
+        val candidate = spareRasterBitmap ?: return null
+        spareRasterBitmap = null
+        return candidate.takeIf {
+            !it.isRecycled && it.width == widthPx && it.height == heightPx
+        }
+    }
+
+    @Synchronized
+    private fun retainSpareRasterBitmap(bitmap: Bitmap) {
+        if (!bitmap.isRecycled) spareRasterBitmap = bitmap
+    }
+
+    @Synchronized
     private fun publishRaster(
         visibleText: String,
         widthPx: Int,
         heightPx: Int,
         hasHeadingStyle: Boolean,
-        layout: StaticLayout,
+        rasterized: ReaderRasterizedLayout,
     ) {
         // A concurrent cache hit may have rebuilt this exact raster while another worker was still
-        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page.
-        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) return
+        // finishing. Do not duplicate it and accidentally evict a distinct outgoing page; the
+        // unneeded fresh bitmap is still safe to keep as the next spare allocation.
+        if (hasPublishedRaster(visibleText, widthPx, heightPx, hasHeadingStyle)) {
+            retainSpareRasterBitmap(rasterized.bitmap)
+            return
+        }
+        val evicted = olderRaster
         olderRaster = previousRaster
         previousRaster = mostRecentRaster
-        mostRecentRaster = ReaderPageRaster(visibleText, widthPx, heightPx, hasHeadingStyle, layout)
+        mostRecentRaster = ReaderPageRaster(
+            visibleText,
+            widthPx,
+            heightPx,
+            hasHeadingStyle,
+            rasterized.layout,
+            rasterized.bitmap,
+        )
+        // Only the fourth-oldest page is reused. The three active/outgoing rasters remain immutable,
+        // so rapid transitions cannot observe pixels being redrawn underneath them.
+        evicted?.bitmap?.let(::retainSpareRasterBitmap)
     }
 
-    private fun rasterizedRenderLayout(source: StaticLayout, widthPx: Int, heightPx: Int): StaticLayout {
-        val bitmap = Bitmap.createBitmap(widthPx.coerceAtLeast(1), heightPx.coerceAtLeast(1), Bitmap.Config.ALPHA_8)
+    private fun rasterizedRenderLayout(source: StaticLayout, widthPx: Int, heightPx: Int): ReaderRasterizedLayout {
+        val safeWidth = widthPx.coerceAtLeast(1)
+        val safeHeight = heightPx.coerceAtLeast(1)
+        val bitmap = takeSpareRasterBitmap(safeWidth, safeHeight)
+            ?: Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ALPHA_8)
+        // Reused ALPHA_8 pages must start transparent so shorter/new wraps cannot retain glyph alpha
+        // from the evicted page.
+        bitmap.eraseColor(0)
         val canvas = Canvas(bitmap)
         canvas.save()
-        canvas.clipRect(0, 0, widthPx, heightPx)
+        canvas.clipRect(0, 0, safeWidth, safeHeight)
         source.draw(canvas)
         canvas.restore()
         bitmap.prepareToDraw()
@@ -396,13 +443,14 @@ internal object ReaderPageLayoutCache {
         }
         // The span draws the full bitmap and ignores line geometry. Keep the wrapper layout to one
         // pixel so Layout.draw() cannot replay full-page width/height bookkeeping on every frame.
-        return StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
+        val layout = StaticLayout.Builder.obtain(placeholder, 0, placeholder.length, rasterPaint, 1)
             .setIncludePad(false)
             .setMaxLines(1)
             // One replacement glyph only: keep this wrapper fixed-cost. The source layout already
             // owns the real phrase-aware line geometry and is rasterized above.
             .setBreakStrategy(LineBreaker.BREAK_STRATEGY_SIMPLE)
             .build()
+        return ReaderRasterizedLayout(layout, bitmap)
     }
 
     fun measure(
