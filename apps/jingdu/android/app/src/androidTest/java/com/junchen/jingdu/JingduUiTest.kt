@@ -286,11 +286,12 @@ class JingduUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000L) { ReaderInteractionRuntime.continuousReady }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("reader-continuous-native").assertIsDisplayed()
-        // This is a native Android View, so exercise its actual onTouchEvent path directly. Raw
-        // display injection is a WindowManager/instrumentation concern and has proven flaky on the
-        // hosted API 36 image even when the Reader itself is healthy. Local View coordinates keep
-        // this regression deterministic while preserving the same single real DOWN/UP gesture,
-        // Android long-press duration and product callback path.
+        // Exercise the real native onTouchEvent path with one DOWN/UP gesture, but keep the
+        // long-press duration in MotionEvent eventTime instead of sleeping on hosted wall-clock time.
+        // The product contract is deadline-based: ACTION_UP must synchronously honor an eligible
+        // gesture whose event timeline crossed Android's system long-press timeout even if the
+        // posted timeout callback was starved. This removes scheduler noise without retrying or
+        // weakening the selection assertion.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val viewport = continuousNativeViewport()
         val x = viewport.width * 0.36f
@@ -308,8 +309,7 @@ class JingduUiTest {
         } finally {
             down.recycle()
         }
-        Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L)
-        val upAt = android.os.SystemClock.uptimeMillis()
+        val upAt = downAt + android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L
         val up = android.view.MotionEvent.obtain(
             downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
         )
