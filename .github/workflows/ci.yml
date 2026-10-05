@@ -115,23 +115,56 @@ jobs:
   android-performance:
     if: github.event_name == 'push'
     needs: android
-    # Exact-main remains the mandatory hosted Reader regression gate. Pull requests run the same
-    # job from reader-performance-pr.yml only when Jingdu/shared performance paths change.
+    # Exact-main remains the mandatory hosted Reader regression gate for production/runtime,
+    # benchmark and performance-policy changes. Test-only Android changes still produce a successful
+    # android-performance job, but skip emulator startup so hosted timing noise cannot block changes
+    # that cannot affect the shipped Reader runtime.
     # Emulator timing is guarded by the checked-in baseline + 15% budget and 160/220 anti-drift
     # ceilings; 40/80 is exclusively the physical-device Release SLO.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Detect Reader performance scope
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.before }}"
+          head="${{ github.sha }}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "Reader performance required: true (no trustworthy push base)"
+            exit 0
+          fi
+
+          required=false
+          while IFS= read -r path; do
+            case "$path" in
+              apps/jingdu/android/app/src/androidTest/*|apps/jingdu/android/app/src/test/*)
+                ;;
+              apps/jingdu/android/*|platform/*|native/*|scripts/run-android-macrobenchmark-ci.sh|scripts/check-android-performance-slo.py)
+                required=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "$base" "$head")
+
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          echo "Reader performance required: $required"
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: steps.scope.outputs.required == 'true'
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
       - name: Run Reader hosted Macrobenchmark and enforce frame SLO
+        if: steps.scope.outputs.required == 'true'
         run: bash ./scripts/run-android-macrobenchmark-ci.sh
       - name: Preserve Macrobenchmark evidence and failure Perfetto traces
-        if: always()
+        if: always() && steps.scope.outputs.required == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reader-macrobenchmark-${{ github.sha }}

@@ -29,6 +29,8 @@ jobs:
           grep -Fq -- "- 'apps/jingdu/android/**'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/.gitignore'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/**/*.md'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/androidTest/**'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/test/**'" "$pr"
           if grep -Fq -- "- 'apps/jingdu/**'" "$pr"; then
             echo 'Reader PR performance scope is too broad; product-level docs must not start emulator qualification' >&2
             exit 1
@@ -45,6 +47,10 @@ jobs:
 
           grep -Fq -- 'python3 scripts/verify-android-third-party-inventory.py' "$main"
           grep -Fq -- 'android-performance' "$main"
+          grep -Fq -- 'name: Detect Reader performance scope' "$main"
+          grep -Fq -- 'apps/jingdu/android/app/src/androidTest/*|apps/jingdu/android/app/src/test/*)' "$main"
+          grep -Fq -- 'apps/jingdu/android/*|platform/*|native/*|scripts/run-android-macrobenchmark-ci.sh|scripts/check-android-performance-slo.py)' "$main"
+          test "$(grep -Fc -- "steps.scope.outputs.required == 'true'" "$main")" -ge 3
           grep -Fq -- 'needs: [repository-topology, native-core, android, android-functional, android-native-compat, android-performance, harmony-contract, play-store-contract, terminal-contract]' "$main"
 
       - name: Verify Jingdu release branch cleanup contract
