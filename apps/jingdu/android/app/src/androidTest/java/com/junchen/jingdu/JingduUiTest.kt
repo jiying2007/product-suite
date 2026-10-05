@@ -61,6 +61,59 @@ class JingduUiTest {
         return requireNotNull(result)
     }
 
+    private fun continuousNativeSelectablePoint(viewport: View): Offset? {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        var result: Offset? = null
+        instrumentation.runOnMainSync {
+            val layoutField = viewport.javaClass.getDeclaredField("textLayout").apply { isAccessible = true }
+            val renderedOffsetField = viewport.javaClass.getDeclaredField("renderedOffsetPx").apply { isAccessible = true }
+            val layout = layoutField.get(viewport) as? android.text.StaticLayout ?: return@runOnMainSync
+            if (layout.lineCount <= 0 || viewport.height <= 1 || viewport.width <= 1) return@runOnMainSync
+
+            val renderedOffset = renderedOffsetField.getInt(viewport).coerceAtLeast(0)
+            val visibleTop = renderedOffset.coerceAtMost((layout.height - 1).coerceAtLeast(0))
+            val visibleBottom = (renderedOffset + viewport.height - 1)
+                .coerceAtMost((layout.height - 1).coerceAtLeast(0))
+            if (visibleBottom < visibleTop) return@runOnMainSync
+
+            val firstLine = layout.getLineForVertical(visibleTop).coerceIn(0, layout.lineCount - 1)
+            val lastLine = layout.getLineForVertical(visibleBottom).coerceIn(firstLine, layout.lineCount - 1)
+            for (line in firstLine..lastLine) {
+                val start = layout.getLineStart(line).coerceIn(0, layout.text.length)
+                val end = layout.getLineVisibleEnd(line).coerceIn(start, layout.text.length)
+                var offset = start
+                while (offset < end) {
+                    val codePoint = Character.codePointAt(layout.text, offset)
+                    if (!Character.isWhitespace(codePoint) &&
+                        codePoint != ReaderTypographySpec.PARAGRAPH_SPACER.code
+                    ) {
+                        break
+                    }
+                    offset += Character.charCount(codePoint)
+                }
+                if (offset >= end) continue
+
+                val x = (layout.getPrimaryHorizontal(offset) + 2f)
+                    .coerceIn(1f, (viewport.width - 1).toFloat())
+                val y = ((layout.getLineTop(line) + layout.getLineBottom(line)) / 2f - renderedOffset)
+                    .coerceIn(1f, (viewport.height - 1).toFloat())
+                result = Offset(x, y)
+                return@runOnMainSync
+            }
+        }
+        return result
+    }
+
+    private fun continuousNativeLongPressTriggered(viewport: View): Boolean {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        var result = false
+        instrumentation.runOnMainSync {
+            val field = viewport.javaClass.getDeclaredField("longPressTriggered").apply { isAccessible = true }
+            result = field.getBoolean(viewport)
+        }
+        return result
+    }
+
     @Test fun emptyLibraryExplainsValueAndImportActionInActiveLocale() {
         composeRule.setContent { JingduApp(AppUiState(), noOpActions()) }
         composeRule.onNodeWithText(context.getString(R.string.app_title)).assertIsDisplayed()
@@ -294,11 +347,19 @@ class JingduUiTest {
         // weakening the selection assertion.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val viewport = continuousNativeViewport()
-        val x = viewport.width * 0.36f
-        val y = viewport.height * 0.36f
+        var target: Offset? = null
+        composeRule.waitUntil(timeoutMillis = 10_000L) {
+            continuousNativeSelectablePoint(viewport)?.let { point ->
+                target = point
+                true
+            } ?: false
+        }
+        val selectable = requireNotNull(target) {
+            "continuous native viewport never exposed a visible selectable glyph"
+        }
         val downAt = android.os.SystemClock.uptimeMillis()
         val down = android.view.MotionEvent.obtain(
-            downAt, downAt, android.view.MotionEvent.ACTION_DOWN, x, y, 0,
+            downAt, downAt, android.view.MotionEvent.ACTION_DOWN, selectable.x, selectable.y, 0,
         )
         try {
             instrumentation.runOnMainSync {
@@ -311,7 +372,7 @@ class JingduUiTest {
         }
         val upAt = downAt + android.view.ViewConfiguration.getLongPressTimeout().toLong() + 450L
         val up = android.view.MotionEvent.obtain(
-            downAt, upAt, android.view.MotionEvent.ACTION_UP, x, y, 0,
+            downAt, upAt, android.view.MotionEvent.ACTION_UP, selectable.x, selectable.y, 0,
         )
         try {
             instrumentation.runOnMainSync {
@@ -323,6 +384,9 @@ class JingduUiTest {
             up.recycle()
         }
         instrumentation.waitForIdleSync()
+        check(continuousNativeLongPressTriggered(viewport)) {
+            "continuous native long press did not commit a selectable range"
+        }
         // The gesture itself must still be the first and only long press. At 200% font on the
         // hosted API 36 image, the native AndroidView selection callback can cross multiple UI
         // loop turns under system load, so give that callback the same readiness budget as the
