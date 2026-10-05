@@ -19,16 +19,31 @@ jobs:
           set -euo pipefail
           main=.github/workflows/ci.yml
           pr=.github/workflows/reader-performance-pr.yml
+          scope=scripts/reader-performance-scope.py
 
           test -f "$main"
           test -f "$pr"
+          test -f "$scope"
+          python3 -m py_compile "$scope"
 
           grep -Fq -- "if: github.event_name == 'push'" "$main"
+          grep -Fq -- 'fetch-depth: 2' "$main"
+          grep -Fq -- 'python3 scripts/reader-performance-scope.py' "$main"
+          grep -Fq -- "if: steps.reader-performance-scope.outputs.run == 'true'" "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$pr"
           grep -Fq -- "- 'apps/jingdu/android/**'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/.gitignore'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/**/*.md'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/androidTest/**'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/test/**'" "$pr"
+          test "$(python3 "$scope" apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt)" = false
+          test "$(python3 "$scope" apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt)" = false
+          test "$(python3 "$scope" .github/workflows/ci.yml)" = false
+          test "$(python3 "$scope" apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt)" = true
+          test "$(python3 "$scope" apps/jingdu/android/app/build.gradle)" = true
+          test "$(python3 "$scope" platform/text/native/reader_core.cpp)" = true
+          test "$(python3 "$scope" scripts/run-android-macrobenchmark-ci.sh)" = true
           if grep -Fq -- "- 'apps/jingdu/**'" "$pr"; then
             echo 'Reader PR performance scope is too broad; product-level docs must not start emulator qualification' >&2
             exit 1
