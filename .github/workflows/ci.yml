@@ -112,11 +112,36 @@ jobs:
       - name: Verify 16 KiB native page-size packaging and symbols
         run: bash ./scripts/verify-android-16k-page-size.sh
 
-  android-performance:
+  reader-performance-scope:
     if: github.event_name == 'push'
-    needs: android
-    # Exact-main remains the mandatory hosted Reader regression gate. Pull requests run the same
-    # job from reader-performance-pr.yml only when Jingdu/shared performance paths change.
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - id: scope
+        name: Detect Reader performance-relevant changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.before }}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            required=true
+          else
+            required="$(git diff --name-only "$base" "$GITHUB_SHA" | python3 scripts/reader-performance-scope.py)"
+          fi
+          echo "Reader performance required: $required"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+
+  android-performance:
+    if: github.event_name == 'push' && needs.reader-performance-scope.outputs.required == 'true'
+    needs: [android, reader-performance-scope]
+    # Exact-main remains the mandatory hosted Reader regression gate when production/runtime or
+    # benchmark/SLO paths change. Test-only Android changes still run functional + 16 KiB gates
+    # without spending a noisy hosted emulator on an unchanged production Reader.
+    # Pull requests use the same ownership boundary in reader-performance-pr.yml.
     # Emulator timing is guarded by the checked-in baseline + 15% budget and 160/220 anti-drift
     # ceilings; 40/80 is exclusively the physical-device Release SLO.
     runs-on: ubuntu-22.04
