@@ -19,16 +19,24 @@ jobs:
           set -euo pipefail
           main=.github/workflows/ci.yml
           pr=.github/workflows/reader-performance-pr.yml
+          scope=scripts/reader-performance-scope.py
 
           test -f "$main"
           test -f "$pr"
+          test -f "$scope"
+          python3 -m py_compile "$scope"
 
-          grep -Fq -- "if: github.event_name == 'push'" "$main"
+          grep -Fq -- 'reader-performance-scope:' "$main"
+          grep -Fq -- 'python3 scripts/reader-performance-scope.py' "$main"
+          grep -Fq -- "if: github.event_name == 'push' && needs.reader-performance-scope.outputs.required == 'true'" "$main"
+          grep -Fq -- 'needs: [android, reader-performance-scope]' "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$main"
           grep -Fq -- 'bash ./scripts/run-android-macrobenchmark-ci.sh' "$pr"
           grep -Fq -- "- 'apps/jingdu/android/**'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/.gitignore'" "$pr"
           grep -Fq -- "- '!apps/jingdu/android/**/*.md'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/androidTest/**'" "$pr"
+          grep -Fq -- "- '!apps/jingdu/android/app/src/test/**'" "$pr"
           if grep -Fq -- "- 'apps/jingdu/**'" "$pr"; then
             echo 'Reader PR performance scope is too broad; product-level docs must not start emulator qualification' >&2
             exit 1
@@ -42,6 +50,19 @@ jobs:
             echo 'Reader PR performance must not be self-triggered by workflow-scope-only changes' >&2
             exit 1
           fi
+
+          test "$(printf '%s\n' 'apps/jingdu/android/app/src/androidTest/java/com/junchen/jingdu/JingduUiTest.kt' | python3 "$scope")" = false
+          test "$(printf '%s\n' 'apps/jingdu/android/app/src/test/java/com/junchen/jingdu/ReaderFoundationsTest.kt' | python3 "$scope")" = false
+          test "$(printf '%s\n' 'apps/jingdu/android/README.md' | python3 "$scope")" = false
+          test "$(printf '%s\n' '.github/workflows/ci.yml' | python3 "$scope")" = false
+          test "$(printf '%s\n' 'apps/jingdu/android/app/src/main/java/com/junchen/jingdu/ReaderScreen.kt' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'apps/jingdu/android/macrobenchmark/src/main/java/com/junchen/jingdu/macrobenchmark/ReaderJourneyBenchmark.kt' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'apps/jingdu/android/app/build.gradle' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'platform/text/native/CMakeLists.txt' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'native/CMakeLists.txt' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'scripts/run-android-macrobenchmark-ci.sh' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'scripts/check-android-performance-slo.py' | python3 "$scope")" = true
+          test "$(printf '%s\n' 'apps/jingdu/android/app/src/androidTest/Test.kt' 'apps/jingdu/android/app/src/main/java/Reader.kt' | python3 "$scope")" = true
 
           grep -Fq -- 'python3 scripts/verify-android-third-party-inventory.py' "$main"
           grep -Fq -- 'android-performance' "$main"
