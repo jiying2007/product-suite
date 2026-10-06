@@ -68,6 +68,10 @@ jobs:
           grep -Fq -- 'ref in open_heads' "$publisher"
           grep -Fq -- 'ref.startswith(RELEASE_PREFIXES)' "$publisher"
           grep -Fq -- 'tip_sha in abandoned_heads.get(ref, set())' "$publisher"
+          grep -Fq -- 'SUPERSEDED_EXACT_BRANCH_TIPS = {' "$publisher"
+          grep -Fq -- 'expected_superseded_tip = SUPERSEDED_EXACT_BRANCH_TIPS.get(ref)' "$publisher"
+          grep -Fq -- 'if tip_sha == expected_superseded_tip:' "$publisher"
+          grep -Fq -- 'retained superseded branch with unexpected tip' "$publisher"
       - name: Verify Pose Studio candidate release contract
         shell: bash
         run: |

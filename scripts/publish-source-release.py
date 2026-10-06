@@ -39,6 +39,18 @@ TEMP_PREFIXES = (
 )
 RELEASE_PREFIXES = ("release/source-v", "release/jingdu-", "release/pose-studio-")
 TEMP_EXACT_BRANCHES = {"noop", "tmp-do-not-use"}
+SUPERSEDED_EXACT_BRANCH_TIPS = {
+    "build/jingdu-dependency-refresh-final": "c64d421dce11480e519cdab206c183e8bc12acb4",
+    "chore/jingdu-repo-hardening-after-maint": "d75c1a243aab023217c7360b4ef15f06ec6be7e6",
+    "ci/jingdu-quality-infra-after-maint": "f8268c0c3fe5f6b10f8d18ded48451d49b889bb2",
+    "ci/pose-retire-fanout-after-maint": "30104c3297d33acad30396e7b9cf6232e7be1a38",
+    "ci/pose-retire-fanout-current": "3dfc0363f99a85b3580675916d04f4d52f347de3",
+    "feat/pose-reference-direct-align": "595d6df62b9ac7ddda9a06a3775edd49d034929f",
+    "hardening/jingdu-p0-p2-20261001": "6d5cefa77d98cc0f3372f11241d7fb4c6827e80a",
+    "refactor/jingdu-reader-continuous-module": "91cdc1ef9509f28d0a8b85d4656781810175ca87",
+    "test/jingdu-soak-memory-after-maint": "8b0b226d52360e97168a6fa90c8f1ca8ccf84f95",
+    "test/jingdu-soak-memory-current": "22828e6ad1333eacb6953d241842ab92e7530165",
+}
 CURRENT_STAGE_MARKER = "## Current Android release stage"
 CURRENT_STAGE_TEXT = (
     "This release records immutable source provenance. The attached debug-signed APK is the official "
@@ -336,6 +348,16 @@ def cleanup_temporary_branches() -> None:
             continue
         if not tip_sha:
             print(f"retained temporary branch with missing tip: {ref}")
+            continue
+        expected_superseded_tip = SUPERSEDED_EXACT_BRANCH_TIPS.get(ref)
+        if expected_superseded_tip is not None:
+            if tip_sha == expected_superseded_tip:
+                delete_temporary_branch(ref, "superseded")
+            else:
+                print(
+                    f"retained superseded branch with unexpected tip: "
+                    f"{ref} -> {tip_sha}, expected {expected_superseded_tip}"
+                )
             continue
         if fully_merged_into_main(tip_sha):
             delete_temporary_branch(ref, "fully merged")

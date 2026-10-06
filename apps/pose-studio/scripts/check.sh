@@ -57,7 +57,7 @@ grep -Fq 'releases/tags/$tag' "$CANDIDATE_WORKFLOW"
 python3 -m py_compile "$SOURCE_RELEASE_SCRIPT"
 grep -Fq 'fully_merged_into_main' "$SOURCE_RELEASE_SCRIPT"
 grep -Fq '/compare/{tip_sha}...{MAIN_SHA}' "$SOURCE_RELEASE_SCRIPT"
-grep -Fq 'retained temporary branch with unmerged commits' "$SOURCE_RELEASE_SCRIPT"
+grep -Fq 'retained temporary branch with unmerged/untracked work' "$SOURCE_RELEASE_SCRIPT"
 grep -Fq 'release/pose-studio-' "$SOURCE_RELEASE_SCRIPT"
 
 # The real-artist benchmark remains external evidence, but its repository-side evidence shape and
