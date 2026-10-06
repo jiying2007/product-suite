@@ -47,6 +47,7 @@ SUPERSEDED_EXACT_BRANCH_TIPS = {
     "ci/pose-retire-fanout-current": "3dfc0363f99a85b3580675916d04f4d52f347de3",
     "feat/pose-reference-direct-align": "595d6df62b9ac7ddda9a06a3775edd49d034929f",
     "hardening/jingdu-p0-p2-20261001": "6d5cefa77d98cc0f3372f11241d7fb4c6827e80a",
+    "perf/jingdu-paged-raster-retention-v2317": "aa2a758802527d3f76c2262908533fbecde711a6",
     "refactor/jingdu-reader-continuous-module": "91cdc1ef9509f28d0a8b85d4656781810175ca87",
     "test/jingdu-soak-memory-after-maint": "8b0b226d52360e97168a6fa90c8f1ca8ccf84f95",
     "test/jingdu-soak-memory-current": "22828e6ad1333eacb6953d241842ab92e7530165",
