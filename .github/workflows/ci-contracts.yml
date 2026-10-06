@@ -61,6 +61,13 @@ jobs:
           test -f "$publisher"
           python3 -m py_compile "$publisher"
           grep -Fq -- 'RELEASE_PREFIXES = ("release/source-v", "release/jingdu-", "release/pose-studio-")' "$publisher"
+          grep -Fq -- '    "build/",' "$publisher"
+          grep -Fq -- '    "hardening/",' "$publisher"
+          grep -Fq -- 'paged("/pulls?state=closed")' "$publisher"
+          grep -Fq -- 'pr.get("merged_at") is not None' "$publisher"
+          grep -Fq -- 'ref in open_heads' "$publisher"
+          grep -Fq -- 'ref.startswith(RELEASE_PREFIXES)' "$publisher"
+          grep -Fq -- 'tip_sha in abandoned_heads.get(ref, set())' "$publisher"
       - name: Verify Pose Studio candidate release contract
         shell: bash
         run: |
