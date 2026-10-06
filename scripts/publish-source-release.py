@@ -22,8 +22,10 @@ import urllib.request
 from pathlib import Path
 
 TEMP_PREFIXES = (
+    "build/",
     "feat/",
     "fix/",
+    "hardening/",
     "chore/",
     "ci/",
     "refactor/",
@@ -297,13 +299,35 @@ def fully_merged_into_main(tip_sha: str) -> bool:
     return comparison.get("status") == "ahead" and comparison.get("behind_by") == 0
 
 
-def cleanup_merged_temporary_branches() -> None:
+def closed_unmerged_head_shas() -> dict[str, set[str]]:
+    heads: dict[str, set[str]] = {}
+    for pr in paged("/pulls?state=closed"):
+        head = pr.get("head") or {}
+        repo = head.get("repo") or {}
+        if repo.get("full_name") != REPO or pr.get("merged_at") is not None:
+            continue
+        ref = head.get("ref", "")
+        sha = head.get("sha", "")
+        if ref and sha:
+            heads.setdefault(ref, set()).add(sha)
+    return heads
+
+
+def delete_temporary_branch(ref: str, reason: str) -> None:
+    encoded = urllib.parse.quote(ref, safe="/")
+    status, _ = request(f"/git/refs/heads/{encoded}", method="DELETE", allowed=(404, 422))
+    if status in (204, 404, 422):
+        print(f"pruned {reason} temporary branch: {ref} ({status})")
+
+
+def cleanup_temporary_branches() -> None:
     open_pulls = paged("/pulls?state=open")
     open_heads = {
         pr.get("head", {}).get("ref")
         for pr in open_pulls
         if pr.get("head", {}).get("repo", {}).get("full_name") == REPO
     }
+    abandoned_heads = closed_unmerged_head_shas()
 
     for branch in paged("/branches"):
         ref = branch.get("name", "")
@@ -313,15 +337,17 @@ def cleanup_merged_temporary_branches() -> None:
         if not tip_sha:
             print(f"retained temporary branch with missing tip: {ref}")
             continue
-        if not fully_merged_into_main(tip_sha):
-            print(f"retained temporary branch with unmerged commits: {ref} -> {tip_sha}")
+        if fully_merged_into_main(tip_sha):
+            delete_temporary_branch(ref, "fully merged")
+            continue
+        if ref.startswith(RELEASE_PREFIXES):
+            print(f"retained unmerged release branch: {ref} -> {tip_sha}")
+            continue
+        if tip_sha in abandoned_heads.get(ref, set()):
+            delete_temporary_branch(ref, "closed-unmerged")
             continue
 
-        encoded = urllib.parse.quote(ref, safe="/")
-        status, _ = request(f"/git/refs/heads/{encoded}", method="DELETE", allowed=(404, 422))
-        if status in (204, 404, 422):
-            print(f"pruned fully merged temporary branch: {ref} ({status})")
-
+        print(f"retained temporary branch with unmerged/untracked work: {ref} -> {tip_sha}")
 
 def main() -> int:
     version = declared_version()
@@ -329,11 +355,11 @@ def main() -> int:
     manifest = verify_manifest(tag)
     if manifest is None:
         print(f"no source manifest for {tag}; publication skipped")
-        cleanup_merged_temporary_branches()
+        cleanup_temporary_branches()
         return 0
 
     prepare_release(tag, manifest)
-    cleanup_merged_temporary_branches()
+    cleanup_temporary_branches()
     return 0
 
 
